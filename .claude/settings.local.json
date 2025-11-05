@@ -17,7 +17,22 @@
       "Bash(dotnet restore:*)",
       "Bash(taskkill:*)",
       "Bash(ELECTRON_EDGE_USE_CORECLR=1 npm start)",
-      "Bash(msbuild:*)"
+      "Bash(msbuild:*)",
+      "Bash(gh --version:*)",
+      "Bash(git --version:*)",
+      "Bash(git config:*)",
+      "Bash(where gh:*)",
+      "Bash(nul)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" --version)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" auth status)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" auth login)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" repo view devcicm/edge-uru-ui)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" api repos/devcicm/edge-uru-ui/contents)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" api repos/devcicm/edge-uru-ui/contents/bridge-csharp/src/Bridge -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" api repos/devcicm/edge-uru-ui/contents/node/public/js/controls -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" api repos/devcicm/edge-uru-ui/contents/node -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
