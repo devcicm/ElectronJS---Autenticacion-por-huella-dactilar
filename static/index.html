@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>U.are.U 4500 – Captura/Validación</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(30, 144, 255, 0.1);
+      border-radius: 15px;
+      border: 1px solid rgba(30, 144, 255, 0.3);
+    }
+
+    .header h1 {
+      margin: 0;
+      color: #1e90ff;
+      font-size: 2.2em;
+      font-weight: 600;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .header p {
+      margin: 8px 0 0 0;
+      color: #94a3b8;
+      font-size: 1.1em;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: 15px;
+      padding: 24px;
+      border: 1px solid rgba(51, 65, 85, 0.6);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .panel h2 {
+      margin: 0 0 20px 0;
+      color: #f1f5f9;
+      font-size: 1.4em;
+      font-weight: 600;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    button {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(30, 144, 255, 0.5);
+      background: linear-gradient(135deg, #1e90ff 0%, #1565c0 100%);
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:hover:not(:disabled) {
+      background: linear-gradient(135deg, #42a5f5 0%, #1976d2 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(30, 144, 255, 0.4);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 2px 6px rgba(30, 144, 255, 0.3);
+    }
+
+    button:disabled {
+      background: #374151;
+      color: #6b7280;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+      border-color: #374151;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 6px;
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e2e8f0;
+      font-family: inherit;
+      transition: border-color 0.2s ease;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #1e90ff;
+      box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.1);
+    }
+
+    .fingerprint-display {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .fingerprint-img {
+      max-width: 100%;
+      max-height: 300px;
+      border: 2px solid rgba(51, 65, 85, 0.8);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.9);
+      padding: 20px;
+    }
+
+    .quality-display {
+      margin: 12px 0;
+      padding: 8px 16px;
+      background: rgba(30, 144, 255, 0.1);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .log {
+      white-space: pre-wrap;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      border-radius: 8px;
+      padding: 16px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.85em;
+      line-height: 1.4;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .status-disconnected { background: #ef4444; }
+    .status-connected { background: #10b981; }
+    .status-working { background: #f59e0b; animation: pulse 1.5s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔐 DigitalPersona U.are.U 4500</h1>
+    <p>Sistema de Autenticación Biométrica</p>
+    <div>
+      <span class="status-indicator status-disconnected" id="statusIndicator"></span>
+      <span id="statusText">Desconectado</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="panel">
+      <h2>🎛️ Controles</h2>
+
+      <div class="controls">
+        <button id="bInit">🔌 Inicializar</button>
+        <button id="bCapture" disabled>📸 Capturar</button>
+        <button id="bEnroll" disabled>📝 Enrolar</button>
+        <button id="bVerify" disabled>✅ Verificar</button>
+        <button id="bCancel" disabled>❌ Cancelar</button>
+        <button id="bDispose" disabled>🔌 Desconectar</button>
+      </div>
+
+      <div class="input-group">
+        <label for="tplId">ID de Plantilla:</label>
+        <input id="tplId" placeholder="ej: user:001" type="text" />
+      </div>
+
+      <div class="quality-display">
+        <strong>Calidad:</strong> <span id="q">Sin datos</span> bytes
+      </div>
+
+      <div class="fingerprint-display">
+        <img id="fpimg" class="fingerprint-img" alt="Imagen de huella dactilar" style="display: none;" />
+        <div id="placeholder" style="padding: 60px; color: #64748b; text-align: center;">
+          👆 Aquí aparecerá la imagen de la huella
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>📊 Datos y Eventos</h2>
+
+      <div style="margin-bottom: 20px;">
+        <label for="fmd">FMD (Fingerprint Minutiae Data) XML:</label>
+        <textarea id="fmd" rows="8" spellcheck="false" placeholder="Los datos FMD aparecerán aquí después de capturar..."></textarea>
+      </div>
+
+      <div>
+        <label for="log">Registro de Eventos:</label>
+        <div id="log" class="log">Esperando conexión del dispositivo...
+</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="../dist/renderer.js"></script>
+</body>
+</html>

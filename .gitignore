@@ -1,0 +1,126 @@
+# ============================================
+# ElectronJS + .NET 8 - DigitalPersona Project
+# ============================================
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Electron
+dist/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# TypeScript
+*.tsbuildinfo
+
+# .NET 8
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll.config
+*.exe.config
+
+# Visual Studio / VS Code
+.vscode/settings.json
+.vs/
+*.sln.docstates
+*.userprefs
+
+# Native Libraries (keep in libs/ for distribution)
+# But ignore temporary copies
+**/*.dll.tmp
+**/*.pdb
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Temporary files
+*.tmp
+*.temp
+*~
+*.swp
+*.swo
+
+# Logs and debugging
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE specific
+*.sublime-project
+*.sublime-workspace
+.idea/
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs (keep clean)
+*.js.map
+*.d.ts.map
+
+# Archive directory - Keep only essential DLLs
+archive/**/bin/
+archive/**/obj/
+archive/**/.vs/
+archive/**/*.pdb
+archive/**/*.exe
+archive/**/*.deps.json
+archive/**/*.runtimeconfig.json
+
+# Specific to DigitalPersona - Keep only native DLLs
+# Essential native DLLs for builds
+!archive/**/DPURUNET/DPUruNet.dll
+!archive/**/DPURUNET/dpfj.dll
+!archive/**/DPURUNET/dpfpdd.dll
+!archive/**/DPURUNET/DPCtlUruNet.dll
+!dotnet/Dp4500Net8Bridge/libs/*.dll
+
+# Prevent compiled archive DLLs
+archive/**/*.dll
+# But allow the essential native ones above
+
+# Package managers
+package-lock.json.backup
+yarn.lock.backup
+
+# Runtime generated files
+electron-builder-output/
+release-builds/
+
+# End of .gitignore
