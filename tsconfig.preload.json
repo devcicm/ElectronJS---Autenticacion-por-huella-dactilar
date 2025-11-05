@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["node"],
+    "verbatimModuleSyntax": false,
+    "moduleDetection": "auto"
+  },
+  "include": [
+    "src/preload.ts",
+    "src/adapters/**/*",
+    "src/app/**/*",
+    "src/types/**/*"
+  ]
+}

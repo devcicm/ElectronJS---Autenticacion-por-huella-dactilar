@@ -1,0 +1,20 @@
+{
+  "name": "electron-dp-uru-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p . && tsc -p tsconfig.preload.json",
+    "start": "npm run build && electron ."
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "electron": "^31.3.1",
+    "typescript": "^5.6.2"
+  },
+  "dependencies": {
+    "electron-edge-js": "^38.0.0"
+  }
+}

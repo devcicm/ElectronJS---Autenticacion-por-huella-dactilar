@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcopy:*)",
+      "Bash(dir:*)",
+      "Bash(tree:*)",
+      "Bash(cmd /c:*)",
+      "Bash(copy:*)",
+      "Bash(build-dotnet8.bat)",
+      "Bash(.build-dotnet8.bat)",
+      "Bash(dotnet clean:*)",
+      "Bash(dotnet build:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm start)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(taskkill:*)",
+      "Bash(ELECTRON_EDGE_USE_CORECLR=1 npm start)",
+      "Bash(msbuild:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
