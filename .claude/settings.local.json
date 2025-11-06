@@ -34,7 +34,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git clone:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git rm:*)",
+      "Bash(git submodule add:*)"
     ],
     "deny": [],
     "ask": []
