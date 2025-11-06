@@ -1,20 +1,25 @@
 {
-  "name": "electron-dp-uru-bridge",
+  "name": "employee-attendance-demo",
   "version": "1.0.0",
+  "description": "Demo de Sistema de Control de Asistencia con Autenticación Biométrica DP4500",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
   "license": "MIT",
   "scripts": {
     "build": "tsc -p . && tsc -p tsconfig.preload.json",
-    "start": "npm run build && electron ."
+    "start": "npm run build && electron .",
+    "dev": "npm run build && electron . --dev"
   },
   "devDependencies": {
     "@types/node": "^20.14.12",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/express": "^4.17.21",
     "electron": "^31.3.1",
     "typescript": "^5.6.2"
   },
   "dependencies": {
-    "electron-edge-js": "^38.0.0"
+    "better-sqlite3": "^11.7.0",
+    "express": "^4.21.1"
   }
 }

@@ -2,23 +2,26 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import express from 'express';
+import { DatabaseService } from './database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 
-let edge: any;
+// Servicios globales
+let db: DatabaseService;
+let expressServer: any;
+let biometricBridge: any;
+let mainWindow: BrowserWindow | null = null;
 
-try {
-  edge = require('electron-edge-js');
-} catch (error) {
-  console.error('Error loading electron-edge-js:', error);
-}
+// Puerto del servidor Express interno
+const EXPRESS_PORT = 3001;
 
 function createWindow() {
-  const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -28,405 +31,313 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../static/index.html'));
 
-  // Open DevTools only in development
-  if (process.env.NODE_ENV === 'development') {
+  // Abrir DevTools en modo desarrollo
+  if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
-// Initialize .NET Framework DLL
-let fpBridge: any = null;
+// Inicializar servidor Express interno
+function initExpressServer() {
+  const server = express();
+  server.use(express.json());
 
-function initDotNetBridge() {
+  // CORS para permitir comunicación con el biometric-engine
+  server.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
+  // API: Health check
+  server.get('/api/health', (req, res) => {
+    res.json({ ok: true, message: 'Servidor funcionando' });
+  });
+
+  // API: Obtener todos los empleados
+  server.get('/api/employees', (req, res) => {
+    try {
+      const activeOnly = req.query.active === 'true';
+      const employees = db.getAllEmployees(activeOnly);
+      res.json({ ok: true, employees });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Obtener empleado por ID
+  server.get('/api/employees/:id', (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const employee = db.getEmployeeById(id);
+      if (employee) {
+        res.json({ ok: true, employee });
+      } else {
+        res.status(404).json({ ok: false, error: 'Empleado no encontrado' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Crear nuevo empleado
+  server.post('/api/employees', (req, res) => {
+    try {
+      const employee = req.body;
+      const id = db.createEmployee(employee);
+      res.json({ ok: true, id });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Actualizar empleado
+  server.put('/api/employees/:id', (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const employee = req.body;
+      const success = db.updateEmployee(id, employee);
+      if (success) {
+        res.json({ ok: true });
+      } else {
+        res.status(404).json({ ok: false, error: 'Empleado no encontrado' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Eliminar empleado
+  server.delete('/api/employees/:id', (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = db.deleteEmployee(id);
+      if (success) {
+        res.json({ ok: true });
+      } else {
+        res.status(404).json({ ok: false, error: 'Empleado no encontrado' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Obtener huellas de un empleado
+  server.get('/api/employees/:id/fingerprints', (req, res) => {
+    try {
+      const employeeId = parseInt(req.params.id);
+      const fingerprints = db.getFingerprintsByEmployee(employeeId);
+      res.json({ ok: true, fingerprints });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Guardar huella digital en base de datos
+  server.post('/api/fingerprints', (req, res) => {
+    try {
+      const fingerprint = req.body;
+      const id = db.createFingerprint(fingerprint);
+      res.json({ ok: true, id });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Obtener asistencias de hoy
+  server.get('/api/attendance/today', (req, res) => {
+    try {
+      const records = db.getTodayAttendance();
+      res.json({ ok: true, records });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Obtener asistencias de un empleado
+  server.get('/api/attendance/employee/:id', (req, res) => {
+    try {
+      const employeeId = parseInt(req.params.id);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const records = db.getAttendanceByEmployee(employeeId, limit);
+      res.json({ ok: true, records });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Registrar asistencia
+  server.post('/api/attendance/clock', async (req, res) => {
+    try {
+      const { employeeCode, fingerUsed, notes } = req.body;
+
+      // Buscar empleado
+      const employee = db.getEmployeeByCode(employeeCode);
+      if (!employee) {
+        return res.status(404).json({ ok: false, error: 'Empleado no encontrado' });
+      }
+
+      // Determinar tipo de registro (entrada o salida)
+      const lastRecord = db.getLastAttendanceByEmployee(employee.id!);
+      const recordType = (!lastRecord || lastRecord.recordType === 'EXIT') ? 'ENTRY' : 'EXIT';
+
+      // Crear registro
+      const recordId = db.createAttendanceRecord({
+        employeeId: employee.id!,
+        recordType,
+        recordedAt: new Date().toISOString(),
+        fingerUsed,
+        notes
+      });
+
+      res.json({
+        ok: true,
+        record: {
+          id: recordId,
+          employeeId: employee.id,
+          recordType,
+          recordedAt: new Date().toISOString()
+        },
+        employee: {
+          code: employee.employeeCode,
+          name: `${employee.firstName} ${employee.lastName}`,
+          position: employee.position,
+          photoUrl: employee.photoUrl
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  // API: Estadísticas generales
+  server.get('/api/stats', (req, res) => {
+    try {
+      const totalEmployees = db.getAllEmployees(true).length;
+      const todayRecords = db.getTodayAttendance();
+      const totalFingerprints = db.getAllFingerprints().length;
+
+      res.json({
+        ok: true,
+        stats: {
+          totalEmployees,
+          todayAttendance: todayRecords.length,
+          totalFingerprints
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  expressServer = server.listen(EXPRESS_PORT, () => {
+    console.log(`✅ Servidor Express iniciado en http://localhost:${EXPRESS_PORT}`);
+  });
+}
+
+// Inicializar Base de Datos
+function initDatabase() {
+  db = new DatabaseService();
+
+  // Insertar datos de prueba si está en modo dev
+  if (process.argv.includes('--seed')) {
+    db.seedDemoData();
+  }
+
+  console.log('✅ Base de datos SQLite inicializada');
+}
+
+// Inicializar Bridge Biométrico (edge-uru-ui)
+async function initBiometricBridge() {
   try {
-    if (!edge) {
-      console.error('❌ electron-edge-js no está disponible');
-      return false;
-    }
-
-    const dllPath = path.join(__dirname, '../dotnet/Dp4500FrameworkBridge/bin/Debug/Dp4500FrameworkBridge.dll');
-
-    fpBridge = edge.func({
-      assemblyFile: dllPath,
-      typeName: 'Dp4500FrameworkBridge.EdgeUruBridge',
-      methodName: 'Invoke'
-    });
-
-    console.log('✅ .NET Framework Bridge inicializado correctamente');
-    return true;
+    // El biometric-engine se ejecutará en su propio puerto (8080)
+    // Este main.ts simplemente se comunica con él vía HTTP
+    console.log('ℹ️  Para usar el lector biométrico, ejecuta:');
+    console.log('   cd biometric-engine/node && npm start');
+    console.log('   El servidor biométrico debe estar en http://localhost:8080');
   } catch (error) {
-    console.error('❌ Error inicializando .NET Framework Bridge:', error);
-    return false;
+    console.error('❌ Error inicializando bridge biométrico:', error);
   }
 }
 
-// Initialize IPC handlers with .NET Framework DLL
+// Manejadores IPC para comunicación con el renderer
 function initIpcHandlers() {
-  // Initialize fingerprint device
-  ipcMain.handle('fp:init', async () => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout: La inicialización tomó más de 30 segundos'));
-        }, 30000);
-
-        fpBridge({
-          action: 'init',
-          onEvent: (evt: any) => {
-            console.log('🔔 Bridge Event:', evt);
-            if (evt.type === 'error') {
-              console.error('❌ Bridge Error:', evt.message);
-            }
-          }
-        }, (error: any, result: any) => {
-          clearTimeout(timeout);
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+  // Obtener configuración
+  ipcMain.handle('config:get', () => {
+    return {
+      expressPort: EXPRESS_PORT,
+      biometricPort: 8080
+    };
   });
 
-  // Capture fingerprint
-  ipcMain.handle('fp:capture3', async () => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
+  // Obtener stats
+  ipcMain.handle('stats:get', () => {
+    const totalEmployees = db.getAllEmployees(true).length;
+    const todayRecords = db.getTodayAttendance();
+    const totalFingerprints = db.getAllFingerprints().length;
 
-      const result = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout: La captura tomó más de 60 segundos'));
-        }, 60000);
-
-        fpBridge({
-          action: 'capture',
-          payload: { maxAttempts: 3 }
-        }, (error: any, result: any) => {
-          clearTimeout(timeout);
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+    return {
+      totalEmployees,
+      todayAttendance: todayRecords.length,
+      totalFingerprints
+    };
   });
 
-  // Enroll and save template
-  ipcMain.handle('fp:enrollSave', async (event, id: string, samples = 4) => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      // First enroll
-      const enrollResult = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout: El enrolamiento tomó más de 120 segundos'));
-        }, 120000);
-
-        fpBridge({
-          action: 'enroll.captureN',
-          payload: { samples }
-        }, (error: any, result: any) => {
-          clearTimeout(timeout);
-          if (error) reject(error);
-          else resolve(result);
-        });
-      }) as any;
-
-      if (!enrollResult.ok) {
-        throw new Error(enrollResult.error);
-      }
-
-      // Then store with 1 hour TTL
-      const storeResult = await new Promise((resolve, reject) => {
-        fpBridge({
-          action: 'store.save',
-          payload: {
-            id,
-            templateXml: enrollResult.templateXml,
-            ttlSeconds: 3600
-          }
-        }, (error: any, result: any) => {
-          if (error) reject(error);
-          else resolve(result);
-        });
-      }) as any;
-
-      if (!storeResult.ok) {
-        throw new Error('Error guardando template');
-      }
-
-      return enrollResult.templateXml;
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+  // CRUD Empleados
+  ipcMain.handle('employees:getAll', (event, activeOnly = false) => {
+    return db.getAllEmployees(activeOnly);
   });
 
-  // Verify with stored template
-  ipcMain.handle('fp:verifyWithStore', async (event, id: string, liveFmdXml: string, farDenominator = 100000) => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      // Get stored template
-      const getResult = await new Promise((resolve, reject) => {
-        fpBridge({
-          action: 'store.get',
-          payload: { id }
-        }, (error: any, result: any) => {
-          if (error) reject(error);
-          else resolve(result);
-        });
-      }) as any;
-
-      if (!getResult.ok) {
-        throw new Error('Template no encontrado o expirado');
-      }
-
-      // Verify
-      const verifyResult = await new Promise((resolve, reject) => {
-        fpBridge({
-          action: 'verify',
-          payload: {
-            enrolledXml: getResult.templateXml,
-            liveXml: liveFmdXml,
-            farDenominator
-          }
-        }, (error: any, result: any) => {
-          if (error) reject(error);
-          else resolve(result);
-        });
-      }) as any;
-
-      return {
-        ok: verifyResult.ok,
-        matched: verifyResult.matched,
-        score: verifyResult.score,
-        threshold: verifyResult.threshold
-      };
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+  ipcMain.handle('employees:getById', (event, id: number) => {
+    return db.getEmployeeById(id);
   });
 
-  // Get reader info
-  ipcMain.handle('fp:getReaderInfo', async () => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        fpBridge({ action: 'reader.info' }, (error: any, result: any) => {
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+  ipcMain.handle('employees:create', (event, employee) => {
+    return db.createEmployee(employee);
   });
 
-  // Cancel capture
-  ipcMain.handle('fp:cancel', async () => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        fpBridge({ action: 'cancel' }, (error: any, result: any) => {
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+  ipcMain.handle('employees:update', (event, id: number, employee) => {
+    return db.updateEmployee(id, employee);
   });
 
-  // Dispose
-  ipcMain.handle('fp:dispose', async () => {
-    try {
-      if (!fpBridge) {
-        return { ok: true };
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        fpBridge({ action: 'dispose' }, (error: any, result: any) => {
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+  ipcMain.handle('employees:delete', (event, id: number) => {
+    return db.deleteEmployee(id);
   });
 
-  // ===== NUEVAS FUNCIONALIDADES AVANZADAS =====
-
-  // Identificación 1:N en vivo
-  ipcMain.handle('fp:identify1n', async (event, targetFarn = 21474, topK = 5) => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout: La identificación tomó más de 45 segundos'));
-        }, 45000);
-
-        fpBridge({
-          action: 'identify.1n',
-          payload: { targetFarn, topK }
-        }, (error: any, result: any) => {
-          clearTimeout(timeout);
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+  // Huellas
+  ipcMain.handle('fingerprints:getByEmployee', (event, employeeId: number) => {
+    return db.getFingerprintsByEmployee(employeeId);
   });
 
-  // Enrolamiento avanzado con múltiples estrategias
-  ipcMain.handle('fp:enrollAdvanced', async (event, samples = 4, targetFarn = 21474, maxRetriesPerSample = 3) => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout: El enrolamiento avanzado tomó más de 180 segundos'));
-        }, 180000);
-
-        fpBridge({
-          action: 'enroll.advanced',
-          payload: { samples, targetFarn, maxRetriesPerSample }
-        }, (error: any, result: any) => {
-          clearTimeout(timeout);
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+  ipcMain.handle('fingerprints:create', (event, fingerprint) => {
+    return db.createFingerprint(fingerprint);
   });
 
-  // Verificación en vivo optimizada
-  ipcMain.handle('fp:verifyLive', async (event, templateXml: string, targetFarn = 21474) => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout: La verificación en vivo tomó más de 30 segundos'));
-        }, 30000);
-
-        fpBridge({
-          action: 'verify.live',
-          payload: { templateXml, targetFarn }
-        }, (error: any, result: any) => {
-          clearTimeout(timeout);
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+  // Asistencia
+  ipcMain.handle('attendance:today', () => {
+    return db.getTodayAttendance();
   });
 
-  // Captura simple para testing
-  ipcMain.handle('fp:singleCapture', async () => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout: La captura simple tomó más de 25 segundos'));
-        }, 25000);
-
-        fpBridge({
-          action: 'capture.single'
-        }, (error: any, result: any) => {
-          clearTimeout(timeout);
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
-  });
-
-  // Listar plantillas almacenadas
-  ipcMain.handle('fp:storeList', async () => {
-    try {
-      if (!fpBridge) {
-        throw new Error('Bridge no inicializado');
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        fpBridge({
-          action: 'store.list'
-        }, (error: any, result: any) => {
-          if (error) reject(error);
-          else resolve(result);
-        });
-      });
-
-      return result;
-    } catch (error: any) {
-      return { ok: false, error: error.message };
-    }
+  ipcMain.handle('attendance:getByEmployee', (event, employeeId: number, limit = 50) => {
+    return db.getAttendanceByEmployee(employeeId, limit);
   });
 }
 
-app.whenReady().then(() => {
-  const bridgeInit = initDotNetBridge();
-  if (!bridgeInit) {
-    console.error('❌ No se pudo inicializar el bridge .NET Framework');
-    console.log('📋 La aplicación continuará pero las funciones de huella dactilar no estarán disponibles');
-    console.log('📋 Verifica que el archivo DLL esté en la ruta correcta y que el runtime .NET Framework 4.8 esté instalado');
-  }
+// Inicialización de la aplicación
+app.whenReady().then(async () => {
+  console.log('🚀 Iniciando aplicación...');
 
+  initDatabase();
+  initExpressServer();
+  await initBiometricBridge();
   initIpcHandlers();
   createWindow();
 
@@ -443,14 +354,11 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', async () => {
-  try {
-    if (fpBridge) {
-      await new Promise((resolve) => {
-        fpBridge({ action: 'dispose' }, () => resolve(null));
-      });
-    }
-  } catch (error) {
-    console.error('Error cleaning up bridge:', error);
+app.on('before-quit', () => {
+  if (db) {
+    db.close();
+  }
+  if (expressServer) {
+    expressServer.close();
   }
 });
