@@ -1,74 +1,70 @@
 export {};
 
 declare global {
+  interface Employee {
+    id?: number;
+    employeeCode: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+    position?: string;
+    department?: string;
+    photoUrl?: string;
+    isActive: boolean;
+    createdAt?: string;
+  }
+
+  interface Fingerprint {
+    id?: number;
+    employeeId: number;
+    tag: string;
+    hand: string;
+    finger: string;
+    template: string;
+    format: string;
+    enrolledAt?: string;
+  }
+
+  interface AttendanceRecord {
+    id?: number;
+    employeeId: number;
+    recordType: 'ENTRY' | 'EXIT';
+    recordedAt: string;
+    fingerUsed?: string;
+    notes?: string;
+  }
+
   interface Window {
-    fp: {
-      // Funcionalidades existentes (compatibilidad)
-      init(): Promise<void>;
-      capture3(): Promise<{ ok: boolean; attempts: number; pngB64?: string; fmdXml?: string; error?: string }>;
-      enrollSave(id: string, samples?: number): Promise<string>;
-      verifyWithStore(id: string, liveFmdXml: string, farDenominator?: number): Promise<{ ok: boolean; matched: boolean; score: number; threshold: number }>;
-      getReaderInfo(): Promise<{ ok: boolean; description?: string; guid?: string; serialNumber?: string; productName?: string; error?: string }>;
-      cancel(): Promise<void>;
-      dispose(): Promise<void>;
-      onEvent(cb: (evt: any) => void): void;
+    employees: {
+      getAll: (activeOnly?: boolean) => Promise<Employee[]>;
+      getById: (id: number) => Promise<Employee | null>;
+      create: (employee: Employee) => Promise<number>;
+      update: (id: number, employee: Partial<Employee>) => Promise<boolean>;
+      delete: (id: number) => Promise<boolean>;
+    };
 
-      // ===== NUEVAS FUNCIONALIDADES AVANZADAS =====
+    fingerprints: {
+      getByEmployee: (employeeId: number) => Promise<Fingerprint[]>;
+      create: (fingerprint: Fingerprint) => Promise<number>;
+    };
 
-      // Identificación 1:N en vivo
-      identify1N(targetFarn?: number, topK?: number): Promise<{
-        ok: boolean;
-        match?: boolean;
-        bestScore?: number;
-        bestTag?: string;
-        galleryFormat?: string;
-        topK?: Array<{ tag: string; score: number }>;
-        message?: string;
-        error?: string;
+    attendance: {
+      today: () => Promise<AttendanceRecord[]>;
+      getByEmployee: (employeeId: number, limit?: number) => Promise<AttendanceRecord[]>;
+    };
+
+    stats: {
+      get: () => Promise<{
+        totalEmployees: number;
+        todayAttendance: number;
+        totalFingerprints: number;
       }>;
+    };
 
-      // Enrolamiento avanzado con múltiples estrategias
-      enrollAdvanced(samples?: number, targetFarn?: number, maxRetriesPerSample?: number): Promise<{
-        ok: boolean;
-        templateXml?: string;
-        method?: string;
-        samplesUsed?: number;
-        error?: string;
-      }>;
-
-      // Verificación en vivo optimizada
-      verifyLive(templateXml: string, targetFarn?: number): Promise<{
-        ok: boolean;
-        matched?: boolean;
-        score?: number;
-        threshold?: number;
-        method?: string;
-        message?: string;
-        error?: string;
-      }>;
-
-      // Captura simple para testing
-      singleCapture(): Promise<{
-        ok: boolean;
-        pngB64?: string;
-        fmdXml?: string;
-        formats?: { [format: string]: string };
-        error?: string;
-      }>;
-
-      // Listar plantillas almacenadas
-      storeList(): Promise<{
-        ok: boolean;
-        templates?: Array<{
-          id: string;
-          format: string;
-          bytes: number;
-          xmlLength: number;
-          sha1: string;
-          createdUtc: string;
-          expiresAt?: string;
-        }>;
-        error?: string;
+    config: {
+      get: () => Promise<{
+        expressPort: number;
+        biometricPort: number;
       }>;
     };
   }

@@ -32,7 +32,9 @@
       "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" api repos/devcicm/edge-uru-ui/contents/node/public/js/controls -H \"Accept: application/vnd.github.v3+json\")",
       "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" api repos/devcicm/edge-uru-ui/contents/node -H \"Accept: application/vnd.github.v3+json\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git clone:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

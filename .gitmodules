@@ -1,0 +1,3 @@
+[submodule "biometric-engine"]
+	path = biometric-engine
+	url = https://github.com/devcicm/edge-uru-ui.git
