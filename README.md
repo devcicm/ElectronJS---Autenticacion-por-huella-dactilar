@@ -1,373 +1,275 @@
-# 🏢 Demo - Sistema de Control de Asistencia con Huella Dactilar
+# ElectronJS + Edge-URU-UI - Sistema Biométrico DP4500
 
-Demo de sistema de control de empleados con autenticación biométrica usando el lector **DigitalPersona U.are.U 4500**.
+Integración limpia de ElectronJS con el engine biométrico Edge-URU-UI para captura, enrolamiento y verificación de huellas dactilares utilizando el lector DP4500.
 
-## 🎯 Características del Demo
+## Características
 
-- ✅ **Gestión de Empleados**: CRUD completo de empleados
-- ✅ **Enrolamiento Biométrico**: Registro de huellas dactilares (hasta 10 dedos por empleado)
-- ✅ **Control de Asistencia**: Registro automático de entrada/salida
-- ✅ **Base de Datos SQLite**: Almacenamiento local persistente
-- ✅ **Interfaz Moderna**: Aplicación Electron con diseño responsivo
-- ✅ **Eventos en Tiempo Real**: Actualización instantánea de estado
+- Integración completa del engine biométrico Edge-URU-UI
+- Interfaz de usuario moderna con controles reutilizables
+- Inicio automático del servidor biométrico
+- Captura simple de huellas
+- Enrolamiento con 4 muestras
+- Verificación 1:1 e Identificación 1:N
+- Gestión de plantillas biométricas
+- Logs en tiempo real
 
-## 📋 Requisitos Previos
+## Requisitos Previos
 
 ### Hardware
-- **Lector DP4500**: DigitalPersona U.are.U 4500 conectado vía USB
-- **Sistema Operativo**: Windows 7/8/10/11
+- Lector DigitalPersona U.are.U 4500 (DP4500)
+- Puerto USB 2.0 o superior
 
 ### Software
-- **Node.js**: Versión 18+ (32-bit recomendado para edge.js)
+- **Node.js**: Versión x86 (32-bit) - v16.x.x o superior
 - **.NET Framework**: 4.7.2 o superior
-- **SDK DigitalPersona**: DLLs nativas del lector
+- **Windows**: 7/8/10/11
+- **DigitalPersona SDK**: DLLs incluidas en `biometric-engine/bin-deps/`
 
-## 🚀 Instalación
+## Estructura del Proyecto
 
-### 1. Clonar el Repositorio
-
-```bash
-git clone <tu-repositorio>
-cd "ElectronJS - Autenticacion por huella dactilar"
+```
+proyecto/
+├── biometric-engine/           # Engine biométrico completo (edge-uru-ui)
+│   ├── bin-deps/              # DLLs nativas del DP4500
+│   ├── bridge-csharp/         # Puente C# .NET
+│   ├── node/                  # Servidor Node.js del engine
+│   │   ├── public/            # Componentes JavaScript reutilizables
+│   │   └── dist/              # Servidor compilado
+│   ├── out/net472/            # DLL compilada del bridge
+│   └── docs/                  # Documentación del engine
+│
+├── electron/                   # Aplicación ElectronJS
+│   ├── main.ts                # Proceso principal
+│   ├── preload.ts             # Preload script
+│   └── renderer/              # Proceso renderer
+│       └── index.html         # Interfaz principal
+│
+├── dist/                       # Archivos compilados
+├── package.json               # Configuración del proyecto
+└── tsconfig.json              # Configuración TypeScript
 ```
 
-### 2. Instalar Dependencias
+## Instalación
+
+### 1. Instalar Dependencias
 
 ```bash
-# Dependencias del proyecto principal
 npm install
-
-# Dependencias del engine biométrico
-cd biometric-engine/node
-npm install
-cd ../..
 ```
 
-### 3. Compilar el Proyecto
+### 2. Compilar el Bridge C#
 
-```bash
-npm run build
-```
-
-### 4. Compilar el Bridge C# (si es necesario)
+El bridge C# debe estar compilado para que el sistema funcione. Si aún no está compilado:
 
 ```bash
 cd biometric-engine/bridge-csharp
-dotnet build --configuration Release
+msbuild EdgeBridge.csproj /p:Configuration=Release
 cd ../..
 ```
 
-### 5. Verificar DLLs Nativas
+Esto genera:
+- `biometric-engine/out/net472/bridge-csharp.dll`
+- `biometric-engine/out/net472/DPUruNet.dll`
 
-Asegúrate de que las DLLs estén en `biometric-engine/bin-deps/`:
-- `DPUruNet.dll`
-- `dpfpdd.dll`
-- `dpfj.dll`
-- `DPCtlUruNet.dll`
+### 3. Compilar el Servidor del Engine
 
-## 🎮 Modo de Uso
-
-### Opción 1: Demo Rápido (Sin Lector Físico)
-
-Si no tienes el lector físico conectado, puedes ejecutar el demo sin funcionalidad biométrica:
-
-```bash
-npm start
-```
-
-La aplicación se iniciará con:
-- ✅ Base de datos SQLite funcional
-- ✅ API REST para gestión de empleados
-- ✅ Interfaz de usuario completa
-- ⚠️ Sin funciones biométricas (requiere lector)
-
-### Opción 2: Demo Completo (Con Lector DP4500)
-
-Para usar todas las funcionalidades incluyendo el lector biométrico:
-
-**Terminal 1** - Servidor Biométrico:
 ```bash
 cd biometric-engine/node
-npm start
-```
-
-Esto iniciará el servidor biométrico en `http://localhost:8080`
-
-**Terminal 2** - Aplicación Electron:
-```bash
-npm start
-```
-
-Esto iniciará:
-- Aplicación Electron
-- API REST interna en `http://localhost:3001`
-- Base de datos SQLite
-
-### Opción 3: Modo Desarrollo con Datos de Prueba
-
-```bash
-npm run dev -- --seed
-```
-
-Esto insertará empleados de ejemplo en la base de datos.
-
-## 📊 Estructura de la Aplicación
-
-```
-📦 Demo Sistema de Asistencia
-├── 📂 src/                      # Código fuente TypeScript
-│   ├── main.ts                  # Proceso principal Electron
-│   ├── preload.ts               # Bridge IPC seguro
-│   ├── database.ts              # Servicio de base de datos SQLite
-│   └── types/global.d.ts        # Definiciones TypeScript
-│
-├── 📂 static/                   # Interfaz web
-│   └── index.html               # UI principal
-│
-├── 📂 biometric-engine/         # Engine biométrico (edge-uru-ui)
-│   ├── node/                    # Servidor Node.js + TypeScript
-│   │   ├── server.ts            # API biométrica
-│   │   └── public/              # Interfaz web del lector
-│   ├── bridge-csharp/           # Bridge C# + .NET Framework
-│   │   └── src/                 # Código fuente C#
-│   └── bin-deps/                # DLLs nativas DigitalPersona
-│
-├── 📂 dist/                     # Código compilado
-└── 📄 attendance.db             # Base de datos SQLite (generada automáticamente)
-```
-
-## 🗄️ Base de Datos
-
-La aplicación utiliza **SQLite** con las siguientes tablas:
-
-### `employees`
-- id, employee_code, first_name, last_name
-- email, position, department
-- photo_url, is_active, created_at
-
-### `fingerprints`
-- id, employee_id, tag, hand, finger
-- template (base64), format, enrolled_at
-
-### `attendance_records`
-- id, employee_id, record_type (ENTRY/EXIT)
-- recorded_at, finger_used, notes
-
-## 🔌 API REST Interna
-
-La aplicación expone una API REST en `http://localhost:3001`:
-
-### Empleados
-- `GET /api/employees` - Listar todos los empleados
-- `GET /api/employees/:id` - Obtener empleado por ID
-- `POST /api/employees` - Crear nuevo empleado
-- `PUT /api/employees/:id` - Actualizar empleado
-- `DELETE /api/employees/:id` - Eliminar empleado
-
-### Huellas Dactilares
-- `GET /api/employees/:id/fingerprints` - Huellas de un empleado
-- `POST /api/fingerprints` - Guardar huella
-
-### Asistencia
-- `GET /api/attendance/today` - Registros de hoy
-- `GET /api/attendance/employee/:id` - Historial de un empleado
-- `POST /api/attendance/clock` - Registrar entrada/salida
-
-### Estadísticas
-- `GET /api/stats` - Estadísticas generales
-
-## 🖥️ API IPC (Electron)
-
-La interfaz web puede usar directamente las APIs IPC:
-
-```javascript
-// Obtener todos los empleados
-const employees = await window.employees.getAll();
-
-// Crear nuevo empleado
-const id = await window.employees.create({
-  employeeCode: 'EMP001',
-  firstName: 'Juan',
-  lastName: 'Pérez',
-  email: 'juan@empresa.com',
-  position: 'Desarrollador',
-  isActive: true
-});
-
-// Obtener estadísticas
-const stats = await window.stats.get();
-console.log(stats); // { totalEmployees, todayAttendance, totalFingerprints }
-
-// Configuración
-const config = await window.config.get();
-console.log(config); // { expressPort: 3001, biometricPort: 8080 }
-```
-
-## 🔐 Flujo de Uso del Lector Biométrico
-
-### 1. Enrolar Empleado
-
-```javascript
-// Desde el biometric-engine en http://localhost:8080
-// Usar la interfaz web o la API:
-
-// 1. Inicializar lector
-await fetch('http://localhost:8080/api/init', { method: 'POST' });
-
-// 2. Enrolar huella
-const response = await fetch('http://localhost:8080/api/enroll', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    tag: 'EMP001_LEFT_THUMB',
-    maxSamples: 4
-  })
-});
-
-const result = await response.json();
-
-// 3. Guardar en base de datos del demo
-await window.fingerprints.create({
-  employeeId: 1,
-  tag: 'EMP001_LEFT_THUMB',
-  hand: 'LEFT',
-  finger: 'THUMB',
-  template: result.template,
-  format: 'DP_REGISTRATION'
-});
-```
-
-### 2. Identificar Empleado
-
-```javascript
-// Identificar huella en el lector
-const response = await fetch('http://localhost:8080/api/identify', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    targetFarn: 21474,
-    maxAttempts: 3
-  })
-});
-
-const result = await response.json();
-
-if (result.ok && result.matched) {
-  // Extraer código de empleado del tag
-  const tag = result.user.tag; // Ej: "EMP001_LEFT_THUMB"
-  const employeeCode = tag.split('_')[0];
-
-  // Registrar asistencia
-  const attendance = await fetch('http://localhost:3001/api/attendance/clock', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      employeeCode,
-      fingerUsed: tag
-    })
-  });
-
-  const attendanceResult = await attendance.json();
-  console.log(attendanceResult);
-  // { ok: true, record: {...}, employee: {...} }
-}
-```
-
-## 🧪 Testing sin Lector Físico
-
-Para probar la aplicación sin el lector:
-
-1. Iniciar solo la aplicación Electron:
-   ```bash
-   npm start
-   ```
-
-2. Usar la consola del desarrollador (F12):
-   ```javascript
-   // Crear empleado de prueba
-   const id = await window.employees.create({
-     employeeCode: 'TEST001',
-     firstName: 'Test',
-     lastName: 'Usuario',
-     isActive: true
-   });
-
-   // Simular registro de asistencia directamente
-   const response = await fetch('http://localhost:3001/api/attendance/clock', {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify({
-       employeeCode: 'TEST001',
-       fingerUsed: 'TEST001_LEFT_THUMB',
-       notes: 'Registro manual de prueba'
-     })
-   });
-
-   console.log(await response.json());
-   ```
-
-## 📝 Scripts Disponibles
-
-```bash
-# Compilar TypeScript
-npm run build
-
-# Iniciar aplicación
-npm start
-
-# Modo desarrollo (abre DevTools)
-npm run dev
-
-# Modo desarrollo con datos de prueba
-npm run dev -- --seed
-```
-
-## 🐛 Solución de Problemas
-
-### Error: "Cannot find module 'better-sqlite3'"
-```bash
 npm install
+npm run build
+cd ../..
 ```
 
-### Error: "Lector no encontrado"
-- Verifica que el DP4500 esté conectado
-- Instala los drivers de DigitalPersona
-- Ejecuta el servidor biométrico: `cd biometric-engine/node && npm start`
+## Uso
 
-### Error: "Port 3001 already in use"
-- Cierra otras instancias de la aplicación
-- Cambia el puerto en `src/main.ts` (constante `EXPRESS_PORT`)
+### Iniciar la Aplicación
 
-### Base de datos bloqueada
 ```bash
-# Eliminar la base de datos y comenzar de nuevo
-rm attendance.db
 npm start
 ```
 
-## 📸 Capturas de Pantalla
+Esto:
+1. Compila el código TypeScript de Electron
+2. Inicia la aplicación ElectronJS
+3. Inicia automáticamente el servidor biométrico en `http://localhost:8080`
+4. Abre la ventana principal con la interfaz
 
-_(Aquí puedes agregar capturas de tu interfaz cuando esté lista)_
+### Modo Desarrollo
 
-## 🎯 Siguientes Pasos para Producción
+```bash
+npm run dev
+```
 
-1. **Interfaz Web Mejorada**: Crear UI personalizada para tu caso de uso
-2. **Reportes**: Implementar generación de reportes PDF/Excel
-3. **Horarios**: Sistema de horarios de trabajo
-4. **Notificaciones**: Alertas de tardanzas
-5. **Seguridad**: Autenticación de administradores
-6. **Exportación**: Backup y restauración de datos
+Abre la aplicación con DevTools activado.
 
-## 📄 Licencia
+## Guía de Uso de la Interfaz
 
-MIT License
+### 1. Inicializar el Lector
 
-## 🤝 Soporte
+**IMPORTANTE**: Antes de cualquier operación biométrica, debes inicializar el lector:
 
-Para más información sobre el engine biométrico, consulta:
-- [edge-uru-ui README](./biometric-engine/README.md)
-- [Documentación DigitalPersona SDK](./biometric-engine/docs/)
+1. En la sección "Control del Lector"
+2. Presiona "Encender Lector"
+3. Espera el mensaje: "✅ Lector DP4500 listo"
 
----
+### 2. Captura Simple
 
-**Desarrollado como demo para mostrar capacidades de integración biométrica**
+Para capturar una huella sin enrolarla:
+
+1. Sección "Captura Simple"
+2. Presiona "Capturar"
+3. Coloca el dedo en el lector
+4. La imagen de la huella aparecerá en pantalla
+
+### 3. Enrolamiento
+
+Para registrar un nuevo usuario:
+
+1. Sección "Enrolamiento"
+2. Ingresa un ID de usuario (ej: "Juan_Perez")
+3. Presiona "Iniciar Enrolamiento"
+4. Coloca el mismo dedo 4 veces cuando se solicite
+5. El sistema mostrará el progreso: 1/4 → 2/4 → 3/4 → 4/4
+6. Mensaje final: "✅ Enrolamiento completado"
+
+### 4. Verificación 1:1
+
+Para verificar si una huella pertenece a un usuario específico:
+
+1. Sección "Verificación"
+2. Selecciona un usuario de la lista
+3. Presiona "Verificar Usuario Seleccionado"
+4. Coloca el dedo en el lector
+5. Resultado: ✅ VERIFICADO o ❌ NO COINCIDE
+
+### 5. Identificación 1:N
+
+Para identificar a qué usuario pertenece una huella:
+
+1. Sección "Verificación" → Tab "Identificación 1:N"
+2. Presiona "Identificar 1:N"
+3. Coloca el dedo en el lector
+4. El sistema busca en toda la galería
+5. Resultado: Usuario identificado con score de coincidencia
+
+### 6. Gestión de Plantillas
+
+Para ver todas las huellas almacenadas:
+
+1. Sección "Plantillas"
+2. Presiona "Refrescar"
+3. Se muestran todas las plantillas con:
+   - Tag (ID del usuario)
+   - Formato
+   - Tamaño
+   - Fecha de creación
+
+**Limpiar todas las plantillas**:
+- Presiona "Limpiar Todo"
+- Confirma la acción
+- Todas las huellas serán eliminadas
+
+## Arquitectura Técnica
+
+### Flujo de Datos
+
+```
+Electron Main Process
+    ↓
+Biometric Server (Node.js) :8080
+    ↓
+Edge.js Bridge
+    ↓
+C# .NET Bridge
+    ↓
+DPUruNet SDK
+    ↓
+DP4500 Hardware
+```
+
+### Eventos en Tiempo Real
+
+El sistema usa Server-Sent Events (SSE) para comunicación en tiempo real:
+
+- `READER_READY`: Lector inicializado
+- `SAMPLE_COLLECTED`: Muestra capturada (1/4, 2/4, etc.)
+- `ENROLLMENT_COMPLETED`: Enrolamiento exitoso
+- `VERIFICATION_SUCCESS`: Verificación exitosa
+- `IDENTIFICATION_MATCH`: Identificación exitosa
+
+## Componentes del Engine
+
+La interfaz integra los siguientes controles del engine Edge-URU-UI:
+
+- **ReaderControl**: Control de encendido/apagado del lector
+- **SimpleCaptureControl**: Captura simple de huellas
+- **EnrollmentControl**: Proceso de enrolamiento con 4 muestras
+- **VerificationControl**: Verificación 1:1 e Identificación 1:N
+- **TemplateManagerControl**: Gestión de plantillas almacenadas
+- **LogDeviceControl**: Logs del sistema en tiempo real
+
+Todos los componentes se cargan dinámicamente desde `http://localhost:8080` y son completamente funcionales.
+
+## Solución de Problemas
+
+### Error: "Bridge C# no encontrado"
+
+```bash
+cd biometric-engine/bridge-csharp
+msbuild EdgeBridge.csproj /p:Configuration=Release
+```
+
+### Error: "Servidor biométrico no respondió"
+
+1. Verifica que Node.js x86 (32-bit) esté instalado
+2. Compila el servidor del engine:
+   ```bash
+   cd biometric-engine/node
+   npm run build
+   ```
+
+### Error: "Lector no detectado"
+
+1. Conecta el lector DP4500 vía USB
+2. Verifica que las DLLs estén en `biometric-engine/bin-deps/`
+3. Reinicia la aplicación
+
+### Botones deshabilitados
+
+1. Asegúrate de inicializar el lector primero
+2. Recarga la aplicación (Ctrl+R en DevTools)
+
+## Scripts Disponibles
+
+- `npm start`: Compilar y ejecutar
+- `npm run dev`: Ejecutar en modo desarrollo
+- `npm run build`: Solo compilar TypeScript
+
+## Créditos
+
+- **Engine Biométrico**: Edge-URU-UI (devcicm/edge-uru-ui)
+- **SDK**: DigitalPersona U.are.U SDK
+- **Framework**: ElectronJS
+
+## Licencia
+
+MIT
+
+## Notas Importantes
+
+- El sistema NO incluye base de datos - las plantillas se almacenan en RAM
+- Al cerrar la aplicación, se pierden todas las plantillas enroladas
+- Para almacenamiento permanente, implementa integración con base de datos externa
+- El sistema está listo para agregar funcionalidad de control de asistencia en el futuro
+
+## Próximos Pasos
+
+Una vez que el sistema de captura esté funcionando correctamente, se puede:
+
+1. Agregar base de datos SQLite para almacenamiento permanente
+2. Implementar sistema de control de asistencia
+3. Agregar gestión de empleados
+4. Crear reportes de asistencia
+5. Integrar con sistemas externos
+
+Para documentación completa del engine, consulta: `biometric-engine/README.md`

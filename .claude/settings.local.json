@@ -36,7 +36,19 @@
       "Bash(git clone:*)",
       "Bash(git checkout:*)",
       "Bash(git rm:*)",
-      "Bash(git submodule add:*)"
+      "Bash(git submodule add:*)",
+      "Bash(npx electron-rebuild)",
+      "Bash(where:*)",
+      "Bash(findstr:*)",
+      "Bash(exit 0)",
+      "Bash(if exist node_modules rmdir /s /q node_modules)",
+      "Bash(if exist dist rmdir /s /q dist)",
+      "Bash(if exist package-lock.json del package-lock.json)",
+      "Bash(del \"C:\\Users\\Carlos Ivan\\Documents\\Proyectos VSCODE\\ElectronJS - Autenticacion por huella dactilar\\package-lock.json\" 2)",
+      "Bash(npm ls:*)",
+      "Bash(timeout:*)",
+      "Bash(electron . --dev:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
