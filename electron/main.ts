@@ -23,7 +23,8 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  // CARGAR SISTEMA DE ASISTENCIA
+  mainWindow.loadFile(path.join(__dirname, '../sistema-asistencia/renderer', 'index.html'));
 
   // Abrir DevTools en modo desarrollo
   if (process.argv.includes('--dev')) {
