@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Biométrico - DP4500</title>
+
+    <!-- CSS del engine biométrico -->
+    <link rel="stylesheet" href="http://localhost:8080/js/styles/components.css">
+
+    <!-- Configurar URL base ANTES de cargar los scripts -->
+    <script>
+        // Configurar la URL base del servidor biométrico para que los scripts la usen
+        window.BIOMETRIC_SERVER_URL = 'http://localhost:8080';
+    </script>
+
+    <!-- Scripts del engine biométrico -->
+    <script src="http://localhost:8080/js/adapter/BiometricAdapter.js"></script>
+    <script src="http://localhost:8080/js/components/BaseComponent.js"></script>
+    <script src="http://localhost:8080/js/components/ComponentFactory.js"></script>
+    <script src="http://localhost:8080/js/controls/ReaderControl.js"></script>
+    <script src="http://localhost:8080/js/controls/SimpleCaptureControl.js"></script>
+    <script src="http://localhost:8080/js/controls/EnrollmentControl.js"></script>
+    <script src="http://localhost:8080/js/controls/VerificationControl.js"></script>
+    <script src="http://localhost:8080/js/controls/TemplateManagerControl.js"></script>
+    <script src="http://localhost:8080/js/controls/LogDeviceControl.js"></script>
+    <script src="http://localhost:8080/js/controls/TechDeviceControl.js"></script>
+    <script src="http://localhost:8080/js/controls/FingerManagementControl.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        #status-bar {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .status-disconnected { color: #e74c3c; }
+        .status-connected { color: #2ecc71; }
+        .status-working { color: #f39c12; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📸 Sistema Biométrico DP4500</h1>
+            <p>Integración de ElectronJS con Engine Edge-URU-UI</p>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="status-bar" class="status-disconnected">
+            ⚠️ Inicializando sistema...
+        </div>
+
+        <!-- Grid de controles -->
+        <div class="grid">
+            <!-- Control del lector -->
+            <div class="card">
+                <h2>🔧 Control del Lector</h2>
+                <div id="reader-control"></div>
+            </div>
+
+            <!-- Captura simple -->
+            <div class="card">
+                <h2>📸 Captura Simple</h2>
+                <div id="capture-control"></div>
+            </div>
+
+            <!-- Enrolamiento -->
+            <div class="card">
+                <h2>📝 Enrolamiento</h2>
+                <div id="enrollment-control"></div>
+            </div>
+
+            <!-- Verificación -->
+            <div class="card">
+                <h2>✅ Verificación</h2>
+                <div id="verification-control"></div>
+            </div>
+
+            <!-- Gestión de plantillas -->
+            <div class="card">
+                <h2>📋 Plantillas</h2>
+                <div id="template-control"></div>
+            </div>
+
+            <!-- Gestión de Dedos por Mano -->
+            <div class="card" style="grid-column: span 2;">
+                <h2>🖐️ Gestión de Dedos por Mano</h2>
+                <div id="finger-management-control"></div>
+            </div>
+
+            <!-- Información Técnica -->
+            <div class="card">
+                <h2>🔧 Información Técnica</h2>
+                <div id="tech-control"></div>
+            </div>
+
+            <!-- Logs -->
+            <div class="card">
+                <h2>📝 Logs del Sistema</h2>
+                <div id="log-control"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variable global para el status bar
+        let statusBar;
+
+        // Parchear BiometricAdapter ANTES de que se auto-conecte
+        // Necesitamos sobrescribir los métodos para usar URLs absolutas
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.BiometricAdapter) {
+                const serverUrl = window.BIOMETRIC_SERVER_URL || 'http://localhost:8080';
+
+                // Función helper para convertir endpoint relativo a URL absoluta
+                const makeAbsoluteUrl = (endpoint) => {
+                    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+                        return endpoint;
+                    }
+                    return `${serverUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
+                };
+
+                // Parchear método connect para SSE
+                window.BiometricAdapter.connect = async function() {
+                    if (this.eventSource && this.isConnected) {
+                        console.log('[BiometricAdapter] Ya conectado, reutilizando conexión existente');
+                        return;
+                    }
+
+                    if (this.eventSource) {
+                        console.log('[BiometricAdapter] Cerrando conexión anterior antes de reconectar');
+                        this.eventSource.close();
+                        this.eventSource = null;
+                    }
+
+                    return new Promise((resolve, reject) => {
+                        try {
+                            this.eventSource = new EventSource(`${serverUrl}/events`);
+
+                            this.eventSource.onopen = () => {
+                                this.isConnected = true;
+                                console.log('[BiometricAdapter] ✅ Conectado al backend SSE');
+                                resolve(true);
+                            };
+
+                            this.eventSource.onmessage = (event) => {
+                                this._handleBackendEvent(event);
+                            };
+
+                            this.eventSource.onerror = (error) => {
+                                this.isConnected = false;
+                                console.error('[BiometricAdapter] ❌ Error de conexión SSE');
+
+                                if (this.eventSource) {
+                                    this.eventSource.close();
+                                    this.eventSource = null;
+                                }
+
+                                setTimeout(() => {
+                                    console.log('[BiometricAdapter] 🔄 Reintentando conexión SSE...');
+                                    this.connect().catch(console.error);
+                                }, 3000);
+                            };
+                        } catch (error) {
+                            reject(error);
+                        }
+                    });
+                };
+
+                // Parchear apiGet para usar URLs absolutas
+                window.BiometricAdapter.apiGet = async function(endpoint) {
+                    try {
+                        const url = makeAbsoluteUrl(endpoint);
+                        const response = await fetch(url);
+                        const result = await response.json();
+
+                        if (!result.ok) {
+                            throw new Error(result.error || 'Error en API');
+                        }
+
+                        return result;
+                    } catch (error) {
+                        console.error(`[BiometricAdapter] Error en ${endpoint}:`, error);
+                        throw error;
+                    }
+                };
+
+                // Parchear apiPost para usar URLs absolutas
+                window.BiometricAdapter.apiPost = async function(endpoint, body = {}) {
+                    try {
+                        const url = makeAbsoluteUrl(endpoint);
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(body)
+                        });
+
+                        const result = await response.json();
+
+                        if (!result.ok) {
+                            throw new Error(result.error || 'Error en API');
+                        }
+
+                        return result;
+                    } catch (error) {
+                        console.error(`[BiometricAdapter] Error en POST ${endpoint}:`, error);
+                        throw error;
+                    }
+                };
+
+                // Parchear apiDelete para usar URLs absolutas
+                window.BiometricAdapter.apiDelete = async function(endpoint) {
+                    try {
+                        const url = makeAbsoluteUrl(endpoint);
+                        const response = await fetch(url, { method: 'DELETE' });
+                        return response.ok;
+                    } catch (error) {
+                        console.error('[BiometricAdapter] Error en DELETE:', error);
+                        throw error;
+                    }
+                };
+
+                // Parchear apiCall para usar URLs absolutas (usado para POST con data)
+                window.BiometricAdapter.apiCall = async function(endpoint, data = null) {
+                    console.log(`[BiometricAdapter] 🌐 Iniciando llamada API: ${endpoint}`);
+                    console.log(`[BiometricAdapter] 📤 Payload:`, data || 'sin datos');
+
+                    try {
+                        const url = makeAbsoluteUrl(endpoint);
+                        const options = {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        };
+
+                        if (data) {
+                            options.body = JSON.stringify(data);
+                            console.log(`[BiometricAdapter] 📋 Body serializado:`, options.body);
+                        }
+
+                        console.log(`[BiometricAdapter] 🚀 Enviando request a ${url}...`);
+                        const response = await fetch(url, options);
+                        console.log(`[BiometricAdapter] 📡 Response recibido - Status: ${response.status} ${response.statusText}`);
+
+                        const result = await response.json();
+                        console.log(`[BiometricAdapter] 📥 Response JSON:`, result);
+
+                        if (!result.ok) {
+                            console.error(`[BiometricAdapter] ⚠️ API retornó error: ${result.error}`);
+                            throw new Error(result.error || 'Error en API');
+                        }
+
+                        console.log(`[BiometricAdapter] ✅ API call exitoso para ${endpoint}`);
+                        return result;
+                    } catch (error) {
+                        console.error(`[BiometricAdapter] ❌ Error en llamada API ${endpoint}:`, error);
+                        console.error(`[BiometricAdapter] 🔍 Tipo de error:`, error.constructor.name);
+                        console.error(`[BiometricAdapter] 💡 Es error de red:`, error instanceof TypeError);
+                        throw error;
+                    }
+                };
+
+                // Conectar con la URL correcta
+                window.BiometricAdapter.connect().catch(console.error);
+            }
+        }, { once: true });
+
+        // Inicializar cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', async () => {
+            statusBar = document.getElementById('status-bar');
+
+            try {
+                // Obtener configuración
+                const config = await window.config.get();
+                console.log('✅ Configuración obtenida:', config);
+
+                // Verificar estado del servidor biométrico
+                const status = await window.biometricServer.status();
+
+                if (status.isRunning) {
+                    updateStatus('connected', '✅ Sistema listo - Servidor biométrico activo');
+
+                    // Esperar a que ComponentFactory esté listo
+                    window.addEventListener('componentFactoryReady', () => {
+                        console.log('✅ ComponentFactory está listo');
+                        initializeBiometricControls();
+                    }, { once: true });
+
+                    // Si ComponentFactory ya está disponible, inicializar inmediatamente
+                    if (window.ComponentFactory) {
+                        initializeBiometricControls();
+                    }
+                } else {
+                    updateStatus('disconnected', '❌ Servidor biométrico no está activo');
+                }
+            } catch (error) {
+                console.error('Error en inicialización:', error);
+                updateStatus('disconnected', '❌ Error en inicialización');
+            }
+        });
+
+        // Actualizar status bar
+        function updateStatus(status, message) {
+            statusBar.className = `status-${status}`;
+            statusBar.textContent = message;
+        }
+
+        // Inicializar controles biométricos
+        function initializeBiometricControls() {
+            try {
+                // Verificar que ComponentFactory esté disponible
+                if (!window.ComponentFactory) {
+                    console.error('❌ ComponentFactory no está disponible todavía');
+                    return;
+                }
+
+                console.log('🚀 Inicializando controles biométricos...');
+
+                // Usar el adaptador biométrico global ya configurado
+                const adapter = window.BiometricAdapter;
+
+                // Escuchar eventos del adaptador para actualizar status bar
+                adapter.on('READER_READY', () => {
+                    updateStatus('connected', '✅ Lector DP4500 listo');
+                });
+
+                adapter.on('READER_DISPOSED', () => {
+                    updateStatus('disconnected', '⚠️ Lector DP4500 apagado');
+                });
+
+                adapter.on('ENROLLMENT_STARTED', () => {
+                    updateStatus('working', '📝 Enrolamiento en proceso...');
+                });
+
+                adapter.on('ENROLLMENT_COMPLETED', (data) => {
+                    updateStatus('connected', `✅ Enrolamiento completado: ${data.userId || 'Usuario'}`);
+                });
+
+                adapter.on('VERIFICATION_SUCCESS', (data) => {
+                    updateStatus('connected', `✅ Verificación exitosa: ${data.user?.tag || 'Usuario'}`);
+                });
+
+                adapter.on('IDENTIFICATION_MATCH', (data) => {
+                    updateStatus('connected', `✅ Identificado: ${data.user?.tag || 'Usuario'}`);
+                });
+
+                adapter.on('SAMPLE_COLLECTED', (data) => {
+                    updateStatus('working', `📸 Muestra ${data.current}/${data.total} capturada`);
+                });
+
+                // Inicializar cada control usando ComponentFactory global
+                const readerControl = window.ComponentFactory.create('readercontrol', 'reader-control', {});
+                const captureControl = window.ComponentFactory.create('simplecapture', 'capture-control', {});
+                const enrollmentControl = window.ComponentFactory.create('enrollment', 'enrollment-control', { maxSamples: 4 });
+                const verificationControl = window.ComponentFactory.create('verification', 'verification-control', {});
+                const templateControl = window.ComponentFactory.create('templatemanager', 'template-control', {});
+                const fingerManagementControl = window.ComponentFactory.create('fingermanagement', 'finger-management-control', {});
+                const techControl = window.ComponentFactory.create('techdevice', 'tech-control', {});
+                const logControl = window.ComponentFactory.create('logdevice', 'log-control', {});
+
+                console.log('✅ Todos los controles (8 de 8) inicializados correctamente');
+
+            } catch (error) {
+                console.error('❌ Error inicializando controles:', error);
+                updateStatus('disconnected', '❌ Error al cargar controles');
+            }
+        }
+    </script>
+</body>
+</html>
