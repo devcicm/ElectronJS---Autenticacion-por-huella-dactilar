@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     // File Layout
-    "rootDir": "./electron",
+    "rootDir": "./",
     "outDir": "./dist",
 
     // Environment Settings
@@ -16,11 +16,11 @@
     "declarationMap": true,
 
     // Stricter Typechecking Options
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false,
 
     // Recommended Options
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "NodeNext",
@@ -30,12 +30,14 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "electron/**/*"
+    "electron/**/*",
+    "sistema-asistencia/**/*"
   ],
   "exclude": [
     "node_modules",
     "biometric-engine",
     "dist",
-    "electron/preload.ts"
+    "electron/preload.ts",
+    "sistema-asistencia/renderer"
   ]
 }

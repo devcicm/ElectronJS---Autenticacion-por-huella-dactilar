@@ -520,34 +520,34 @@
             <!-- CONTENT AREA -->
             <div class="content-area">
                 <!-- DASHBOARD SECTION -->
-                <section id="dashboard" class="content-section active">
+                <section id="dashboard-section" class="content-section active">
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-icon success">👥</div>
                             <div class="stat-info">
-                                <h3 id="stat-total-employees">0</h3>
-                                <p>Empleados Activos</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon primary">✓</div>
-                            <div class="stat-info">
-                                <h3 id="stat-present-today">0</h3>
+                                <h3 id="stat-present">0</h3>
                                 <p>Presentes Hoy</p>
                             </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon warning">⏰</div>
                             <div class="stat-info">
-                                <h3 id="stat-late-today">0</h3>
+                                <h3 id="stat-late">0</h3>
                                 <p>Llegadas Tarde</p>
                             </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon danger">✗</div>
                             <div class="stat-info">
-                                <h3 id="stat-absent-today">0</h3>
+                                <h3 id="stat-absent">0</h3>
                                 <p>Ausentes Hoy</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon info">📊</div>
+                            <div class="stat-info">
+                                <h3 id="stat-percentage">0%</h3>
+                                <p>Asistencia</p>
                             </div>
                         </div>
                     </div>
@@ -555,211 +555,145 @@
                     <div class="card">
                         <div class="card-header">
                             <h3>Registros de Hoy</h3>
-                            <button class="btn btn-primary" onclick="refreshDashboard()">
-                                🔄 Actualizar
-                            </button>
                         </div>
                         <div class="card-body">
-                            <div class="table-container">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Código</th>
-                                            <th>Empleado</th>
-                                            <th>Departamento</th>
-                                            <th>Entrada</th>
-                                            <th>Salida</th>
-                                            <th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="today-attendance-table">
-                                        <tr>
-                                            <td colspan="6" class="loading">
-                                                <div class="spinner"></div>
-                                                Cargando registros...
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <table id="today-records-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Empleado</th>
+                                        <th>Departamento</th>
+                                        <th>Entrada</th>
+                                        <th>Salida</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="6" style="text-align:center; padding: 2rem; color: #666;">
+                                            Cargando registros...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
 
                 <!-- CHECK-IN SECTION -->
-                <section id="check-in" class="content-section">
-                    <div class="card">
+                <section id="check-in-section" class="content-section">
+                    <!-- Control del Lector Automático -->
+                    <div class="card" style="margin-bottom: 20px;">
                         <div class="card-header">
-                            <h3>👆 Marcar Asistencia por Huella Dactilar</h3>
+                            <h3>🎧 Modo Automático de Asistencia</h3>
                         </div>
                         <div class="card-body">
-                            <div style="text-align: center; padding: 40px;">
-                                <div style="font-size: 80px; margin-bottom: 20px;">🖐️</div>
-                                <h2 style="color: var(--dark); margin-bottom: 10px;">
-                                    Coloca tu dedo en el lector
-                                </h2>
-                                <p style="color: #6B7280; font-size: 16px; margin-bottom: 30px;">
-                                    El sistema identificará automáticamente y marcará tu asistencia
-                                </p>
-                                <div id="check-in-status" style="font-size: 18px; color: var(--primary); font-weight: 600;">
-                                    Esperando huella...
+                            <div id="auto-attendance-status" style="margin-bottom: 15px;">
+                                <!-- Estado del lector se actualiza dinámicamente -->
+                                <div style="display: flex; align-items: center; gap: 10px; padding: 15px; background: #F3F4F6; border-radius: 10px; border: 2px solid #9CA3AF;">
+                                    <div style="width: 12px; height: 12px; background: #6B7280; border-radius: 50%;"></div>
+                                    <div>
+                                        <div style="font-weight: 600; color: #374151;">⚫ Lector Inactivo</div>
+                                        <div style="font-size: 13px; color: #6B7280; margin-top: 3px;">
+                                            Cargando estado...
+                                        </div>
+                                    </div>
                                 </div>
+                            </div>
+                            <button id="toggle-auto-attendance-btn" class="btn btn-primary" onclick="toggleAutoAttendance()">
+                                🟢 Iniciar Modo Automático
+                            </button>
+                            <div style="margin-top: 15px; padding: 12px; background: #EFF6FF; border-radius: 8px; font-size: 13px; color: #1E40AF;">
+                                <strong>ℹ️ Información:</strong> Con el modo automático activo, los empleados pueden marcar su asistencia
+                                simplemente colocando su dedo en el lector, sin necesidad de seleccionar su nombre en el sistema.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Marcar Asistencia Manual -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>👆 Marcar Asistencia Manual</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="employees-list">
+                                Cargando empleados...
                             </div>
                         </div>
                     </div>
                 </section>
 
                 <!-- EMPLOYEES SECTION -->
-                <section id="employees" class="content-section">
+                <section id="employees-section" class="content-section">
                     <div class="card">
                         <div class="card-header">
                             <h3>Gestión de Empleados</h3>
-                            <button class="btn btn-primary" onclick="openEmployeeModal()">
-                                ➕ Nuevo Empleado
-                            </button>
                         </div>
                         <div class="card-body">
-                            <div id="employees-content">Cargando empleados...</div>
+                            <div id="employees-table-container">
+                                Cargando empleados...
+                            </div>
                         </div>
                     </div>
                 </section>
 
-                <!-- OTHER SECTIONS (placeholder) -->
-                <section id="attendance" class="content-section">
+                <!-- ATTENDANCE SECTION -->
+                <section id="attendance-section" class="content-section">
                     <div class="card">
                         <div class="card-header"><h3>Registros de Asistencia</h3></div>
-                        <div class="card-body">Módulo en construcción...</div>
+                        <div class="card-body">
+                            <div id="attendance-records-container">
+                                Cargando registros...
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                <section id="reports" class="content-section">
-                    <div class="card">
-                        <div class="card-header"><h3>Reportes</h3></div>
-                        <div class="card-body">Módulo en construcción...</div>
-                    </div>
-                </section>
-
-                <section id="departments" class="content-section">
+                <!-- DEPARTMENTS SECTION -->
+                <section id="departments-section" class="content-section">
                     <div class="card">
                         <div class="card-header"><h3>Departamentos</h3></div>
-                        <div class="card-body">Módulo en construcción...</div>
+                        <div class="card-body">
+                            <div id="departments-container">
+                                Cargando departamentos...
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                <section id="shifts" class="content-section">
+                <!-- SHIFTS SECTION -->
+                <section id="shifts-section" class="content-section">
                     <div class="card">
                         <div class="card-header"><h3>Turnos</h3></div>
-                        <div class="card-body">Módulo en construcción...</div>
+                        <div class="card-body">
+                            <div id="shifts-container">
+                                Cargando turnos...
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                <section id="settings" class="content-section">
+                <!-- REPORTS SECTION -->
+                <section id="reports-section" class="content-section">
+                    <div class="card">
+                        <div class="card-header"><h3>Reportes</h3></div>
+                        <div class="card-body"></div>
+                    </div>
+                </section>
+
+                <!-- SETTINGS SECTION -->
+                <section id="settings-section" class="content-section">
                     <div class="card">
                         <div class="card-header"><h3>Configuración</h3></div>
-                        <div class="card-body">Módulo en construcción...</div>
+                        <div class="card-body"></div>
                     </div>
                 </section>
             </div>
         </main>
     </div>
 
-    <script>
-        // ===== NAVIGATION =====
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                // Update active nav item
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                item.classList.add('active');
-
-                // Show corresponding section
-                const section = item.dataset.section;
-                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-                document.getElementById(section).classList.add('active');
-
-                // Update page title
-                const title = item.textContent.trim();
-                document.getElementById('page-title').textContent = title;
-            });
-        });
-
-        // ===== CLOCK =====
-        function updateClock() {
-            const now = new Date();
-
-            const dateOptions = {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            };
-            document.getElementById('current-date').textContent =
-                now.toLocaleDateString('es-ES', dateOptions);
-
-            document.getElementById('current-time').textContent =
-                now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-
-        updateClock();
-        setInterval(updateClock, 1000);
-
-        // ===== INITIALIZE =====
-        async function initializeSystem() {
-            console.log('🚀 Inicializando sistema de asistencia...');
-
-            try {
-                // Verificar disponibilidad de APIs
-                if (!window.attendance) {
-                    console.error('❌ API de asistencia no disponible');
-                    return;
-                }
-
-                // Cargar datos iniciales
-                await loadDashboardData();
-
-                console.log('✅ Sistema inicializado correctamente');
-            } catch (error) {
-                console.error('❌ Error inicializando sistema:', error);
-            }
-        }
-
-        async function loadDashboardData() {
-            try {
-                // Placeholder - estas funciones se implementarán cuando conectemos con la BD
-                console.log('Cargando datos del dashboard...');
-
-                // Simular carga de datos
-                setTimeout(() => {
-                    document.getElementById('stat-total-employees').textContent = '0';
-                    document.getElementById('stat-present-today').textContent = '0';
-                    document.getElementById('stat-late-today').textContent = '0';
-                    document.getElementById('stat-absent-today').textContent = '0';
-
-                    const tbody = document.getElementById('today-attendance-table');
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="6" style="text-align: center; padding: 40px; color: #6B7280;">
-                                No hay registros de asistencia para hoy
-                            </td>
-                        </tr>
-                    `;
-                }, 1000);
-            } catch (error) {
-                console.error('Error cargando dashboard:', error);
-            }
-        }
-
-        function refreshDashboard() {
-            loadDashboardData();
-        }
-
-        function openEmployeeModal() {
-            alert('Modal de empleado - Por implementar');
-        }
-
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeSystem();
-        });
-    </script>
+    <!-- Application Script -->
+    <script src="js/controls/FingerprintEnroller.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

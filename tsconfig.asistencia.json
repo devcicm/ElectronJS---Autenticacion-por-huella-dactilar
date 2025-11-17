@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "outDir": "./dist/sistema-asistencia",
+    "rootDir": "./sistema-asistencia",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["sistema-asistencia/**/*"],
+  "exclude": ["node_modules", "dist", "sistema-asistencia/renderer"]
+}

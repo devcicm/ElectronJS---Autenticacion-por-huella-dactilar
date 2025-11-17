@@ -19,6 +19,7 @@ export interface Employee {
     hire_date: string;          // ISO date string
     status: 'active' | 'inactive' | 'suspended';
     photo_url?: string;
+    enrollment_mode?: 'simple' | 'advanced';  // Modo de captura de huellas
     created_at: string;
     updated_at: string;
 }
@@ -35,6 +36,7 @@ export interface EmployeeCreate {
     hire_date: string;
     status?: 'active' | 'inactive' | 'suspended';
     photo_url?: string;
+    enrollment_mode?: 'simple' | 'advanced';
 }
 
 export interface EmployeeUpdate {
@@ -47,8 +49,10 @@ export interface EmployeeUpdate {
     department_id?: number;
     shift_id?: number;
     position?: string;
+    hire_date?: string;
     status?: 'active' | 'inactive' | 'suspended';
     photo_url?: string;
+    enrollment_mode?: 'simple' | 'advanced';
 }
 
 // ============================================================================
@@ -68,6 +72,15 @@ export interface DepartmentCreate {
     name: string;
     description?: string;
     manager_id?: number;
+    color?: string;
+}
+
+export interface DepartmentUpdate {
+    id: number;
+    name?: string;
+    description?: string;
+    manager_id?: number;
+    color?: string;
 }
 
 // ============================================================================
@@ -89,6 +102,15 @@ export interface ShiftCreate {
     name: string;
     start_time: string;
     end_time: string;
+    tolerance_minutes?: number;
+    color?: string;
+}
+
+export interface ShiftUpdate {
+    id: number;
+    name?: string;
+    start_time?: string;
+    end_time?: string;
     tolerance_minutes?: number;
     color?: string;
 }
@@ -116,7 +138,15 @@ export interface FingerprintCreate {
     quality_score?: number;
 }
 
-export type FingerPosition = 'THUMB' | 'INDEX' | 'MIDDLE' | 'RING' | 'PINKY';
+export interface FingerprintUpdate {
+    id: number;
+    template_data?: string;
+    quality_score?: number;
+}
+
+export type FingerPosition =
+    | 'right_thumb' | 'right_index' | 'right_middle' | 'right_ring' | 'right_pinky'
+    | 'left_thumb' | 'left_index' | 'left_middle' | 'left_ring' | 'left_pinky';
 
 // ============================================================================
 // REGISTROS DE ASISTENCIA
