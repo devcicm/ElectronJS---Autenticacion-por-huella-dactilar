@@ -4,19 +4,21 @@
   "description": "Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500",
   "private": true,
   "type": "module",
-  "main": "dist/main.js",
+  "main": "dist/electron/main.js",
   "license": "MIT",
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.preload.json && xcopy /Y /I electron\\renderer dist\\renderer\\",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.preload.json && tsc -p tsconfig.asistencia.json && xcopy /Y /I /E sistema-asistencia\\renderer dist\\sistema-asistencia\\renderer\\ && xcopy /Y /I sistema-asistencia\\database\\schema.sql dist\\sistema-asistencia\\database\\",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron . --dev"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.14.12",
     "electron": "^31.3.1",
     "typescript": "^5.6.2"
   },
   "dependencies": {
-    "better-sqlite3": "^12.4.1"
+    "better-sqlite3": "^12.4.1",
+    "eventsource": "^4.0.0"
   }
 }

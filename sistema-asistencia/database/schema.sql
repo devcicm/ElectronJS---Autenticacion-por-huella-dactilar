@@ -11,9 +11,7 @@ CREATE TABLE IF NOT EXISTS departments (
     description TEXT,
     manager_id INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-
-    FOREIGN KEY (manager_id) REFERENCES employees(id) ON DELETE SET NULL
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_departments_name ON departments(name);
@@ -50,6 +48,7 @@ CREATE TABLE IF NOT EXISTS employees (
     hire_date TEXT NOT NULL,           -- ISO date
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'suspended')),
     photo_url TEXT,
+    enrollment_mode TEXT DEFAULT 'simple' CHECK(enrollment_mode IN ('simple', 'advanced')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
 
