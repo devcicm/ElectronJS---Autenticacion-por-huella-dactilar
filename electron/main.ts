@@ -394,41 +394,55 @@ function initIpcHandlers() {
     try {
       const { getDatabaseManager } = await import('../sistema-asistencia/database/init.js');
       const db = getDatabaseManager();
+      const database = db.getDatabase();
 
       console.log('🗑️ [RESET] Iniciando reseteo completo de base de datos...');
 
-      // 1. Eliminar todos los registros de asistencia
-      db.execute('DELETE FROM attendance_records');
-      console.log('✅ [RESET] Registros de asistencia eliminados');
+      // Ejecutar todo en una transacción
+      const resetTransaction = database.transaction(() => {
+        // Desactivar foreign keys temporalmente
+        database.pragma('foreign_keys = OFF');
+        console.log('🔓 [RESET] Foreign keys desactivadas');
 
-      // 2. Eliminar todas las huellas
-      db.execute('DELETE FROM fingerprints');
-      console.log('✅ [RESET] Huellas dactilares eliminadas');
+        // 1. Eliminar todos los registros de asistencia
+        const result1 = database.prepare('DELETE FROM attendance_records').run();
+        console.log(`✅ [RESET] ${result1.changes} registros de asistencia eliminados`);
 
-      // 3. Eliminar todos los empleados
-      db.execute('DELETE FROM employees');
-      console.log('✅ [RESET] Empleados eliminados');
+        // 2. Eliminar todas las huellas
+        const result2 = database.prepare('DELETE FROM fingerprints').run();
+        console.log(`✅ [RESET] ${result2.changes} huellas dactilares eliminadas`);
 
-      // 4. Eliminar departamentos personalizados (mantener solo los 5 por defecto)
-      db.execute('DELETE FROM departments WHERE id > 5');
-      console.log('✅ [RESET] Departamentos personalizados eliminados');
+        // 3. Eliminar todos los empleados
+        const result3 = database.prepare('DELETE FROM employees').run();
+        console.log(`✅ [RESET] ${result3.changes} empleados eliminados`);
 
-      // 5. Eliminar turnos personalizados (mantener solo los 4 por defecto)
-      db.execute('DELETE FROM shifts WHERE id > 4');
-      console.log('✅ [RESET] Turnos personalizados eliminados');
+        // 4. Eliminar departamentos personalizados (mantener solo los 5 por defecto)
+        const result4 = database.prepare('DELETE FROM departments WHERE id > 5').run();
+        console.log(`✅ [RESET] ${result4.changes} departamentos personalizados eliminados`);
 
-      // 6. Resetear secuencias de autoincremento
-      db.execute('DELETE FROM sqlite_sequence WHERE name IN (?, ?, ?, ?, ?)',
-        ['attendance_records', 'fingerprints', 'employees', 'departments', 'shifts']);
-      console.log('✅ [RESET] Secuencias de autoincremento reseteadas');
+        // 5. Eliminar turnos personalizados (mantener solo los 4 por defecto)
+        const result5 = database.prepare('DELETE FROM shifts WHERE id > 4').run();
+        console.log(`✅ [RESET] ${result5.changes} turnos personalizados eliminados`);
 
-      // 7. Resetear valores de configuración a por defecto
-      db.execute("UPDATE system_config SET value = '09:00' WHERE key = 'auto_mark_absent_time'");
-      db.execute("UPDATE system_config SET value = '1' WHERE key = 'require_checkout'");
-      db.execute("UPDATE system_config SET value = '1' WHERE key = 'allow_manual_entry'");
-      db.execute("UPDATE system_config SET value = '10' WHERE key = 'grace_period_minutes'");
-      db.execute("UPDATE system_config SET value = '1' WHERE key = 'notification_enabled'");
-      console.log('✅ [RESET] Configuración reseteada a valores por defecto');
+        // 6. Resetear secuencias de autoincremento
+        const result6 = database.prepare(`DELETE FROM sqlite_sequence WHERE name IN ('attendance_records', 'fingerprints', 'employees', 'departments', 'shifts')`).run();
+        console.log(`✅ [RESET] ${result6.changes} secuencias de autoincremento reseteadas`);
+
+        // 7. Resetear valores de configuración a por defecto
+        database.prepare("UPDATE system_config SET value = '09:00' WHERE key = 'auto_mark_absent_time'").run();
+        database.prepare("UPDATE system_config SET value = '1' WHERE key = 'require_checkout'").run();
+        database.prepare("UPDATE system_config SET value = '1' WHERE key = 'allow_manual_entry'").run();
+        database.prepare("UPDATE system_config SET value = '10' WHERE key = 'grace_period_minutes'").run();
+        database.prepare("UPDATE system_config SET value = '1' WHERE key = 'notification_enabled'").run();
+        console.log('✅ [RESET] Configuración reseteada a valores por defecto');
+
+        // Reactivar foreign keys
+        database.pragma('foreign_keys = ON');
+        console.log('🔒 [RESET] Foreign keys reactivadas');
+      });
+
+      // Ejecutar la transacción
+      resetTransaction();
 
       console.log('✅ [RESET] Base de datos reseteada completamente');
 

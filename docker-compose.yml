@@ -1,0 +1,50 @@
+services:
+  # Aplicación principal Electron
+  electron-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sistema-asistencia
+    volumes:
+      # Montar código fuente para desarrollo (hot reload)
+      - .:/app
+      - /app/node_modules
+      # Persistir base de datos
+      - ./sistema-asistencia/database:/app/sistema-asistencia/database
+    ports:
+      - "3000:3000"
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - DISPLAY=:99
+    # Para acceso USB (Linux/Mac - requiere configuración adicional)
+    # devices:
+    #   - /dev/bus/usb:/dev/bus/usb
+    # privileged: true
+    networks:
+      - asistencia-network
+    restart: unless-stopped
+
+  # Servidor biométrico edge-uru-ui (si se ejecuta por separado)
+  biometric-server:
+    build:
+      context: ./biometric-engine
+      dockerfile: Dockerfile
+    container_name: biometric-server
+    ports:
+      - "3001:3000"
+    # Para acceso USB
+    # devices:
+    #   - /dev/bus/usb:/dev/bus/usb
+    # privileged: true
+    networks:
+      - asistencia-network
+    restart: unless-stopped
+
+networks:
+  asistencia-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local

@@ -81,7 +81,10 @@
       "Bash(\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe\" \"biometric-engine\\bridge-csharp\\EdgeBridge.csproj\" /p:Configuration=Release /p:Platform=AnyCPU /t:Rebuild /v:minimal)",
       "Bash(move docsREADME.md docREADME.md)",
       "Bash(move docsTOUCH-MODE-CAPTURA-CONTINUA.md docTOUCH-MODE-CAPTURA-CONTINUA.md)",
-      "Bash(move:*)"
+      "Bash(move:*)",
+      "Bash(git push:*)",
+      "Bash(docker --version:*)",
+      "Bash(docker-compose:*)"
     ],
     "deny": [],
     "ask": []
