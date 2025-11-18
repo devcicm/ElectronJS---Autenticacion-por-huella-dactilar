@@ -2627,12 +2627,14 @@ async function resetDatabase() {
         return;
     }
 
-    // Doble confirmación
-    const doubleConfirm = prompt(
-        'Para confirmar esta acción destructiva, escriba exactamente la palabra:\nRESTABLECER'
+    // Doble confirmación con modal personalizado
+    const confirmed = await showConfirmationModal(
+        'Confirmación de Reseteo',
+        'Para confirmar esta acción destructiva, escriba exactamente la palabra: <strong>RESTABLECER</strong>',
+        'RESTABLECER'
     );
 
-    if (doubleConfirm !== 'RESTABLECER') {
+    if (!confirmed) {
         showNotification('Operación cancelada - Texto de confirmación incorrecto', 'warning');
         return;
     }
@@ -2654,6 +2656,36 @@ async function resetDatabase() {
             console.log('📊 Navegando al dashboard para mostrar datos limpios...');
             showSection('dashboard');
 
+            // Reiniciar Touch Mode después del reset
+            console.log('🔄 Reiniciando Touch Mode después del reset...');
+            try {
+                // Detener Touch Mode si está activo
+                const currentState = await window.touchMode.getLocalState();
+                if (currentState.isActive) {
+                    console.log('⏸️ Deteniendo Touch Mode actual...');
+                    await window.touchMode.stop();
+                    stopTouchModePolling();
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Esperar 500ms
+                }
+
+                // Reiniciar Touch Mode
+                console.log('▶️ Reiniciando Touch Mode...');
+                const startResult = await window.touchMode.start();
+
+                if (startResult.success) {
+                    console.log('✅ Touch Mode reiniciado exitosamente');
+                    const newState = await window.touchMode.getLocalState();
+                    touchModeState = newState;
+                    updateTouchModeUI();
+                    startTouchModePolling();
+                    showNotification('Touch Mode reiniciado', 'info');
+                } else {
+                    console.warn('⚠️ No se pudo reiniciar Touch Mode:', startResult.message);
+                }
+            } catch (touchModeError) {
+                console.error('❌ Error al reiniciar Touch Mode:', touchModeError);
+            }
+
             console.log('✅ Base de datos reseteada y datos recargados');
         } else {
             showNotification('Error al resetear la base de datos: ' + (result.message || 'Error desconocido'), 'error');
@@ -2662,6 +2694,84 @@ async function resetDatabase() {
         console.error('Error al resetear base de datos:', error);
         showNotification('Error crítico al resetear la base de datos', 'error');
     }
+}
+
+// Función auxiliar para mostrar modal de confirmación
+function showConfirmationModal(title, message, expectedText) {
+    return new Promise((resolve) => {
+        // Crear modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        `;
+
+        modal.innerHTML = `
+            <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                <h3 style="margin: 0 0 20px; color: #DC2626; font-size: 20px;">${title}</h3>
+                <p style="margin: 0 0 20px; color: #374151; line-height: 1.6;">${message}</p>
+                <input type="text" id="confirmInput"
+                    style="width: 100%; padding: 12px; border: 2px solid #E5E7EB; border-radius: 6px; font-size: 14px; margin-bottom: 20px; box-sizing: border-box;"
+                    placeholder="Escriba aquí...">
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="cancelBtn" style="padding: 10px 20px; background: #6B7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        Cancelar
+                    </button>
+                    <button id="confirmBtn" style="padding: 10px 20px; background: #DC2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const input = modal.querySelector('#confirmInput');
+        const confirmBtn = modal.querySelector('#confirmBtn');
+        const cancelBtn = modal.querySelector('#cancelBtn');
+
+        // Enfocar el input
+        setTimeout(() => input.focus(), 100);
+
+        const cleanup = () => {
+            document.body.removeChild(modal);
+        };
+
+        confirmBtn.onclick = () => {
+            const value = input.value.trim();
+            cleanup();
+            resolve(value === expectedText);
+        };
+
+        cancelBtn.onclick = () => {
+            cleanup();
+            resolve(false);
+        };
+
+        // Permitir confirmar con Enter
+        input.onkeyup = (e) => {
+            if (e.key === 'Enter') {
+                confirmBtn.click();
+            } else if (e.key === 'Escape') {
+                cancelBtn.click();
+            }
+        };
+
+        // Cerrar al hacer click fuera del modal
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                cancelBtn.click();
+            }
+        };
+    });
 }
 
 // ==================== AUTO ATTENDANCE (MODO AUTOMÁTICO) ====================
@@ -2767,8 +2877,14 @@ async function initializeTouchMode() {
                 // Iniciar polling
                 startTouchModePolling();
             } else {
-                console.error('❌ Error al auto-iniciar modo automático:', result.message);
-                showNotification('Error al activar modo automático: ' + result.message, 'error');
+                // Si el servidor no está disponible, solo registrar en consola (no mostrar error al usuario)
+                if (result.message && result.message.includes('Servidor biométrico no disponible')) {
+                    console.warn('⚠️ Servidor biométrico no disponible - Touch Mode no iniciado');
+                    console.log('ℹ️ Inicie el servidor edge-uru-ui para habilitar el modo automático');
+                } else {
+                    console.error('❌ Error al auto-iniciar modo automático:', result.message);
+                    showNotification('Error al activar modo automático: ' + result.message, 'error');
+                }
             }
         } else {
             console.log('ℹ️ Modo automático ya estaba activo');

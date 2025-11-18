@@ -1,0 +1,65 @@
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist
+build
+*.js.map
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+doc
+docs
+*.md
+
+# Database (se montará como volumen)
+sistema-asistencia/database/*.db
+sistema-asistencia/database/*.db-shm
+sistema-asistencia/database/*.db-wal
+
+# Logs
+logs
+*.log
+
+# Test
+coverage
+.nyc_output
+
+# Temporary
+tmp
+temp
+nul
+
+# Bridge binaries (Windows específicos)
+bridge-csharp/bin
+bridge-csharp/obj
+bridge-csharp/packages
+*.dll
+*.exe
+*.pdb
