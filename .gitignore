@@ -2,6 +2,12 @@
 # ElectronJS + .NET 8 - DigitalPersona Project
 # ============================================
 
+# Claude Code session data
+.claude/
+
+# Vault scripts (derived from Vault-Obsidian-Architecture repo — not tracked here)
+vault-electron-fingerprint/scripts/
+
 # Node.js
 node_modules/
 npm-debug.log*

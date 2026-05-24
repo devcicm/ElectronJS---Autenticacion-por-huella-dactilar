@@ -1,0 +1,181 @@
+{
+  "notes": [
+    {
+      "path": "00_System/index.md",
+      "title": "index",
+      "preview": "|---| | [[vault-identity|Vault Identity]] | identity | 2026-05-24T02:54:36.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "00_System/vault-identity.md",
+      "title": "Vault Identity",
+      "preview": "Sistema de documentacion persistente para el proyecto ElectronJS de autenticacion por huella dactilar. Agente: claude. Proyecto: electron-fingerprint.",
+      "tags": [],
+      "updatedAt": "2026-05-24T02:54:36.000Z"
+    },
+    {
+      "path": "01_Projects/electron-fingerprint/envs.md",
+      "title": "Environment Variables - electron-fingerprint",
+      "preview": "# Environment Variables: electron-fingerprint  _Configuracion de desarrollo local para sistema de asistencia biometrica_  ## dev  | Nombre | Descripción | Requerida | Default | Sensible | Proveedor | ",
+      "tags": [],
+      "updatedAt": "2026-05-24T03:32:11.000Z"
+    },
+    {
+      "path": "01_Projects/electron-fingerprint/overview.md",
+      "title": "Overview: electron-fingerprint",
+      "preview": "# Overview: electron-fingerprint   ## Descripción  Aplicacion de escritorio ElectronJS para autenticacion y control de asistencia mediante huella dactilar. Motor biometrico .NET con dispositivo DP4500",
+      "tags": [],
+      "updatedAt": "2026-05-24T02:56:01.000Z"
+    },
+    {
+      "path": "01_Projects/index.md",
+      "title": "index",
+      "preview": "|---| | [[envs|Environment Variables - electron-fingerprint]] | envs | 2026-05-24T03:32:11.000Z | | [[overview|Overview: electron-fingerprint]] | project-overview | 2026-05-24T02:56:01.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "02_Observability/index.md",
+      "title": "index",
+      "preview": "# 02_Observability — Índice  > Errores, métricas, alertas y observabilidad > Generado automáticamente · 2026-05-24T03:40:39.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "05_Patterns/index.md",
+      "title": "index",
+      "preview": "# 05_Patterns — Índice  > Patrones reutilizables de código y arquitectura > Generado automáticamente · 2026-05-24T03:40:39.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "06_Diagrams/component/electron-fingerprint-arquitectura-del-sistema.md",
+      "title": "Arquitectura del Sistema",
+      "preview": "## Descripción  Arquitectura de alto nivel: Renderer HTML/TS, Main Process (Electron + services + SQLite), Motor Biometrico .NET via SSE en localhost:8080  ## Diagrama    ```mermaid graph TB     subgr",
+      "tags": [],
+      "updatedAt": "2026-05-24T03:25:58.000Z"
+    },
+    {
+      "path": "06_Diagrams/entity/electron-fingerprint-erd-schema-sqlite.md",
+      "title": "ERD Schema SQLite",
+      "preview": "## Descripción  Diagrama entidad-relacion del schema SQLite. 5 tablas: departments, shifts, employees, fingerprints, attendance_records. Clave: fingerprints.template_data almacena plantilla ISO base64",
+      "tags": [],
+      "updatedAt": "2026-05-24T03:27:14.000Z"
+    },
+    {
+      "path": "06_Diagrams/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-arquitectura-del-sistema|Arquitectura del Sistema]] |  | 2026-05-24T03:25:58.000Z | | [[electron-fingerprint-erd-schema-sqlite|ERD Schema SQLite]] |  | 2026-05-24T03:27:",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md",
+      "title": "Biometric Engine HTTP API — localhost:8080",
+      "preview": "El motor biometrico .NET expone una API HTTP REST via SSE bridge (sseBridge.ts) en localhost:8080.  **Endpoints principales:**  | Endpoint | Metodo | Descripcion | |---|---|---| | /api/init | POST | I",
+      "tags": [
+        "biometrico",
+        "api",
+        "fingerprint",
+        "electron",
+        "8080"
+      ],
+      "updatedAt": "2026-05-24T03:21:41.000Z"
+    },
+    {
+      "path": "07_Knowledge/concepts/sqlite-schema-sistema-de-asistencia.md",
+      "title": "SQLite Schema — Sistema de Asistencia",
+      "preview": "El sistema utiliza SQLite via better-sqlite3 con las siguientes entidades principales:  **Tablas:** - departments: id, name, description - shifts: id, name, start_time, end_time, tolerance_minutes - e",
+      "tags": [
+        "sqlite",
+        "schema",
+        "biometrico",
+        "asistencia"
+      ],
+      "updatedAt": "2026-05-24T03:04:58.000Z"
+    },
+    {
+      "path": "07_Knowledge/index.md",
+      "title": "index",
+      "preview": "|---| | [[biometric-engine-http-api-localhost8080|Biometric Engine HTTP API — localhost:8080]] |  | 2026-05-24T03:21:41.000Z | | [[sqlite-schema-sistema-de-asistencia|SQLite Schema — Sistema de Asiste",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "08_Runbooks/index.md",
+      "title": "index",
+      "preview": "# 08_Runbooks — Índice  > Procedimientos operativos paso a paso > Generado automáticamente · 2026-05-24T03:40:39.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "09_Infrastructure/databases/sqlite-asistencia.md",
+      "title": "sqlite-asistencia",
+      "preview": "## Descripción  Base de datos SQLite del sistema de asistencia. Almacena empleados, departamentos, turnos, plantillas biometricas ISO base64 y registros de asistencia. Acceso via better-sqlite3 en el ",
+      "tags": [
+        "sqlite",
+        "database",
+        "biometrico"
+      ],
+      "updatedAt": "2026-05-24T03:34:19.000Z"
+    },
+    {
+      "path": "09_Infrastructure/index.md",
+      "title": "index",
+      "preview": "|---| | [[sqlite-asistencia|sqlite-asistencia]] | database | 2026-05-24T03:34:19.000Z | | [[infra-map|Infrastructure Map]] |  | 2026-05-24T03:34:19.000Z | | [[biometric-engine|biometric-engine]] | ser",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "09_Infrastructure/infra-map.md",
+      "title": "Infrastructure Map",
+      "preview": "## Network Map  ```mermaid graph LR     subgraph local[\"🏠 Local\"]         biometric-engine⚙️ biometric-engine :8080         sqlite-asistencia(\"sqlite-asistencia :0)     end     sqlite-asistencia -->|\"",
+      "tags": [],
+      "updatedAt": "2026-05-24T03:34:19.000Z"
+    },
+    {
+      "path": "09_Infrastructure/services/biometric-engine.md",
+      "title": "biometric-engine",
+      "preview": "## Descripción  Servidor HTTP del motor biometrico .NET. Expone API REST para captura, enrolamiento e identificacion 1-N via dispositivo DP4500 (Edge-URU-UI SDK). Proceso hijo de Electron.   ## Config",
+      "tags": [
+        "biometrico",
+        "fingerprint",
+        "dotnet"
+      ],
+      "updatedAt": "2026-05-24T03:33:43.000Z"
+    },
+    {
+      "path": "10_Migrated/index.md",
+      "title": "index",
+      "preview": "# 10_Migrated — Índice  > Documentos migrados de otras fuentes > Generado automáticamente · 2026-05-24T03:40:39.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "11_Code/electron-fingerprint/biometricservice.md",
+      "title": "BiometricService.ts",
+      "preview": "**Ruta:** `sistema-asistencia/services/BiometricService.ts`  |  **Lenguaje:** `typescript`  |  **Tipo ISO:** `service`   ## Proposito  Servicio principal de autenticacion biometrica. Gestiona comunica",
+      "tags": [
+        "biometrico",
+        "fingerprint",
+        "sqlite",
+        "electron",
+        "electron-fingerprint",
+        "code",
+        "biometricservice",
+        "service"
+      ],
+      "updatedAt": "2026-05-24T02:58:05.000Z"
+    },
+    {
+      "path": "11_Code/index.md",
+      "title": "index",
+      "preview": "|---| | [[biometricservice|BiometricService.ts]] | code-module | 2026-05-24T02:58:05.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    }
+  ],
+  "rebuiltAt": "2026-05-24T03:41:36.000Z",
+  "totalNotes": 21
+}

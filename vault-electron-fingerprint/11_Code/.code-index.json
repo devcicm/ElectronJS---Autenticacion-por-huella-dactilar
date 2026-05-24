@@ -1,0 +1,29 @@
+{
+  "modules": [
+    {
+      "docId": "126acb19-8411-47bc-b7ee-7a3a7268382f",
+      "project": "electron-fingerprint",
+      "filePath": "sistema-asistencia/services/BiometricService.ts",
+      "title": "BiometricService.ts",
+      "relPath": "11_Code/electron-fingerprint/biometricservice.md",
+      "exports": [
+        "BiometricService",
+        "EnrollResult",
+        "IdentifyResult",
+        "CaptureResult"
+      ],
+      "language": "typescript",
+      "iso_type": "service",
+      "methods": [
+        "initBiometricServer",
+        "enrollFingerprint",
+        "identifyEmployee",
+        "captureFingerprint"
+      ],
+      "classes": [],
+      "quality": {},
+      "updatedAt": "2026-05-24T02:58:05.000Z"
+    }
+  ],
+  "relations": []
+}

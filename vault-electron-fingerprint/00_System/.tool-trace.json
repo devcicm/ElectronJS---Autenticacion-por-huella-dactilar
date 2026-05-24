@@ -1,0 +1,565 @@
+[
+  {
+    "ok": true,
+    "action": "check",
+    "current_version": "v20",
+    "target_version": "v27",
+    "pending_count": 7,
+    "pending_migrations": [
+      {
+        "version": "v21",
+        "description": "agent field, 12_Bibliography, vault_drift_detect",
+        "folders_to_create": [
+          "12_Bibliography/web",
+          "12_Bibliography/papers",
+          "12_Bibliography/docs",
+          "12_Bibliography/apis",
+          "12_Bibliography/books"
+        ],
+        "notes": [
+          "AP-16: add agent: field to new notes",
+          "vault_drift_detect mandatory in session protocol"
+        ]
+      },
+      {
+        "version": "v22",
+        "description": "vault_drift_detect snapshot/report gates",
+        "folders_to_create": [],
+        "notes": [
+          "Session protocol updated: snapshot at start, report at close"
+        ]
+      },
+      {
+        "version": "v23",
+        "description": "13_Flows, vault_code_query, IEEE 1016 in vault_code_module",
+        "folders_to_create": [
+          "13_Flows/workflow",
+          "13_Flows/pipeline",
+          "13_Flows/lifecycle",
+          "13_Flows/dataflow"
+        ],
+        "notes": [
+          "vault_code_module now supports --methods, --classes, --constants, --exceptions, --iso_type",
+          "vault_code_query: recursive index querying by file/method/class"
+        ]
+      },
+      {
+        "version": "v24",
+        "description": "ISO 25010/29148/29119/42001",
+        "folders_to_create": [
+          "14_Requirements",
+          "15_Tests/unit",
+          "15_Tests/integration",
+          "15_Tests/e2e",
+          "15_Tests/performance",
+          "15_Tests/security",
+          "15_Tests/acceptance",
+          "16_AI_Governance/decisions"
+        ],
+        "notes": [
+          "vault_code_module --quality for ISO 25010",
+          "vault_requirement_save: ISO/IEC/IEEE 29148:2018",
+          "vault_test_save: ISO/IEC/IEEE 29119-3:2021",
+          "vault_ai_decision: ISO/IEC 42001:2023"
+        ]
+      },
+      {
+        "version": "v25",
+        "description": "AP-17~21, PAT-1~5, vault_change_log, vault_standard_upgrade",
+        "folders_to_create": [],
+        "notes": [
+          "vault_write guards: AP-20 empty list ratio, AP-21 path-anchored wiki-links",
+          "vault_section_index: stem-only wiki-links (AP-21 fix)",
+          "vault_audit: AP-17 fuzzy title detection, AP-18 cross-folder hash detection",
+          "vault_change_log: mandatory before note deletions",
+          "vault_standard_upgrade: version gap detection and migration"
+        ]
+      },
+      {
+        "version": "v26",
+        "description": "emit_ok envelope, contracts, manifest, test runner, profiles, validate",
+        "folders_to_create": [],
+        "notes": [
+          "vault_compact_contracts: genera tool-contracts.{json,md} desde los scripts",
+          "vault_manifest: genera tools-manifest.json con estado active/deprecated/internal",
+          "vault_test_runner: smoke/contracts/errors test suite (56/56 passing)",
+          "vault_errors: emit_ok(), envelope tool+timestamp automatico en wrap_main",
+          "vault_standard_upgrade: --validate compliance check, --set-profile minimal|standard|full",
+          "vault_audit: excluye index.md/README.md de AP-17 (eran falsos positivos)",
+          "vault_project_status: statusPath -> path; vault_relation_add: erdPath -> path"
+        ]
+      },
+      {
+        "version": "v27",
+        "description": "Data Quality framework, CIA schema, 8 Data Fundamentals, graph-aware propagation",
+        "folders_to_create": [],
+        "notes": [
+          "vault_fundamentals: 8 Data Fundamentals registry (INTEGRIDAD, CONSISTENCIA, COMPLETITUD, EXACTITUD, VALIDEZ, ACTUALIDAD, AUTENTICIDAD, NO_REPUDIO)",
+          "vault_quality_check: DQ scorer extended to 9 dimensions matching the 8 fundamentals + uniqueness",
+          "vault_impact: BFS impact analysis on reverse backlink graph (uses 99_Index/graph.json)",
+          "vault_propagate: 3 strategies (conservative/transitive/critical-path), 3 actions (notify/queue/reindex)",
+          "vault_validate: CIA field validation + agent field validation (F7 AUTENTICIDAD)",
+          "vault_change_log: --propagate flag triggers vault_impact + vault_propagate; provides F8 NO_REPUDIO",
+          "vault_audit: --refresh-dq flag, dqHealth block, propagationPending, CIA-weighted health score",
+          "vault_manifest: DQ/CIA/data_fundamentals metadata per tool, 'Data Quality' + 'Propagación' groups",
+          "00_System/data-fundamentals.json: canonical registry of the 8 fundamentals (regenerable)",
+          "00_System/data-fundamentals.md: human-readable reference with verification rules per principle",
+          "00_System/quality-index.json: DQ scores per note with file_lock coordination",
+          "00_System/propagation-queue.json: pending propagation items with priority"
+        ]
+      }
+    ],
+    "tool": "vault_standard_upgrade",
+    "timestamp": "2026-05-23T20:49:52Z"
+  },
+  {
+    "ok": true,
+    "action": "init",
+    "applied_version": "v27",
+    "path": "00_System/standard-version.json",
+    "tool": "vault_standard_upgrade",
+    "timestamp": "2026-05-23T20:52:09Z"
+  },
+  {
+    "ok": true,
+    "action": "none",
+    "message": "Vault is up to date at v27. No migrations needed.",
+    "current_version": "v27",
+    "target_version": "v27",
+    "tool": "vault_standard_upgrade",
+    "timestamp": "2026-05-23T20:53:12Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 100,
+    "stats": {
+      "total": 0,
+      "byFolder": {}
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [],
+      "canonicalShadow": [],
+      "crossFolderDuplicates": []
+    },
+    "summary": "Score: 100/100 · 0 notas",
+    "tool": "vault_audit",
+    "timestamp": "2026-05-23T20:53:51Z"
+  },
+  {
+    "ok": true,
+    "path": "00_System/index.md",
+    "noteCount": 1,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T20:54:37Z"
+  },
+  {
+    "ok": true,
+    "path": "00_System/vault-identity.md",
+    "id": "9ad1840b-b3bf-4055-b16b-cae90750cfc3",
+    "filename": "vault-identity.md",
+    "tags": [],
+    "wikiLinks": [],
+    "created": true,
+    "message": "Note created successfully",
+    "tool": "vault_write",
+    "timestamp": "2026-05-23T20:54:37Z"
+  },
+  {
+    "ok": true,
+    "path": "01_Projects/electron-fingerprint/overview.md",
+    "sections": [
+      "Stack técnico"
+    ],
+    "tool": "vault_project_overview",
+    "timestamp": "2026-05-23T20:56:01Z"
+  },
+  {
+    "ok": true,
+    "path": "11_Code/electron-fingerprint/biometricservice.md",
+    "project": "electron-fingerprint",
+    "file_path": "sistema-asistencia/services/BiometricService.ts",
+    "action": "created",
+    "has_class_diagram": false,
+    "mapRegenerated": false,
+    "tool": "vault_code_module",
+    "timestamp": "2026-05-23T20:58:05Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge\\concepts\\sqlite-schema-sistema-de-asistencia.md",
+    "category": "concept",
+    "title": "SQLite Schema — Sistema de Asistencia",
+    "message": "Knowledge note saved to concepts/",
+    "tool": "vault_knowledge_save",
+    "timestamp": "2026-05-23T21:04:58Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge\\apis\\biometric-engine-http-api-localhost8080.md",
+    "category": "api",
+    "title": "Biometric Engine HTTP API — localhost:8080",
+    "message": "Knowledge note saved to apis/",
+    "tool": "vault_knowledge_save",
+    "timestamp": "2026-05-23T21:21:41Z"
+  },
+  {
+    "ok": true,
+    "path": "06_Diagrams\\component\\electron-fingerprint-arquitectura-del-sistema.md",
+    "type": "mermaid",
+    "category": "component",
+    "message": "Diagram 'Arquitectura del Sistema' saved to component/",
+    "tool": "vault_diagram_save",
+    "timestamp": "2026-05-23T21:25:58Z"
+  },
+  {
+    "ok": true,
+    "path": "06_Diagrams\\entity\\electron-fingerprint-erd-schema-sqlite.md",
+    "type": "mermaid",
+    "category": "entity",
+    "message": "Diagram 'ERD Schema SQLite' saved to entity/",
+    "tool": "vault_diagram_save",
+    "timestamp": "2026-05-23T21:27:14Z"
+  },
+  {
+    "ok": true,
+    "path": "13_Flows/workflow/electron-fingerprint-identificacion-biometrica-1-n.md",
+    "type": "workflow",
+    "action": "created",
+    "tool": "vault_flow_save",
+    "timestamp": "2026-05-23T21:30:40Z"
+  },
+  {
+    "ok": true,
+    "path": "13_Flows/workflow/electron-fingerprint-enrolamiento-de-huella-dactilar.md",
+    "type": "workflow",
+    "action": "created",
+    "tool": "vault_flow_save",
+    "timestamp": "2026-05-23T21:31:17Z"
+  },
+  {
+    "ok": true,
+    "path": "01_Projects\\electron-fingerprint\\envs.md",
+    "environment": "dev",
+    "varCount": 5,
+    "message": "envs.md updated with 5 variables for dev",
+    "tool": "vault_env_save",
+    "timestamp": "2026-05-23T21:32:11Z"
+  },
+  {
+    "ok": true,
+    "path": "09_Infrastructure/services/biometric-engine.md",
+    "type": "service",
+    "infraMapUpdated": true,
+    "tool": "vault_infra_save",
+    "timestamp": "2026-05-23T21:33:43Z"
+  },
+  {
+    "ok": true,
+    "path": "09_Infrastructure/databases/sqlite-asistencia.md",
+    "type": "database",
+    "infraMapUpdated": true,
+    "tool": "vault_infra_save",
+    "timestamp": "2026-05-23T21:34:19Z"
+  },
+  {
+    "ok": true,
+    "indexed": 12,
+    "skipped": 0,
+    "dry_run": false,
+    "path": "99_Index/search-index.json",
+    "tool": "vault_reindex",
+    "timestamp": "2026-05-23T21:39:13Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 76,
+    "stats": {
+      "total": 13,
+      "byFolder": {
+        "00_System": 1,
+        "01_Projects": 2,
+        "06_Diagrams": 2,
+        "07_Knowledge": 2,
+        "09_Infrastructure": 3,
+        "11_Code": 1,
+        "13_Flows": 2
+      }
+    },
+    "issues": {
+      "orphans": [
+        {
+          "path": "09_Infrastructure/infra-map.md",
+          "title": "Infrastructure Map",
+          "daysOld": -1
+        },
+        {
+          "path": "13_Flows/workflow/electron-fingerprint-enrolamiento-de-huella-dactilar.md",
+          "title": "Enrolamiento de Huella Dactilar",
+          "daysOld": -1
+        },
+        {
+          "path": "13_Flows/workflow/electron-fingerprint-identificacion-biometrica-1-n.md",
+          "title": "Identificacion Biometrica 1-N",
+          "daysOld": -1
+        },
+        {
+          "path": "11_Code/electron-fingerprint/biometricservice.md",
+          "title": "BiometricService.ts",
+          "daysOld": -1
+        },
+        {
+          "path": "09_Infrastructure/databases/sqlite-asistencia.md",
+          "title": "sqlite-asistencia",
+          "daysOld": -1
+        },
+        {
+          "path": "09_Infrastructure/services/biometric-engine.md",
+          "title": "biometric-engine",
+          "daysOld": -1
+        },
+        {
+          "path": "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md",
+          "title": "Biometric Engine HTTP API — localhost:8080",
+          "daysOld": -1
+        },
+        {
+          "path": "07_Knowledge/concepts/sqlite-schema-sistema-de-asistencia.md",
+          "title": "SQLite Schema — Sistema de Asistencia",
+          "daysOld": -1
+        },
+        {
+          "path": "06_Diagrams/component/electron-fingerprint-arquitectura-del-sistema.md",
+          "title": "Arquitectura del Sistema",
+          "daysOld": -1
+        },
+        {
+          "path": "06_Diagrams/entity/electron-fingerprint-erd-schema-sqlite.md",
+          "title": "ERD Schema SQLite",
+          "daysOld": -1
+        },
+        {
+          "path": "01_Projects/electron-fingerprint/envs.md",
+          "title": "Environment Variables - electron-fingerprint",
+          "daysOld": -1
+        },
+        {
+          "path": "01_Projects/electron-fingerprint/overview.md",
+          "title": "Overview: electron-fingerprint",
+          "daysOld": -1
+        }
+      ],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [],
+      "canonicalShadow": [],
+      "crossFolderDuplicates": []
+    },
+    "summary": "Score: 76/100 · 13 notas · 12 huerfanas",
+    "tool": "vault_audit",
+    "timestamp": "2026-05-23T21:39:58Z"
+  },
+  {
+    "ok": true,
+    "path": "99_Index/index.md",
+    "sectionsTotal": 12,
+    "notesTotal": 11,
+    "tool": "vault_master_index",
+    "timestamp": "2026-05-23T21:40:39Z"
+  },
+  {
+    "ok": true,
+    "indexed": 21,
+    "skipped": 0,
+    "dry_run": false,
+    "path": "99_Index/search-index.json",
+    "tool": "vault_reindex",
+    "timestamp": "2026-05-23T21:41:36Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 80,
+    "stats": {
+      "total": 13,
+      "byFolder": {
+        "00_System": 1,
+        "01_Projects": 2,
+        "06_Diagrams": 2,
+        "07_Knowledge": 2,
+        "09_Infrastructure": 3,
+        "11_Code": 1,
+        "13_Flows": 2
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [
+        {
+          "from": "99_Index/index.md",
+          "link": "00_System/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "01_Projects/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "02_Observability/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "05_Patterns/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "06_Diagrams/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "08_Runbooks/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "10_Migrated/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "11_Code/index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "99_Index/search-index"
+        },
+        {
+          "from": "99_Index/index.md",
+          "link": "99_Index/graph"
+        }
+      ],
+      "canonicalShadow": [],
+      "crossFolderDuplicates": []
+    },
+    "summary": "Score: 80/100 · 13 notas · 12 links rotos",
+    "tool": "vault_audit",
+    "timestamp": "2026-05-23T21:41:36Z"
+  },
+  {
+    "ok": true,
+    "path": "00_System/index.md",
+    "noteCount": 1,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:38Z"
+  },
+  {
+    "ok": true,
+    "path": "01_Projects/index.md",
+    "noteCount": 2,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:41Z"
+  },
+  {
+    "ok": true,
+    "path": "02_Observability/index.md",
+    "noteCount": 0,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:42Z"
+  },
+  {
+    "ok": true,
+    "path": "05_Patterns/index.md",
+    "noteCount": 0,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:46Z"
+  },
+  {
+    "ok": true,
+    "path": "06_Diagrams/index.md",
+    "noteCount": 2,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:49Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/index.md",
+    "noteCount": 2,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:51Z"
+  },
+  {
+    "ok": true,
+    "path": "08_Runbooks/index.md",
+    "noteCount": 0,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:51Z"
+  },
+  {
+    "ok": true,
+    "path": "09_Infrastructure/index.md",
+    "noteCount": 3,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:51Z"
+  },
+  {
+    "ok": true,
+    "path": "10_Migrated/index.md",
+    "noteCount": 0,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:51Z"
+  },
+  {
+    "ok": true,
+    "path": "11_Code/index.md",
+    "noteCount": 1,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:51Z"
+  },
+  {
+    "ok": true,
+    "path": "99_Index/index.md",
+    "noteCount": 0,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-23T21:42:51Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 100,
+    "stats": {
+      "total": 13,
+      "byFolder": {
+        "00_System": 1,
+        "01_Projects": 2,
+        "06_Diagrams": 2,
+        "07_Knowledge": 2,
+        "09_Infrastructure": 3,
+        "11_Code": 1,
+        "13_Flows": 2
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [],
+      "canonicalShadow": [],
+      "crossFolderDuplicates": []
+    },
+    "summary": "Score: 100/100 · 13 notas",
+    "tool": "vault_audit",
+    "timestamp": "2026-05-23T21:43:08Z"
+  }
+]

@@ -1,0 +1,50 @@
+{
+  "components": [
+    {
+      "id": "6cdaf9d0-6b4e-4a83-82e7-d2c08570efbb",
+      "name": "biometric-engine",
+      "type": "service",
+      "location": "local",
+      "config": {
+        "ip": "127.0.0.1",
+        "port": 8080,
+        "protocol": "HTTP",
+        "runtime": ".NET Framework 4.7.2",
+        "sdk": "Edge-URU-UI DP4500"
+      },
+      "connections": [],
+      "project": "electron-fingerprint",
+      "status": "active",
+      "updatedAt": "2026-05-24T03:33:43.000Z"
+    },
+    {
+      "id": "bce71118-6594-4ea9-bf92-5f590cc33cca",
+      "name": "sqlite-asistencia",
+      "type": "database",
+      "location": "local",
+      "config": {
+        "port": 0,
+        "version": "3.x",
+        "driver": "better-sqlite3",
+        "schema": "5 tablas + 3 vistas + triggers",
+        "file": "./data/asistencia.db"
+      },
+      "connections": [
+        {
+          "to": "biometric-engine",
+          "protocol": "N/A",
+          "description": "BiometricService carga plantillas de SQLite y las envia al motor"
+        }
+      ],
+      "project": "electron-fingerprint",
+      "status": "active",
+      "updatedAt": "2026-05-24T03:34:19.000Z"
+    }
+  ],
+  "locations": {
+    "local": [
+      "biometric-engine",
+      "sqlite-asistencia"
+    ]
+  }
+}
