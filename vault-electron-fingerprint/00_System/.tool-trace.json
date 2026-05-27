@@ -561,5 +561,579 @@
     "summary": "Score: 100/100 · 13 notas",
     "tool": "vault_audit",
     "timestamp": "2026-05-23T21:43:08Z"
+  },
+  {
+    "ok": true,
+    "action": "snapshot",
+    "notes_hashed": 24,
+    "dry_run": false,
+    "hash_index": "99_Index/hash-index.json",
+    "tool": "vault_delta",
+    "timestamp": "2026-05-27T02:04:41Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/index.md",
+    "noteCount": 3,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-27T02:05:39Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/concepts/test-v29-delta.md",
+    "id": "33a399ff-c61a-4a88-ac0a-5f355ffbf377",
+    "filename": "test-v29-delta.md",
+    "tags": [
+      "test",
+      "v29",
+      "delta"
+    ],
+    "wikiLinks": [],
+    "created": true,
+    "message": "Note created successfully",
+    "tool": "vault_write",
+    "timestamp": "2026-05-27T02:05:39Z"
+  },
+  {
+    "ok": true,
+    "changed": [
+      "07_Knowledge/index.md"
+    ],
+    "added": [
+      "07_Knowledge/concepts/test-v29-delta.md"
+    ],
+    "deleted": [],
+    "stale_deps": [],
+    "total_changed": 2,
+    "summary": "1 modificada(s), 1 nueva(s) · 0 dependencia(s) potencialmente obsoleta(s)",
+    "dry_run": true,
+    "hash_index_updated": false,
+    "tool": "vault_delta",
+    "timestamp": "2026-05-27T02:05:52Z"
+  },
+  {
+    "ok": true,
+    "total_tags": 19,
+    "total_tagged_notes": 32,
+    "total_untagged_notes": 6,
+    "tag_registry": "00_System/tag-registry.json",
+    "tag_index": "99_Index/tag-index.md",
+    "dry_run": false,
+    "tool": "vault_tags",
+    "timestamp": "2026-05-27T02:06:07Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/index.md",
+    "noteCount": 3,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-27T02:09:36Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/concepts/test-v29-delta.md",
+    "id": "2fcc3ed5-20f6-4eb6-9101-f3b6c1dbb6e9",
+    "filename": "test-v29-delta.md",
+    "tags": [
+      "test",
+      "v29",
+      "delta",
+      "hash"
+    ],
+    "wikiLinks": [],
+    "created": false,
+    "message": "Note updated successfully",
+    "tool": "vault_write",
+    "timestamp": "2026-05-27T02:09:36Z"
+  },
+  {
+    "ok": true,
+    "changed": [
+      "07_Knowledge/index.md"
+    ],
+    "added": [
+      "07_Knowledge/concepts/test-v29-delta.md",
+      "99_Index/tag-index.md"
+    ],
+    "deleted": [],
+    "stale_deps": [],
+    "total_changed": 3,
+    "summary": "1 modificada(s), 2 nueva(s) · 0 dependencia(s) potencialmente obsoleta(s)",
+    "dry_run": false,
+    "hash_index_updated": true,
+    "tool": "vault_delta",
+    "timestamp": "2026-05-27T02:10:05Z"
+  },
+  {
+    "ok": true,
+    "health_score": 73,
+    "total_tags": 19,
+    "total_tagged_notes": 32,
+    "total_untagged_notes": 6,
+    "orphaned_tags": [],
+    "near_duplicate_pairs": [
+      {
+        "tag_a": "biometricservice",
+        "tag_b": "service",
+        "score": 0.85,
+        "counts": {
+          "a": 1,
+          "b": 1
+        }
+      },
+      {
+        "tag_a": "electron",
+        "tag_b": "electron-fingerprint",
+        "score": 0.85,
+        "counts": {
+          "a": 2,
+          "b": 3
+        }
+      },
+      {
+        "tag_a": "electron-fingerprint",
+        "tag_b": "fingerprint",
+        "score": 0.85,
+        "counts": {
+          "a": 3,
+          "b": 3
+        }
+      },
+      {
+        "tag_a": "flow",
+        "tag_b": "workflow",
+        "score": 0.85,
+        "counts": {
+          "a": 2,
+          "b": 2
+        }
+      },
+      {
+        "tag_a": "biometrico",
+        "tag_b": "biometricservice",
+        "score": 0.71,
+        "counts": {
+          "a": 5,
+          "b": 1
+        }
+      }
+    ],
+    "singleton_tags": [
+      "8080",
+      "api",
+      "asistencia",
+      "biometricservice",
+      "code",
+      "database",
+      "delta",
+      "dotnet",
+      "schema",
+      "service",
+      "test",
+      "v29"
+    ],
+    "untagged_notes": [
+      "00_System/vault-identity.md",
+      "01_Projects/electron-fingerprint/envs.md",
+      "01_Projects/electron-fingerprint/overview.md",
+      "06_Diagrams/component/electron-fingerprint-arquitectura-del-sistema.md",
+      "06_Diagrams/entity/electron-fingerprint-erd-schema-sqlite.md",
+      "09_Infrastructure/infra-map.md"
+    ],
+    "summary": "Score 73/100 · 19 tags · 0 huerfanos · 5 near-dupes · 6 notas sin tag",
+    "registry_at": "2026-05-27T08:06:07.000Z",
+    "tool": "vault_tags",
+    "timestamp": "2026-05-27T02:10:46Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 98,
+    "stats": {
+      "total": 15,
+      "byFolder": {
+        "00_System": 1,
+        "01_Projects": 2,
+        "06_Diagrams": 2,
+        "07_Knowledge": 3,
+        "09_Infrastructure": 3,
+        "11_Code": 1,
+        "13_Flows": 2,
+        "99_Index": 1
+      }
+    },
+    "issues": {
+      "orphans": [
+        {
+          "path": "99_Index/tag-index.md",
+          "title": "Tag Index",
+          "daysOld": -1
+        }
+      ],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [],
+      "canonicalShadow": [],
+      "crossFolderDuplicates": []
+    },
+    "summary": "Score: 98/100 · 15 notas · 1 huerfanas",
+    "tagHealth": {
+      "total_tags": 19,
+      "orphaned_tags": [],
+      "near_duplicate_pairs": 4,
+      "untagged_notes_count": 6,
+      "tag_health_score": 76,
+      "registry_at": "2026-05-27T08:06:07.000Z"
+    },
+    "tool": "vault_audit",
+    "timestamp": "2026-05-27T02:11:01Z"
+  },
+  {
+    "ok": true,
+    "name": "vault-2026-05-27-081120-test-v29-merkle",
+    "path": "vault-backups/vault-2026-05-27-081120-test-v29-merkle/",
+    "manifest": {
+      "sections": [
+        {
+          "folder": "00_System",
+          "notes": 2,
+          "files": 5,
+          "sizeKB": 27.0
+        },
+        {
+          "folder": "01_Projects",
+          "notes": 3,
+          "files": 3,
+          "sizeKB": 2.8
+        },
+        {
+          "folder": "02_Observability",
+          "notes": 1,
+          "files": 1,
+          "sizeKB": 0.2
+        },
+        {
+          "folder": "05_Patterns",
+          "notes": 1,
+          "files": 1,
+          "sizeKB": 0.2
+        },
+        {
+          "folder": "06_Diagrams",
+          "notes": 3,
+          "files": 3,
+          "sizeKB": 3.1
+        },
+        {
+          "folder": "07_Knowledge",
+          "notes": 4,
+          "files": 4,
+          "sizeKB": 4.1
+        },
+        {
+          "folder": "08_Runbooks",
+          "notes": 1,
+          "files": 1,
+          "sizeKB": 0.2
+        },
+        {
+          "folder": "09_Infrastructure",
+          "notes": 4,
+          "files": 5,
+          "sizeKB": 3.6
+        },
+        {
+          "folder": "10_Migrated",
+          "notes": 1,
+          "files": 1,
+          "sizeKB": 0.2
+        },
+        {
+          "folder": "11_Code",
+          "notes": 2,
+          "files": 3,
+          "sizeKB": 2.8
+        },
+        {
+          "folder": "13_Flows",
+          "notes": 2,
+          "files": 2,
+          "sizeKB": 3.2
+        },
+        {
+          "folder": "99_Index",
+          "notes": 2,
+          "files": 4,
+          "sizeKB": 15.9
+        },
+        {
+          "folder": "scripts",
+          "notes": 1,
+          "files": 87,
+          "sizeKB": 1006.3
+        }
+      ],
+      "totals": {
+        "notes": 27,
+        "files": 120,
+        "sizeKB": 1069.6
+      }
+    },
+    "merkle_root": "549f7b6be2375fefc81349ff3c1ea892fd034423a23b7a538efac0295c7deacc",
+    "merkle_file_count": 120,
+    "tool": "vault_backup",
+    "timestamp": "2026-05-27T02:11:21Z"
+  },
+  {
+    "ok": true,
+    "backup": "vault-2026-05-27-081120-test-v29-merkle",
+    "intact": true,
+    "stored_merkle_root": "549f7b6be2375fefc81349ff3c1ea892fd034423a23b7a538efac0295c7deacc",
+    "current_merkle_root": "549f7b6be2375fefc81349ff3c1ea892fd034423a23b7a538efac0295c7deacc",
+    "stored_file_count": 120,
+    "current_file_count": 120,
+    "status": "OK — backup integro",
+    "tool": "vault_backup",
+    "timestamp": "2026-05-27T02:11:35Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/concepts/test-v29-delta.md",
+    "current_tags": [
+      "delta",
+      "hash",
+      "test",
+      "v29"
+    ],
+    "suggestions": [],
+    "canonical_tag_count": 19,
+    "tool": "vault_tags",
+    "timestamp": "2026-05-27T02:12:49Z"
+  },
+  {
+    "ok": true,
+    "old_tag": "electron",
+    "new_tag": "electron-fingerprint",
+    "updated_count": 2,
+    "updated_notes": [
+      "11_Code/electron-fingerprint/biometricservice.md",
+      "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md"
+    ],
+    "skipped": [],
+    "dry_run": false,
+    "tool": "vault_tags",
+    "timestamp": "2026-05-27T02:16:47Z"
+  },
+  {
+    "ok": true,
+    "old_tag": "flow",
+    "new_tag": "workflow",
+    "updated_count": 2,
+    "updated_notes": [
+      "13_Flows/workflow/electron-fingerprint-enrolamiento-de-huella-dactilar.md",
+      "13_Flows/workflow/electron-fingerprint-identificacion-biometrica-1-n.md"
+    ],
+    "skipped": [],
+    "dry_run": false,
+    "tool": "vault_tags",
+    "timestamp": "2026-05-27T02:16:59Z"
+  },
+  {
+    "ok": true,
+    "old_tag": "biometricservice",
+    "new_tag": "biometrico",
+    "updated_count": 1,
+    "updated_notes": [
+      "11_Code/electron-fingerprint/biometricservice.md"
+    ],
+    "skipped": [],
+    "dry_run": false,
+    "tool": "vault_tags",
+    "timestamp": "2026-05-27T02:17:00Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/index.md",
+    "noteCount": 3,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-27T02:17:41Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/concepts/test-v29-delta.md",
+    "id": "2fcc3ed5-20f6-4eb6-9101-f3b6c1dbb6e9",
+    "filename": "test-v29-delta.md",
+    "tags": [
+      "test",
+      "electron-fingerprint",
+      "database"
+    ],
+    "wikiLinks": [],
+    "created": false,
+    "message": "Note updated successfully",
+    "tool": "vault_write",
+    "timestamp": "2026-05-27T02:17:41Z"
+  },
+  {
+    "ok": true,
+    "health_score": 83,
+    "total_tags": 17,
+    "total_tagged_notes": 33,
+    "total_untagged_notes": 7,
+    "orphaned_tags": [],
+    "near_duplicate_pairs": [
+      {
+        "tag_a": "electron-fingerprint",
+        "tag_b": "fingerprint",
+        "score": 0.85,
+        "counts": {
+          "a": 5,
+          "b": 3
+        }
+      }
+    ],
+    "singleton_tags": [
+      "8080",
+      "api",
+      "asistencia",
+      "code",
+      "database",
+      "delta",
+      "dotnet",
+      "hash",
+      "schema",
+      "service",
+      "test",
+      "v29"
+    ],
+    "untagged_notes": [
+      "00_System/vault-identity.md",
+      "01_Projects/electron-fingerprint/envs.md",
+      "01_Projects/electron-fingerprint/overview.md",
+      "06_Diagrams/component/electron-fingerprint-arquitectura-del-sistema.md",
+      "06_Diagrams/entity/electron-fingerprint-erd-schema-sqlite.md",
+      "09_Infrastructure/infra-map.md",
+      "99_Index/tag-index.md"
+    ],
+    "summary": "Score 83/100 · 17 tags · 0 huerfanos · 1 near-dupes · 7 notas sin tag",
+    "registry_at": "2026-05-27T08:17:00.000Z",
+    "tool": "vault_tags",
+    "timestamp": "2026-05-27T02:17:51Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/index.md",
+    "noteCount": 4,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-27T02:27:02Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/concepts/nota-ghost-link.md",
+    "id": "051ba6cb-3f52-4893-b671-758a0eddf515",
+    "filename": "nota-ghost-link.md",
+    "tags": [
+      "test",
+      "electron-fingerprint"
+    ],
+    "wikiLinks": [
+      "biometricservice",
+      "nota-que-no-existe-en-ningun-lado"
+    ],
+    "created": true,
+    "message": "Note created successfully",
+    "ghost_links": [
+      "nota-que-no-existe-en-ningun-lado"
+    ],
+    "tool": "vault_write",
+    "timestamp": "2026-05-27T02:27:02Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 98,
+    "stats": {
+      "total": 15,
+      "byFolder": {
+        "00_System": 1,
+        "01_Projects": 2,
+        "06_Diagrams": 2,
+        "07_Knowledge": 3,
+        "09_Infrastructure": 3,
+        "11_Code": 1,
+        "13_Flows": 2,
+        "99_Index": 1
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [
+        {
+          "from": "07_Knowledge/index.md",
+          "link": "nota-ghost-link"
+        }
+      ],
+      "canonicalShadow": [],
+      "crossFolderDuplicates": [],
+      "malformedWikilinks": []
+    },
+    "summary": "Score: 98/100 · 15 notas · 1 link roto",
+    "tagHealth": {
+      "total_tags": 17,
+      "orphaned_tags": [],
+      "near_duplicate_pairs": 1,
+      "untagged_notes_count": 7,
+      "tag_health_score": 83,
+      "registry_at": "2026-05-27T08:17:00.000Z"
+    },
+    "tool": "vault_audit",
+    "timestamp": "2026-05-27T02:27:19Z"
+  },
+  {
+    "ok": true,
+    "path": "07_Knowledge/index.md",
+    "noteCount": 3,
+    "tool": "vault_section_index",
+    "timestamp": "2026-05-27T02:27:56Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 100,
+    "stats": {
+      "total": 15,
+      "byFolder": {
+        "00_System": 1,
+        "01_Projects": 2,
+        "06_Diagrams": 2,
+        "07_Knowledge": 3,
+        "09_Infrastructure": 3,
+        "11_Code": 1,
+        "13_Flows": 2,
+        "99_Index": 1
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [],
+      "canonicalShadow": [],
+      "crossFolderDuplicates": [],
+      "malformedWikilinks": []
+    },
+    "summary": "Score: 100/100 · 15 notas",
+    "tagHealth": {
+      "total_tags": 17,
+      "orphaned_tags": [],
+      "near_duplicate_pairs": 1,
+      "untagged_notes_count": 7,
+      "tag_health_score": 83,
+      "registry_at": "2026-05-27T08:17:00.000Z"
+    },
+    "tool": "vault_audit",
+    "timestamp": "2026-05-27T02:27:57Z"
   }
 ]
