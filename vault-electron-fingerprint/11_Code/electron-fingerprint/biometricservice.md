@@ -8,7 +8,7 @@ language: typescript
 iso_type: service
 createdAt: 2026-05-24T02:58:05.000Z
 updatedAt: 2026-05-24T02:58:05.000Z
-tags: ["biometrico", "fingerprint", "sqlite", "electron", "electron-fingerprint", "code", "biometricservice", "service"]
+tags: ["biometrico", "fingerprint", "sqlite", "electron-fingerprint", "electron-fingerprint", "code", "biometrico", "service"]
 ---
 
 **Ruta:** `sistema-asistencia/services/BiometricService.ts`  |  **Lenguaje:** `typescript`  |  **Tipo ISO:** `service`

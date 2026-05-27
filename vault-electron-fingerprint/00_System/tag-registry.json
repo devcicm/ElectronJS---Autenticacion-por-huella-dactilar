@@ -1,0 +1,135 @@
+{
+  "updatedAt": "2026-05-27T08:17:00.000Z",
+  "total_tags": 17,
+  "total_tagged_notes": 33,
+  "total_untagged_notes": 7,
+  "tags": {
+    "8080": {
+      "notes": [
+        "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md"
+      ],
+      "count": 1
+    },
+    "api": {
+      "notes": [
+        "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md"
+      ],
+      "count": 1
+    },
+    "asistencia": {
+      "notes": [
+        "07_Knowledge/concepts/sqlite-schema-sistema-de-asistencia.md"
+      ],
+      "count": 1
+    },
+    "biometrico": {
+      "notes": [
+        "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md",
+        "07_Knowledge/concepts/sqlite-schema-sistema-de-asistencia.md",
+        "09_Infrastructure/databases/sqlite-asistencia.md",
+        "09_Infrastructure/services/biometric-engine.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md"
+      ],
+      "count": 6
+    },
+    "code": {
+      "notes": [
+        "11_Code/electron-fingerprint/biometricservice.md"
+      ],
+      "count": 1
+    },
+    "database": {
+      "notes": [
+        "09_Infrastructure/databases/sqlite-asistencia.md"
+      ],
+      "count": 1
+    },
+    "delta": {
+      "notes": [
+        "07_Knowledge/concepts/test-v29-delta.md"
+      ],
+      "count": 1
+    },
+    "dotnet": {
+      "notes": [
+        "09_Infrastructure/services/biometric-engine.md"
+      ],
+      "count": 1
+    },
+    "electron-fingerprint": {
+      "notes": [
+        "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "13_Flows/workflow/electron-fingerprint-enrolamiento-de-huella-dactilar.md",
+        "13_Flows/workflow/electron-fingerprint-identificacion-biometrica-1-n.md"
+      ],
+      "count": 5
+    },
+    "fingerprint": {
+      "notes": [
+        "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md",
+        "09_Infrastructure/services/biometric-engine.md",
+        "11_Code/electron-fingerprint/biometricservice.md"
+      ],
+      "count": 3
+    },
+    "hash": {
+      "notes": [
+        "07_Knowledge/concepts/test-v29-delta.md"
+      ],
+      "count": 1
+    },
+    "schema": {
+      "notes": [
+        "07_Knowledge/concepts/sqlite-schema-sistema-de-asistencia.md"
+      ],
+      "count": 1
+    },
+    "service": {
+      "notes": [
+        "11_Code/electron-fingerprint/biometricservice.md"
+      ],
+      "count": 1
+    },
+    "sqlite": {
+      "notes": [
+        "07_Knowledge/concepts/sqlite-schema-sistema-de-asistencia.md",
+        "09_Infrastructure/databases/sqlite-asistencia.md",
+        "11_Code/electron-fingerprint/biometricservice.md"
+      ],
+      "count": 3
+    },
+    "test": {
+      "notes": [
+        "07_Knowledge/concepts/test-v29-delta.md"
+      ],
+      "count": 1
+    },
+    "v29": {
+      "notes": [
+        "07_Knowledge/concepts/test-v29-delta.md"
+      ],
+      "count": 1
+    },
+    "workflow": {
+      "notes": [
+        "13_Flows/workflow/electron-fingerprint-enrolamiento-de-huella-dactilar.md",
+        "13_Flows/workflow/electron-fingerprint-enrolamiento-de-huella-dactilar.md",
+        "13_Flows/workflow/electron-fingerprint-identificacion-biometrica-1-n.md",
+        "13_Flows/workflow/electron-fingerprint-identificacion-biometrica-1-n.md"
+      ],
+      "count": 4
+    }
+  },
+  "untagged_notes": [
+    "00_System/vault-identity.md",
+    "01_Projects/electron-fingerprint/envs.md",
+    "01_Projects/electron-fingerprint/overview.md",
+    "06_Diagrams/component/electron-fingerprint-arquitectura-del-sistema.md",
+    "06_Diagrams/entity/electron-fingerprint-erd-schema-sqlite.md",
+    "09_Infrastructure/infra-map.md",
+    "99_Index/tag-index.md"
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "snapshot_at": "2026-05-27T08:10:05.000Z",
+  "notes": {
+    "00_System/index.md": {
+      "hash": "1c3e21bd961a92a9660c91044eb07f3a4e8a70b635f1d93e1f7d82c9e4d4c431",
+      "size": 263,
+      "cia_integrity": "medium"
+    },
+    "00_System/vault-identity.md": {
+      "hash": "d6088ae57bd385cd5b875feef07fb77b08679f55d979d12ad27361a11131c315",
+      "size": 392,
+      "cia_integrity": "high"
+    },
+    "01_Projects/index.md": {
+      "hash": "05fcd9e4554b7dea11785f32fbc9d91259ba142647982ae6c85077772b95be14",
+      "size": 378,
+      "cia_integrity": "medium"
+    },
+    "02_Observability/index.md": {
+      "hash": "a11261cd48539e77094a34b8484f125d11d463a8429ed4cdf12808d0afaf249e",
+      "size": 179,
+      "cia_integrity": "medium"
+    },
+    "05_Patterns/index.md": {
+      "hash": "225faf436ca668a526e0bc802a8a3754df34760dffd704102d3d2d373eef87fa",
+      "size": 178,
+      "cia_integrity": "medium"
+    },
+    "06_Diagrams/index.md": {
+      "hash": "ab0aa03521d5f42dbee45dc356dadc0a1923e840eacd9809526c70bf65293c02",
+      "size": 385,
+      "cia_integrity": "medium"
+    },
+    "07_Knowledge/index.md": {
+      "hash": "5e910f0a788f400639eb523e07cbb7026cb93bc0c6b57a5f3535551cad9c4864",
+      "size": 492,
+      "cia_integrity": "medium"
+    },
+    "08_Runbooks/index.md": {
+      "hash": "f969f2f34cd0b8d2225adc72caa8d6fdbbaf347fa49000ac09faca3bc3902812",
+      "size": 167,
+      "cia_integrity": "medium"
+    },
+    "09_Infrastructure/index.md": {
+      "hash": "e4a77ffb5d7912ecfadb2965ca2c287f5e8a6e0a699c627e4e6c22bc05fd18d2",
+      "size": 421,
+      "cia_integrity": "medium"
+    },
+    "09_Infrastructure/infra-map.md": {
+      "hash": "29110ecee8862e7f8d9533f075613ca23dca1eb7a51575f57f2bf0baea320b07",
+      "size": 352,
+      "cia_integrity": "medium"
+    },
+    "10_Migrated/index.md": {
+      "hash": "ffb9c9fc5b9bc2ae60093603ffc51d176ccf3b13d1b0305e60beb175f2a29329",
+      "size": 166,
+      "cia_integrity": "medium"
+    },
+    "11_Code/index.md": {
+      "hash": "e06952ace5af76cf8bd517d5c1d205b33ad4a5a0c0481bf348f4a8f6b05c6b70",
+      "size": 270,
+      "cia_integrity": "medium"
+    },
+    "99_Index/index.md": {
+      "hash": "514a8fd19928eb906048693a953f830f72c4ccc0a469a6abf44f72bc7926f7ed",
+      "size": 160,
+      "cia_integrity": "medium"
+    },
+    "99_Index/tag-index.md": {
+      "hash": "f3b131893fd22fc2217d7e5c61b4f8505549c30c9af631909028e301636a3c80",
+      "size": 2207,
+      "cia_integrity": "low"
+    },
+    "13_Flows/workflow/electron-fingerprint-enrolamiento-de-huella-dactilar.md": {
+      "hash": "68aba6381e4d85d19daf66ad191f9f382ad309eb9f896958a117beec9c5bf5a0",
+      "size": 1635,
+      "cia_integrity": "medium"
+    },
+    "13_Flows/workflow/electron-fingerprint-identificacion-biometrica-1-n.md": {
+      "hash": "bc4a4f401562f593ab97440fe2456b2c2db82725c437c845beedd65812104547",
+      "size": 1601,
+      "cia_integrity": "medium"
+    },
+    "11_Code/electron-fingerprint/biometricservice.md": {
+      "hash": "acf89c0c6e895ed27d1d25e72c05c32536c50afc07dba07f4c44420276aa4821",
+      "size": 1774,
+      "cia_integrity": "medium"
+    },
+    "09_Infrastructure/databases/sqlite-asistencia.md": {
+      "hash": "0917ef6c11f88723a90daac1ca2119e5cc861ed4b041f07b764b3be0978e4620",
+      "size": 865,
+      "cia_integrity": "high"
+    },
+    "09_Infrastructure/services/biometric-engine.md": {
+      "hash": "4e810a99623d7d4bb1f562394973ae67b286677f7825f68f3e5ce4cb4332da41",
+      "size": 696,
+      "cia_integrity": "medium"
+    },
+    "07_Knowledge/apis/biometric-engine-http-api-localhost8080.md": {
+      "hash": "402164d4f52aeed0c1470fc0320d068e67021784916c32e7109e604222f0937a",
+      "size": 1513,
+      "cia_integrity": "medium"
+    },
+    "07_Knowledge/concepts/sqlite-schema-sistema-de-asistencia.md": {
+      "hash": "7d4a3c536fb978122667eb3ff7e9143544c55b3dcead9baa7709fd41f01e04f2",
+      "size": 1267,
+      "cia_integrity": "medium"
+    },
+    "07_Knowledge/concepts/test-v29-delta.md": {
+      "hash": "000a59c1fe2d751de65191413359c38a07c303208b003194749db518c9991807",
+      "size": 788,
+      "cia_integrity": "low"
+    },
+    "06_Diagrams/component/electron-fingerprint-arquitectura-del-sistema.md": {
+      "hash": "3f47aada72f1fea177927c63675570e066ba86523256200df44f14b587bcc8a5",
+      "size": 1117,
+      "cia_integrity": "medium"
+    },
+    "06_Diagrams/entity/electron-fingerprint-erd-schema-sqlite.md": {
+      "hash": "b833b723c0139dbd5a8d1bf19d3424284ab1491ecc2eae40278973c26e41f675",
+      "size": 1541,
+      "cia_integrity": "medium"
+    },
+    "01_Projects/electron-fingerprint/envs.md": {
+      "hash": "8d3aacc2300907105a618f9a9b0ef560bc9748c260b11d91cb04433a86d02591",
+      "size": 1096,
+      "cia_integrity": "high"
+    },
+    "01_Projects/electron-fingerprint/overview.md": {
+      "hash": "4d31e10718a6a8362291a6a838e581f064abca928d18813ca99f9877edb9e428",
+      "size": 1359,
+      "cia_integrity": "medium"
+    }
+  }
+}

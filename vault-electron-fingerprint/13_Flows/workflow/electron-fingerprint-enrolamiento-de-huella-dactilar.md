@@ -6,7 +6,7 @@ flow_type: workflow
 type: flow
 createdAt: 2026-05-24T03:31:17.000Z
 updatedAt: 2026-05-24T03:31:17.000Z
-tags: ["electron-fingerprint", "flow", "workflow"]
+tags: ["electron-fingerprint", "workflow", "workflow"]
 cia_integrity: medium
 cia_availability: medium
 cia_sensitivity: internal

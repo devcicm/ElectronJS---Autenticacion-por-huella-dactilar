@@ -5,7 +5,7 @@ category: api
 createdAt: 2026-05-24T03:21:41.000Z
 updatedAt: 2026-05-24T03:21:41.000Z
 project: electron-fingerprint
-tags: ["biometrico", "api", "fingerprint", "electron", "8080"]
+tags: ["biometrico", "api", "fingerprint", "electron-fingerprint", "8080"]
 cia_integrity: medium
 cia_availability: medium
 cia_sensitivity: internal
