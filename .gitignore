@@ -5,8 +5,10 @@
 # Claude Code session data
 .claude/
 
-# Vault scripts (derived from Vault-Obsidian-Architecture repo — not tracked here)
-vault-electron-fingerprint/scripts/
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
 
 # Node.js
 node_modules/
