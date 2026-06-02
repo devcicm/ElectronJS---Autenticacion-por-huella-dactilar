@@ -38,3 +38,14 @@ python scripts/vault_code_module.py \
   --language typescript \
   --iso_type model
 ```
+
+## Para enriquecer
+
+```bash
+python scripts/vault_code_module.py \
+  --project electron-fingerprint \
+  --file_path "sistema-asistencia/models/EmployeeModel.ts" \
+  --description "..." \
+  --language typescript \
+  --iso_type model
+```

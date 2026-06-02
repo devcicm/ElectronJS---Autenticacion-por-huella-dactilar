@@ -1,6 +1,8 @@
 # 05_Patterns — Índice
 
-> Patrones reutilizables de código y arquitectura
-> Generado automáticamente · 2026-05-24T03:42:46.000Z · 0 nota(s)
+> **Propósito:** Patrones reutilizables de código y arquitectura
+> Generado automáticamente · 2026-06-02T08:17:02.000Z · 1 nota(s)
 
-_Sin notas en esta sección._
+| Nota | Tipo | Actualizado |
+|---|---|---|
+| [[electron-fingerprint-service-layer|Service Layer]] |  | 2026-06-02T08:17:02.000Z |

@@ -41,3 +41,25 @@ Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactil
 - Verificar descripción con el equipo
 - Completar stack real (base de datos, caches, queues)
 - Vincular módulos de código: [[electron-fingerprint-code-map]]
+
+## Historial del proyecto
+
+| | |
+|---|---|
+| Primer commit/archivo | 2025-11-05 |
+| Último commit/archivo | 2026-06-02 |
+| Total commits | 22 |
+| Fases detectadas | 2 |
+
+## Línea de tiempo
+
+- **2025-11** — Fase inicial: 8 commits
+- **2026-05** — Fase 2: 14 commits
+
+## Versiones detectadas
+
+— Sin tags detectados
+
+## Contribuidores
+
+- Carlos Ivan CM

@@ -49,3 +49,14 @@ node:18-bullseye
 - Verificar servicios y puertos reales
 - Documentar con vault_infra_save para cada componente
 - Agregar variables con vault_env_save
+
+## Imagen base Docker
+
+node:18-bullseye
+
+## Para enriquecer
+
+```bash
+python scripts/vault_infra_save.py --project electron-fingerprint --component "..."
+python scripts/vault_env_save.py --project electron-fingerprint --env_file ".env"
+```

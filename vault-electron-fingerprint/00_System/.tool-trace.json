@@ -1135,5 +1135,451 @@
     },
     "tool": "vault_audit",
     "timestamp": "2026-05-27T02:27:57Z"
+  },
+  {
+    "ok": true,
+    "action": "upgraded",
+    "from": "v27",
+    "to": "v29",
+    "migrations_applied": [
+      {
+        "version": "v28",
+        "description": "Field validation, security hardening confirmed, initialization protocol, reference implementation",
+        "folders_created": [],
+        "folders_skipped": [],
+        "notes": [
+          "assert_within_vault() en vault_io.py: previene path traversal (absolutos y ../) en todos los scripts de escritura",
+          "CIA frontmatter obligatorio en 12 scripts de escritura: cia_integrity, cia_availability, cia_sensitivity, agent",
+          "atomic_write_text / atomic_write_json en todos los paths criticos — elimina escrituras parciales",
+          "Protocolo de inicializacion corregido: --init v28 (no --upgrade); vault_section_index para todas las secciones",
+          "gitignore pattern: vault-*/scripts/ en repos consumidores (scripts no se re-versionan)",
+          "Shell compatibility: args JSON con <> requieren Bash en Windows; PowerShell 5.1 los mangla",
+          "Implementacion de referencia: vault-electron-fingerprint (ElectronJS + DP4500), 13 notas, score 100/100",
+          "Mapa canonico script→carpeta: corrige discrepancias entre spec y implementacion real"
+        ],
+        "identity_updates": {
+          "tools_count": "57",
+          "groups_count": "26"
+        }
+      },
+      {
+        "version": "v29",
+        "description": "Session delta detection, Merkle backup integrity, canonical tag registry, hash-index.json",
+        "folders_created": [],
+        "folders_skipped": [],
+        "notes": [
+          "vault_delta.py (NUEVO): deteccion de cambios entre sesiones via SHA-256 + BFS sobre grafo inverso de backlinks",
+          "vault_tags.py (NUEVO): registro canonico de tags, auditoria de orphans/near-dupes, tag-index.md con wiki-links",
+          "vault_backup.py: Merkle tree en .manifest.json (merkle_root, merkle_file_count) + --verify para verificacion de integridad",
+          "vault_reindex.py: escribe 99_Index/hash-index.json con {hash, size, cia_integrity} por nota",
+          "vault_write.py: tag_suggestions no-bloqueante en output cuando nuevos tags tienen similares canonicos",
+          "vault_audit.py: bloque tagHealth en output (total_tags, orphaned_tags, near_dupes, untagged_notes_count, tag_health_score)",
+          "AP-22 (vault_write + vault_audit): corchetes desbalanceados o [[]] vacios → error bloqueante; ghost_links (targets inexistentes) → warning no-bloqueante en output"
+        ],
+        "identity_updates": {
+          "tools_count": "59",
+          "groups_count": "27"
+        }
+      }
+    ],
+    "folders_created": [],
+    "version_file": "00_System/standard-version.json",
+    "tool": "vault_standard_upgrade",
+    "timestamp": "2026-05-27T13:05:38Z"
+  },
+  {
+    "ok": true,
+    "project": "electron-fingerprint",
+    "path_scanned": "C:\\Users\\Carlos Ivan\\Documents\\Proyectos VSCODE\\ElectronJS - Autenticacion por huella dactilar",
+    "dry_run": true,
+    "discovered": {
+      "runtime": "Node.js",
+      "language": "typescript",
+      "framework": "Electron",
+      "description": "Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500",
+      "config_files": [
+        "package.json",
+        "docker-compose.yml",
+        "Dockerfile"
+      ],
+      "module_count": 12,
+      "has_infra": true
+    },
+    "created": {
+      "overview": "01_Projects/electron-fingerprint/overview.md",
+      "modules": [
+        "11_Code/electron-fingerprint/touchmodeservice.md",
+        "11_Code/electron-fingerprint/attendanceservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/attendanceservice-d.md",
+        "11_Code/electron-fingerprint/biometricservice-d.md",
+        "11_Code/electron-fingerprint/attendancemodel.md",
+        "11_Code/electron-fingerprint/employeemodel.md",
+        "11_Code/electron-fingerprint/fingerprintmodel.md",
+        "11_Code/electron-fingerprint/shiftmodel.md",
+        "11_Code/electron-fingerprint/departmentmodel.md",
+        "11_Code/electron-fingerprint/attendancemodel-d.md",
+        "11_Code/electron-fingerprint/fingerprintmodel-d.md"
+      ],
+      "infra": "09_Infrastructure/electron-fingerprint/infra.md",
+      "indexes_updated": [
+        "01_Projects/index.md",
+        "11_Code/index.md",
+        "09_Infrastructure/index.md"
+      ]
+    },
+    "warnings": [
+      "201 archivos fuente encontrados, 12 seleccionados por prioridad. Aumenta --max-modules o documenta el resto con vault_code_module."
+    ],
+    "next_steps": [
+      "Enriquecer overview: vault_project_overview --project electron-fingerprint",
+      "Completar cada stub: vault_code_module --project ... --file_path ...",
+      "Actualizar infra: vault_infra_save + vault_env_save",
+      "Auditar el vault: vault_audit"
+    ],
+    "tool": "vault_onboard",
+    "timestamp": "2026-06-02T01:45:56Z"
+  },
+  {
+    "ok": true,
+    "project": "electron-fingerprint",
+    "path_scanned": "C:\\Users\\Carlos Ivan\\Documents\\Proyectos VSCODE\\ElectronJS - Autenticacion por huella dactilar",
+    "dry_run": false,
+    "discovered": {
+      "runtime": "Node.js",
+      "language": "typescript",
+      "framework": "Electron",
+      "description": "Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500",
+      "config_files": [
+        "package.json",
+        "docker-compose.yml",
+        "Dockerfile"
+      ],
+      "module_count": 12,
+      "has_infra": true
+    },
+    "created": {
+      "overview": "01_Projects/electron-fingerprint/overview.md",
+      "modules": [
+        "11_Code/electron-fingerprint/touchmodeservice.md",
+        "11_Code/electron-fingerprint/attendanceservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/attendanceservice-d.md",
+        "11_Code/electron-fingerprint/biometricservice-d.md",
+        "11_Code/electron-fingerprint/attendancemodel.md",
+        "11_Code/electron-fingerprint/employeemodel.md",
+        "11_Code/electron-fingerprint/fingerprintmodel.md",
+        "11_Code/electron-fingerprint/shiftmodel.md",
+        "11_Code/electron-fingerprint/departmentmodel.md",
+        "11_Code/electron-fingerprint/attendancemodel-d.md",
+        "11_Code/electron-fingerprint/fingerprintmodel-d.md"
+      ],
+      "infra": "09_Infrastructure/electron-fingerprint/infra.md",
+      "indexes_updated": [
+        "01_Projects/index.md",
+        "11_Code/index.md",
+        "09_Infrastructure/index.md"
+      ]
+    },
+    "warnings": [
+      "201 archivos fuente encontrados, 12 seleccionados por prioridad. Aumenta --max-modules o documenta el resto con vault_code_module."
+    ],
+    "next_steps": [
+      "Enriquecer overview: vault_project_overview --project electron-fingerprint",
+      "Completar cada stub: vault_code_module --project ... --file_path ...",
+      "Actualizar infra: vault_infra_save + vault_env_save",
+      "Auditar el vault: vault_audit"
+    ],
+    "tool": "vault_onboard",
+    "timestamp": "2026-06-02T01:46:09Z"
+  },
+  {
+    "ok": true,
+    "project": "electron-fingerprint",
+    "path_scanned": "C:\\Users\\Carlos Ivan\\Documents\\Proyectos VSCODE\\ElectronJS - Autenticacion por huella dactilar",
+    "dry_run": true,
+    "discovered": {
+      "runtime": "Node.js",
+      "language": "typescript",
+      "framework": "Electron",
+      "description": "Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500",
+      "config_files": [
+        "package.json",
+        "docker-compose.yml",
+        "Dockerfile"
+      ],
+      "module_count": 12,
+      "has_infra": true
+    },
+    "created": {
+      "overview": "01_Projects/electron-fingerprint/overview.md",
+      "modules": [
+        "11_Code/electron-fingerprint/touchmodeservice.md",
+        "11_Code/electron-fingerprint/attendanceservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/attendanceservice-d.md",
+        "11_Code/electron-fingerprint/biometricservice-d.md",
+        "11_Code/electron-fingerprint/attendancemodel.md",
+        "11_Code/electron-fingerprint/employeemodel.md",
+        "11_Code/electron-fingerprint/fingerprintmodel.md",
+        "11_Code/electron-fingerprint/shiftmodel.md",
+        "11_Code/electron-fingerprint/departmentmodel.md",
+        "11_Code/electron-fingerprint/attendancemodel-d.md",
+        "11_Code/electron-fingerprint/fingerprintmodel-d.md"
+      ],
+      "infra": "09_Infrastructure/electron-fingerprint/infra.md",
+      "indexes_updated": [
+        "01_Projects/index.md",
+        "11_Code/index.md",
+        "09_Infrastructure/index.md"
+      ]
+    },
+    "warnings": [
+      "201 archivos fuente encontrados, 12 seleccionados por prioridad. Aumenta --max-modules o documenta el resto con vault_code_module."
+    ],
+    "next_steps": [
+      "Enriquecer overview: vault_project_overview --project electron-fingerprint",
+      "Completar cada stub: vault_code_module --project ... --file_path ...",
+      "Actualizar infra: vault_infra_save + vault_env_save",
+      "Auditar el vault: vault_audit"
+    ],
+    "tool": "vault_onboard",
+    "timestamp": "2026-06-02T02:13:32Z"
+  },
+  {
+    "ok": true,
+    "project": "electron-fingerprint",
+    "path_scanned": "C:\\Users\\Carlos Ivan\\Documents\\Proyectos VSCODE\\ElectronJS - Autenticacion por huella dactilar",
+    "dry_run": true,
+    "discovered": {
+      "runtime": "Node.js",
+      "language": "typescript",
+      "framework": "Electron",
+      "description": "Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500",
+      "config_files": [
+        "package.json",
+        "docker-compose.yml",
+        "Dockerfile"
+      ],
+      "module_count": 5,
+      "has_infra": true
+    },
+    "created": {
+      "overview": "01_Projects/electron-fingerprint/overview.md",
+      "modules": [
+        "11_Code/electron-fingerprint/touchmodeservice.md",
+        "11_Code/electron-fingerprint/attendanceservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/attendanceservice-d.md",
+        "11_Code/electron-fingerprint/biometricservice-d.md"
+      ],
+      "infra": "09_Infrastructure/electron-fingerprint/infra.md",
+      "indexes_updated": [
+        "01_Projects/index.md",
+        "11_Code/index.md",
+        "09_Infrastructure/index.md"
+      ]
+    },
+    "warnings": [
+      "201 archivos fuente encontrados, 5 seleccionados por prioridad. Aumenta --max-modules o documenta el resto con vault_code_module."
+    ],
+    "next_steps": [
+      "Enriquecer overview: vault_project_overview --project electron-fingerprint",
+      "Completar cada stub: vault_code_module --project ... --file_path ...",
+      "Actualizar infra: vault_infra_save + vault_env_save",
+      "Auditar el vault: vault_audit"
+    ],
+    "tool": "vault_onboard",
+    "timestamp": "2026-06-02T02:15:58Z"
+  },
+  {
+    "ok": true,
+    "project": "electron-fingerprint",
+    "path_scanned": "C:\\Users\\Carlos Ivan\\Documents\\Proyectos VSCODE\\ElectronJS - Autenticacion por huella dactilar",
+    "dry_run": true,
+    "git_history": {
+      "is_git": true,
+      "first": "2025-11-05",
+      "last": "2026-06-02",
+      "total_commits": 22,
+      "contributors": [
+        "Carlos Ivan CM"
+      ],
+      "tags": [],
+      "phases_detected": 2
+    },
+    "discovered": {
+      "runtime": "Node.js",
+      "language": "typescript",
+      "framework": "Electron",
+      "description": "Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500",
+      "module_count": 8,
+      "has_infra": true
+    },
+    "created": {
+      "overview": "01_Projects/electron-fingerprint/overview.md",
+      "sessions": [
+        "04_Sessions/2025-11-fase-inicial.md",
+        "04_Sessions/2026-05-fase-2.md"
+      ],
+      "decisions": [
+        "03_Decisions/adr-001-retroactivo.md",
+        "03_Decisions/adr-002-retroactivo.md"
+      ],
+      "patterns": "05_Patterns/architecture/electron-fingerprint-service-layer.md",
+      "diagrams": "06_Diagrams/component/electron-fingerprint-architecture.md",
+      "knowledge": [
+        "07_Knowledge/concepts/caracter-sticas.md",
+        "07_Knowledge/concepts/requisitos-previos.md",
+        "07_Knowledge/concepts/estructura-del-proyecto.md",
+        "07_Knowledge/concepts/instalaci-n.md",
+        "07_Knowledge/concepts/uso.md",
+        "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+        "07_Knowledge/concepts/arquitectura-t-cnica.md",
+        "07_Knowledge/concepts/componentes-del-engine.md",
+        "07_Knowledge/frameworks/electron.md"
+      ],
+      "runbooks": [
+        "08_Runbooks/pipeline/electron-fingerprint-npm-build.md",
+        "08_Runbooks/setup/electron-fingerprint-npm-start.md",
+        "08_Runbooks/setup/electron-fingerprint-npm-dev.md"
+      ],
+      "infra": "09_Infrastructure/electron-fingerprint/infra.md",
+      "modules": [
+        "11_Code/electron-fingerprint/touchmodeservice.md",
+        "11_Code/electron-fingerprint/attendanceservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/attendanceservice-d.md",
+        "11_Code/electron-fingerprint/biometricservice-d.md",
+        "11_Code/electron-fingerprint/attendancemodel.md",
+        "11_Code/electron-fingerprint/employeemodel.md",
+        "11_Code/electron-fingerprint/fingerprintmodel.md"
+      ],
+      "tests": "15_Tests/performance/electron-fingerprint-inventory.md",
+      "indexes_updated": [
+        "01_Projects/index.md",
+        "02_Observability/index.md",
+        "03_Decisions/index.md",
+        "04_Sessions/index.md",
+        "05_Patterns/index.md",
+        "06_Diagrams/index.md",
+        "07_Knowledge/index.md",
+        "08_Runbooks/index.md",
+        "09_Infrastructure/index.md",
+        "11_Code/index.md",
+        "13_Flows/index.md",
+        "14_Requirements/index.md",
+        "15_Tests/index.md"
+      ]
+    },
+    "merge_stats": {
+      "created": 0,
+      "merged": 0,
+      "skipped": 0,
+      "dry_run": 29
+    },
+    "warnings": [],
+    "next_steps": [
+      "vault_project_overview --project electron-fingerprint  # enriquecer overview",
+      "vault_code_module --project ... --file_path ...  # enriquecer módulos",
+      "vault_audit  # verificar health score"
+    ],
+    "tool": "vault_onboard",
+    "timestamp": "2026-06-02T02:16:40Z"
+  },
+  {
+    "ok": true,
+    "project": "electron-fingerprint",
+    "path_scanned": "C:\\Users\\Carlos Ivan\\Documents\\Proyectos VSCODE\\ElectronJS - Autenticacion por huella dactilar",
+    "dry_run": false,
+    "git_history": {
+      "is_git": true,
+      "first": "2025-11-05",
+      "last": "2026-06-02",
+      "total_commits": 22,
+      "contributors": [
+        "Carlos Ivan CM"
+      ],
+      "tags": [],
+      "phases_detected": 2
+    },
+    "discovered": {
+      "runtime": "Node.js",
+      "language": "typescript",
+      "framework": "Electron",
+      "description": "Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500",
+      "module_count": 8,
+      "has_infra": true
+    },
+    "created": {
+      "overview": "01_Projects/electron-fingerprint/overview.md",
+      "sessions": [
+        "04_Sessions/2025-11-fase-inicial.md",
+        "04_Sessions/2026-05-fase-2.md"
+      ],
+      "decisions": [
+        "03_Decisions/adr-001-retroactivo.md",
+        "03_Decisions/adr-002-retroactivo.md"
+      ],
+      "patterns": "05_Patterns/architecture/electron-fingerprint-service-layer.md",
+      "diagrams": "06_Diagrams/component/electron-fingerprint-architecture.md",
+      "knowledge": [
+        "07_Knowledge/concepts/caracter-sticas.md",
+        "07_Knowledge/concepts/requisitos-previos.md",
+        "07_Knowledge/concepts/estructura-del-proyecto.md",
+        "07_Knowledge/concepts/instalaci-n.md",
+        "07_Knowledge/concepts/uso.md",
+        "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+        "07_Knowledge/concepts/arquitectura-t-cnica.md",
+        "07_Knowledge/concepts/componentes-del-engine.md",
+        "07_Knowledge/frameworks/electron.md"
+      ],
+      "runbooks": [
+        "08_Runbooks/pipeline/electron-fingerprint-npm-build.md",
+        "08_Runbooks/setup/electron-fingerprint-npm-start.md",
+        "08_Runbooks/setup/electron-fingerprint-npm-dev.md"
+      ],
+      "infra": "09_Infrastructure/electron-fingerprint/infra.md",
+      "modules": [
+        "11_Code/electron-fingerprint/touchmodeservice.md",
+        "11_Code/electron-fingerprint/attendanceservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/attendanceservice-d.md",
+        "11_Code/electron-fingerprint/biometricservice-d.md",
+        "11_Code/electron-fingerprint/attendancemodel.md",
+        "11_Code/electron-fingerprint/employeemodel.md",
+        "11_Code/electron-fingerprint/fingerprintmodel.md"
+      ],
+      "tests": "15_Tests/performance/electron-fingerprint-inventory.md",
+      "indexes_updated": [
+        "01_Projects/index.md",
+        "02_Observability/index.md",
+        "03_Decisions/index.md",
+        "04_Sessions/index.md",
+        "05_Patterns/index.md",
+        "06_Diagrams/index.md",
+        "07_Knowledge/index.md",
+        "08_Runbooks/index.md",
+        "09_Infrastructure/index.md",
+        "11_Code/index.md",
+        "13_Flows/index.md",
+        "14_Requirements/index.md",
+        "15_Tests/index.md"
+      ]
+    },
+    "merge_stats": {
+      "created": 19,
+      "merged": 10,
+      "skipped": 0,
+      "dry_run": 0
+    },
+    "warnings": [],
+    "next_steps": [
+      "vault_project_overview --project electron-fingerprint  # enriquecer overview",
+      "vault_code_module --project ... --file_path ...  # enriquecer módulos",
+      "vault_audit  # verificar health score"
+    ],
+    "tool": "vault_onboard",
+    "timestamp": "2026-06-02T02:17:02Z"
   }
 ]
