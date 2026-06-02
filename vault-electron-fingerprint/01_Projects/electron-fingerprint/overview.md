@@ -1,34 +1,43 @@
 ---
-title: Overview: electron-fingerprint
+title: electron-fingerprint — Overview
+id: 0deb8613-3b21-45e4-9f5f-c9990c3db945
+createdAt: 2026-06-02T07:46:09.000Z
+updatedAt: 2026-06-02T07:46:09.000Z
+tags: ["project", "overview", "electron-fingerprint"]
+norm_refs: ["AP-11", "AP-12", "AP-13", "AP-16", "AP-20", "CN-01", "CN-02", "SP-01"]
+status: stub
+cia_integrity: medium
+cia_availability: medium
+cia_sensitivity: internal
+agent: claude
 project: electron-fingerprint
-type: project-overview
-updatedAt: 2026-05-24T02:56:01.000Z
 ---
 
-# Overview: electron-fingerprint
+# electron-fingerprint — Overview
 
+> Stub generado por vault_onboard. Enriquecer con vault_project_overview.
 
 ## Descripción
 
-Aplicacion de escritorio ElectronJS para autenticacion y control de asistencia mediante huella dactilar. Motor biometrico .NET con dispositivo DP4500, almacena plantillas ISO en SQLite.
+Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500
 
+## Stack detectado
 
-_Actualizado: 2026-05-24 · deps: 0 · frameworks: 0 · ADRs: 0 · patrones: 0_
+| Campo | Valor |
+|---|---|
+| Runtime | Node.js / Electron |
+| Lenguaje | typescript |
+| Versión | 1.0.0 |
+| Fuente detección | package.json |
 
+## Scripts disponibles
 
-## Stack técnico
+- `build`
+- `start`
+- `dev`
 
-- **Runtime:** Node.js 20 / Electron 31.3.1 / TypeScript
-- **DB:** [[sqlite-asistencia]] — SQLite via better-sqlite3
-- **Biometrico:** [[biometric-engine]] — Motor .NET DP4500 en localhost:8080
+## Próximos pasos
 
-## Documentación técnica
-
-- [[biometricservice]] — Servicio principal TypeScript de autenticacion biometrica
-- [[sqlite-schema-sistema-de-asistencia]] — Schema SQLite detallado (5 tablas + vistas + triggers)
-- [[biometric-engine-http-api-localhost8080]] — API HTTP del motor biometrico
-- [[electron-fingerprint-arquitectura-del-sistema]] — Diagrama de arquitectura de alto nivel
-- [[electron-fingerprint-erd-schema-sqlite]] — ERD del schema SQLite
-- [[electron-fingerprint-identificacion-biometrica-1-n]] — Flujo de identificacion 1-N
-- [[electron-fingerprint-enrolamiento-de-huella-dactilar]] — Flujo de enrolamiento
-- [[envs]] — Variables de entorno por ambiente
+- Verificar descripción con el equipo
+- Completar stack real (base de datos, caches, queues)
+- Vincular módulos de código: [[electron-fingerprint-code-map]]

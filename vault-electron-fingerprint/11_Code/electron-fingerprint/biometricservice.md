@@ -1,51 +1,40 @@
 ---
-id: 126acb19-8411-47bc-b7ee-7a3a7268382f
-title: BiometricService.ts
+title: BiometricService — Service
+id: 1a1ee788-4829-4c2d-8008-2dab26cc95be
+createdAt: 2026-06-02T07:46:09.000Z
+updatedAt: 2026-06-02T07:46:09.000Z
+tags: ["stub", "code", "electron-fingerprint", "service"]
+norm_refs: ["AP-11", "AP-12", "AP-13", "AP-16", "AP-20", "CN-01", "CN-02", "SP-01"]
+status: stub
+cia_integrity: medium
+cia_availability: medium
+cia_sensitivity: internal
+agent: claude
 project: electron-fingerprint
-file_path: sistema-asistencia/services/BiometricService.ts
-type: code-module
+source_file: sistema-asistencia/services/BiometricService.ts
 language: typescript
-iso_type: service
-createdAt: 2026-05-24T02:58:05.000Z
-updatedAt: 2026-05-24T02:58:05.000Z
-tags: ["biometrico", "fingerprint", "sqlite", "electron-fingerprint", "electron-fingerprint", "code", "biometrico", "service"]
 ---
 
-**Ruta:** `sistema-asistencia/services/BiometricService.ts`  |  **Lenguaje:** `typescript`  |  **Tipo ISO:** `service`
+# BiometricService — Service
 
+> Stub generado por vault_onboard. Enriquecer con vault_code_module.
 
-## Proposito
+**Archivo:** `sistema-asistencia/services/BiometricService.ts`
+**Lenguaje:** typescript
+**Tipo inferido:** service
+**Líneas:** 419
 
-Servicio principal de autenticacion biometrica. Gestiona comunicacion con motor .NET (localhost:8080), enrolamiento de huellas y identificacion 1-N contra plantillas en SQLite.
+## Propósito
 
-## Metodos
+_Pendiente. Leer el archivo y documentar con vault_code_module._
 
-| Metodo | Firma | Descripcion |
-|---|---|---|
-| `initBiometricServer` | `async initBiometricServer(): Promise<boolean>` | Inicializa servidor biometrico .NET en localhost:8080 |
-| `enrollFingerprint` | `async enrollFingerprint(employeeId: number, fingerPosition: string): Promise<EnrollResult>` | Enrola huella dactilar via /api/enroll |
-| `identifyEmployee` | `async identifyEmployee(): Promise<IdentifyResult>` | Identifica empleado cargando plantillas de SQLite y enviando a /api/external/verify-multiple |
-| `captureFingerprint` | `async captureFingerprint(): Promise<CaptureResult>` | Captura huella unica via /api/single sin asociar a empleado |
+## Para documentar este módulo
 
-## Exportaciones
-
-
-- BiometricService
-- EnrollResult
-- IdentifyResult
-- CaptureResult
-
-## Importaciones desde
-
-
-- `better-sqlite3`
-- `eventsource`
-- `BiometricEngine HTTP API`
-
-## Responsabilidades
-
-
-- Comunicacion con motor biometrico via HTTP REST
-- Enrolamiento de plantillas ISO base64
-- Identificacion 1-N contra todas las plantillas
-- Almacenamiento de plantillas en SQLite
+```bash
+python scripts/vault_code_module.py \
+  --project electron-fingerprint \
+  --file_path "sistema-asistencia/services/BiometricService.ts" \
+  --description "..." \
+  --language typescript \
+  --iso_type service
+```
