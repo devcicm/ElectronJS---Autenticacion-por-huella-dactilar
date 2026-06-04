@@ -358,6 +358,44 @@ DQ_METADATA: Dict[str, Dict[str, Any]] = {
         "cia_scope": ["integrity"],
         "propagation_aware": False,
     },
+    # ── Producción y SRE (v31) ────────────────────────────────────────────────
+    "vault_incident_save": {
+        "dq_dimensions": ["integrity", "non_repudiation", "timeliness"],
+        "cia_scope": ["integrity", "availability"],
+        "propagation_aware": True,
+    },
+    "vault_slo_save": {
+        "dq_dimensions": ["validity", "accuracy", "timeliness"],
+        "cia_scope": ["integrity", "availability"],
+        "propagation_aware": False,
+    },
+    # ── Release y Entornos (v31) ──────────────────────────────────────────────
+    "vault_env_matrix": {
+        "dq_dimensions": ["integrity", "consistency"],
+        "cia_scope": ["integrity", "availability", "sensitivity"],
+        "propagation_aware": False,
+    },
+    "vault_release_save": {
+        "dq_dimensions": ["integrity", "non_repudiation"],
+        "cia_scope": ["integrity", "availability"],
+        "propagation_aware": True,
+    },
+    # ── Riesgos y Calidad (v32) ───────────────────────────────────────────────
+    "vault_risk_save": {
+        "dq_dimensions": ["validity", "integrity", "accuracy"],
+        "cia_scope": ["integrity", "availability", "sensitivity"],
+        "propagation_aware": True,
+    },
+    "vault_privacy_save": {
+        "dq_dimensions": ["integrity", "non_repudiation", "compliance"],
+        "cia_scope": ["integrity", "sensitivity"],
+        "propagation_aware": False,
+    },
+    "vault_ncr_save": {
+        "dq_dimensions": ["integrity", "non_repudiation", "timeliness"],
+        "cia_scope": ["integrity", "availability"],
+        "propagation_aware": True,
+    },
 }
 
 
@@ -405,6 +443,7 @@ TOOL_GROUPS: Dict[str, str] = {
     "vault_test_save": "Tests",
     "vault_ai_decision": "IA Governance",
     "vault_standard_upgrade": "Versionado",
+    "vault_onboard": "Versionado",
     "vault_change_log": "Change Log",
     "vault_tokens": "Tokens", "vault_token_counter": "Tokens", "vault_token_service": "Tokens",
     # v27 Data Quality & Propagation
@@ -418,6 +457,16 @@ TOOL_GROUPS: Dict[str, str] = {
     # v30 Normas y Etiquetas de Código
     "vault_norms": "Normas y Etiquetas",
     "vault_code_tag": "Normas y Etiquetas",
+    # v31 Producción y SRE
+    "vault_incident_save": "Producción y SRE",
+    "vault_slo_save": "Producción y SRE",
+    # v31 Release y Entornos
+    "vault_env_matrix": "Release y Entornos",
+    "vault_release_save": "Release y Entornos",
+    # v32 Gestión de Riesgos y Calidad
+    "vault_risk_save":    "Riesgos y Calidad",
+    "vault_privacy_save": "Riesgos y Calidad",
+    "vault_ncr_save":     "Riesgos y Calidad",
     # Legacy
     "vault_migrate": "Migración (legacy)", "vault_reorganize": "Migración (legacy)",
     "vault_tools": "misc (legacy)", "vault_create": "Core (legacy)", "vault_render": "Diagramas (legacy)",
