@@ -1,7 +1,22 @@
 # 07_Knowledge — Índice
 
+> [[99_Index/index|← Índice Maestro]]
 > **Propósito:** Base de conocimiento técnico y conceptual
-> Generado automáticamente · 2026-06-02T08:17:02.000Z · 12 nota(s)
+> Generado automáticamente · 2026-06-08T02:08:25.000Z · 12 nota(s)
+
+## Subcarpetas
+
+| Subcarpeta | Propósito |
+|---|---|
+| [[07_Knowledge/apis/index|apis]] | Base de conocimiento técnico y conceptual |
+| [[07_Knowledge/business-rules/index|business-rules]] | Base de conocimiento técnico y conceptual |
+| [[07_Knowledge/concepts/index|concepts]] | Base de conocimiento técnico y conceptual |
+| [[07_Knowledge/config/index|config]] | Base de conocimiento técnico y conceptual |
+| [[07_Knowledge/dependencies/index|dependencies]] | Base de conocimiento técnico y conceptual |
+| [[07_Knowledge/frameworks/index|frameworks]] | Base de conocimiento técnico y conceptual |
+| [[07_Knowledge/glossary/index|glossary]] | Base de conocimiento técnico y conceptual |
+
+## Notas
 
 | Nota | Tipo | Actualizado |
 |---|---|---|

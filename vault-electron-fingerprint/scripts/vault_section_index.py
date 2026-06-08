@@ -21,66 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from vault_io import VAULT_ROOT, assert_within_vault, safe_wikilink
-
-SECTION_DESCRIPTIONS = {
-    "00_System": "Identidad, reglas y configuración del agente",
-    "01_Projects": "Estado, contexto y progreso de proyectos activos",
-    "02_Observability": "Errores, métricas, alertas y observabilidad",
-    "03_Decisions": "Decisiones de arquitectura y diseño (ADRs)",
-    "04_Sessions": "Diarios de sesión y contexto de trabajo",
-    "05_Patterns": "Patrones reutilizables de código y arquitectura",
-    "06_Diagrams": "Diagramas y representaciones visuales",
-    "07_Knowledge": "Base de conocimiento técnico y conceptual",
-    "08_Runbooks": "Procedimientos operativos paso a paso",
-    "09_Infrastructure": "Infraestructura, entornos y configuraciones",
-    "10_Migrated": "Documentos migrados de otras fuentes",
-    "11_Code": "Módulos de código y relaciones entre ellos",
-    "12_Bibliography": "Fuentes externas: artículos, papers, APIs, libros y docs consultados",
-    "13_Flows": "Flujos de trabajo, pipelines, ciclos de vida y diagramas de flujo",
-    "14_Requirements": "Requerimientos funcionales y no funcionales (ISO 29148)",
-    "15_Tests": "Casos de prueba y resultados (ISO 29119): unit, integration, e2e, performance",
-    "16_AI_Governance": "Decisiones y auditorías de agentes IA (ISO 42001)",
-    "99_Index": "Índices de navegación del vault",
-}
-
-# Descripciones para subcarpetas estándar
-SUBSECTION_DESCRIPTIONS = {
-    "12_Bibliography/web":    "Referencias web: artículos, blog posts, documentación online",
-    "12_Bibliography/papers": "Papers académicos y técnicos",
-    "12_Bibliography/docs":   "Documentación oficial de herramientas y frameworks",
-    "12_Bibliography/apis":   "Referencias de APIs y especificaciones de interfaces",
-    "12_Bibliography/books":  "Libros técnicos consultados",
-    "13_Flows/workflow":      "Flujos de trabajo y procesos de negocio",
-    "13_Flows/pipeline":      "Pipelines de CI/CD, datos o procesamiento",
-    "13_Flows/lifecycle":     "Ciclos de vida de entidades, tickets o deploys",
-    "13_Flows/dataflow":      "Flujos de datos entre componentes o servicios",
-    "15_Tests/unit":          "Tests unitarios por módulo o función",
-    "15_Tests/integration":   "Tests de integración entre componentes",
-    "15_Tests/e2e":           "Tests end-to-end sobre flujos completos",
-    "15_Tests/performance":   "Tests de rendimiento, carga y estrés",
-    "15_Tests/security":      "Tests de seguridad y penetración",
-    "15_Tests/acceptance":    "Tests de aceptación con criterios de usuario",
-    "16_AI_Governance/decisions": "Decisiones formales de agentes IA con trazabilidad ISO 42001",
-}
-
-# Tool sugerida para poblar cada sección (usada en hint de sección vacía)
-SECTION_TOOLS = {
-    "01_Projects":  "vault_project_overview --project <slug>",
-    "02_Observability": "vault_log_error --project <slug> --error <msg>",
-    "03_Decisions": "vault_write --folder 03_Decisions --title <adr>",
-    "04_Sessions":  "vault_write --folder 04_Sessions --title <fecha>",
-    "05_Patterns":  "vault_pattern_save --name <pattern>",
-    "06_Diagrams":  "vault_diagram_save --project <slug> --type erd",
-    "07_Knowledge": "vault_knowledge_save --title <concept>",
-    "08_Runbooks":  "vault_runbook_save --title <runbook>",
-    "09_Infrastructure": "vault_infra_save --project <slug>",
-    "11_Code":      "vault_code_module --project <slug> --file_path <path>",
-    "12_Bibliography": "vault_bibliography_save --title <ref> --type web",
-    "13_Flows":     "vault_flow_save --project <slug> --title <flow>",
-    "14_Requirements": "vault_requirement_save --project <slug> --title <req>",
-    "15_Tests":     "vault_test_save --project <slug> --title <test>",
-    "16_AI_Governance": "vault_ai_decision --project <slug> --title <decision>",
-}
+from vault_registry import section_description, section_tool_hint
 
 
 def _utcnow() -> str:
@@ -126,45 +67,76 @@ def _collect_notes(section_path: Path, include_subdirs: bool) -> List[Dict[str, 
     return notes
 
 
-def _build_index_content(folder: str, notes: List[Dict[str, Any]], now: str) -> str:
-    """Render index.md content — always populated even when section is empty."""
-    folder_key = folder.replace("\\", "/")
-    top_key = folder_key.split("/")[0]
+def _breadcrumb(folder_key: str) -> str:
+    """Build navigation breadcrumb for a section or subsection index."""
+    parts = folder_key.split("/")
+    if len(parts) == 1:
+        # Top-level section → link to master index only
+        return f"> [[99_Index/index|← Índice Maestro]]"
+    else:
+        # Subsection → link to parent section index + master index
+        parent = parts[0]
+        parent_name = safe_wikilink(section_description(parent).split(",")[0][:30])
+        return f"> [[{parent}/index|← {parent}]]  ·  [[99_Index/index|Índice Maestro]]"
 
-    description = (
-        SUBSECTION_DESCRIPTIONS.get(folder_key)
-        or SECTION_DESCRIPTIONS.get(top_key)
-        or f"Subcarpeta de {top_key}"
-    )
-    tool_hint = SECTION_TOOLS.get(top_key, "vault_write --folder " + folder_key + " --title <titulo>")
+
+def _build_index_content(
+    folder: str,
+    notes: List[Dict[str, Any]],
+    now: str,
+    subdirs: Optional[List[str]] = None,
+) -> str:
+    """Render index.md with navigation, notes table and subcarpeta listing."""
+    folder_key = folder.replace("\\", "/")
+
+    description = section_description(folder_key)
+    hint = section_tool_hint(folder_key)
+    tool_hint = hint if hint else f"vault_write --folder {folder_key} --title <titulo>"
 
     lines = [
         f"# {folder_key} — Índice",
         "",
+        _breadcrumb(folder_key),
         f"> **Propósito:** {description}",
         f"> Generado automáticamente · {now} · {len(notes)} nota(s)",
         "",
     ]
 
+    # Subcarpetas — listed before notes for discoverability
+    if subdirs:
+        lines += ["## Subcarpetas", ""]
+        lines += ["| Subcarpeta | Propósito |", "|---|---|"]
+        for sub in sorted(subdirs):
+            sub_key = sub.replace("\\", "/")
+            sub_desc = section_description(sub_key)
+            sub_stem = safe_wikilink(sub_key.split("/")[-1])
+            sub_link = f"[[{sub_key}/index|{sub_stem}]]"
+            lines.append(f"| {sub_link} | {sub_desc} |")
+        lines.append("")
+
     if notes:
         lines += [
+            "## Notas" if subdirs else "",
+            "",
             "| Nota | Tipo | Actualizado |",
             "|---|---|---|",
         ]
         for n in notes:
-            stem = safe_wikilink(Path(n["path"]).stem)
+            note_path = n["path"].replace("\\", "/")
+            # Build link relative to section root (include subfolder prefix)
+            stem = safe_wikilink(Path(note_path).stem)
             title = safe_wikilink(n["title"])
             link = f"[[{stem}|{title}]]"
             lines.append(f"| {link} | {n['type']} | {n['updatedAt']} |")
     else:
         lines += [
-            "## Estado",
+            "## Notas",
             "",
-            "Sección sin notas. Añade la primera con:",
+            "_Sección sin notas. Añade la primera con:_",
             "",
-            f"```bash",
+            "```bash",
             f"python scripts/{tool_hint}",
-            f"```",
+            "```",
             "",
             "Una vez creada la primera nota, este índice se regenera automáticamente.",
         ]
@@ -175,7 +147,7 @@ def _build_index_content(folder: str, notes: List[Dict[str, Any]], now: str) -> 
 
 def vault_section_index(folder: str, include_subdirs: bool = True) -> Dict[str, Any]:
     """
-    Generate or update {folder}/index.md with a readable index of all notes.
+    Generate or update {folder}/index.md with navigation, notes table and subdir listing.
     Always produces populated content — never a bare empty file.
     Also generates index.md for each immediate subdirectory when include_subdirs=True.
 
@@ -199,23 +171,33 @@ def vault_section_index(folder: str, include_subdirs: bool = True) -> Dict[str, 
     now = _utcnow()
     notes = _collect_notes(section_path, include_subdirs)
 
-    # Write main section index
-    index_path = section_path / "index.md"
-    assert_within_vault(index_path, VAULT_ROOT)
-    index_path.write_text(_build_index_content(folder, notes, now), encoding="utf-8")
-
-    # Generate index.md for each immediate subdirectory
+    # Discover immediate subdirectories (for subdir listing in index)
+    subdir_folders: List[str] = []
     subdir_indexes: List[str] = []
     if include_subdirs:
         for sub in sorted(section_path.iterdir()):
             if not sub.is_dir() or sub.name.startswith("."):
                 continue
             sub_folder = str(sub.relative_to(VAULT_ROOT)).replace("\\", "/")
+            subdir_folders.append(sub_folder)
+
+            # Generate sub-section index (no nested subdirs to avoid deep recursion)
             sub_notes = _collect_notes(sub, include_subdirs=True)
             sub_index = sub / "index.md"
             assert_within_vault(sub_index, VAULT_ROOT)
-            sub_index.write_text(_build_index_content(sub_folder, sub_notes, now), encoding="utf-8")
+            sub_index.write_text(
+                _build_index_content(sub_folder, sub_notes, now, subdirs=None),
+                encoding="utf-8",
+            )
             subdir_indexes.append(str(sub_index.relative_to(VAULT_ROOT)).replace("\\", "/"))
+
+    # Write main section index — includes subdir listing
+    index_path = section_path / "index.md"
+    assert_within_vault(index_path, VAULT_ROOT)
+    index_path.write_text(
+        _build_index_content(folder, notes, now, subdirs=subdir_folders or None),
+        encoding="utf-8",
+    )
 
     return {
         "ok": True,

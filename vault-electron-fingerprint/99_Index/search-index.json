@@ -15,6 +15,13 @@
       "updatedAt": "2026-05-24T02:54:36.000Z"
     },
     {
+      "path": "00_System/vault-obsidian-architecture.md",
+      "title": "vault-obsidian-architecture",
+      "preview": "## Principios de diseño  ### 1. Markdown + Frontmatter YAML como formato universal Legible por humanos, indexable por máquinas, compatible con git, abre en cualquier editor. El frontmatter YAML permit",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
       "path": "01_Projects/electron-fingerprint/envs.md",
       "title": "Environment Variables - electron-fingerprint",
       "preview": "# Environment Variables: electron-fingerprint  _Configuracion de desarrollo local para sistema de asistencia biometrica_  ## dev  | Nombre | Descripción | Requerida | Default | Sensible | Proveedor | ",
@@ -22,32 +29,133 @@
       "updatedAt": "2026-05-24T03:32:11.000Z"
     },
     {
-      "path": "01_Projects/electron-fingerprint/overview.md",
-      "title": "Overview: electron-fingerprint",
-      "preview": "# Overview: electron-fingerprint   ## Descripción  Aplicacion de escritorio ElectronJS para autenticacion y control de asistencia mediante huella dactilar. Motor biometrico .NET con dispositivo DP4500",
+      "path": "01_Projects/electron-fingerprint/index.md",
+      "title": "index",
+      "preview": "|---| | [[envs|Environment Variables - electron-fingerprint]] | envs | 2026-05-24T03:32:11.000Z | | [[overview|electron-fingerprint — Overview]] |  | 2026-06-02T07:46:09.000Z |",
       "tags": [],
-      "updatedAt": "2026-05-24T02:56:01.000Z"
+      "updatedAt": ""
+    },
+    {
+      "path": "01_Projects/electron-fingerprint/overview.md",
+      "title": "electron-fingerprint — Overview",
+      "preview": "# electron-fingerprint — Overview  > Stub generado por vault_onboard. Enriquecer con vault_project_overview.  ## Descripción  Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas d",
+      "tags": [
+        "project",
+        "overview",
+        "electron-fingerprint"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
     },
     {
       "path": "01_Projects/index.md",
       "title": "index",
-      "preview": "|---| | [[envs|Environment Variables - electron-fingerprint]] | envs | 2026-05-24T03:32:11.000Z | | [[overview|Overview: electron-fingerprint]] | project-overview | 2026-05-24T02:56:01.000Z |",
+      "preview": "|---| | [[envs|Environment Variables - electron-fingerprint]] | envs | 2026-05-24T03:32:11.000Z | | [[overview|electron-fingerprint — Overview]] |  | 2026-06-02T07:46:09.000Z |",
       "tags": [],
       "updatedAt": ""
     },
     {
       "path": "02_Observability/index.md",
       "title": "index",
-      "preview": "# 02_Observability — Índice  > Errores, métricas, alertas y observabilidad > Generado automáticamente · 2026-05-24T03:40:39.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "preview": "# 02_Observability — Índice  > **Propósito:** Errores, métricas, alertas y observabilidad > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la prim",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "03_Decisions/adr-001-retroactivo.md",
+      "title": "ADR-001 — docs(vault): sync spec v29 + upgrade standard-version v27→v2 (retroactivo)",
+      "preview": "# ADR-001 — docs(vault): sync spec v29 + upgrade standard-version v27→v2 (retroactivo)  **Fecha detectada:** 2026-05-27 (commit `43dc1e81`) **Autor:** Carlos Ivan CM **Status:** implemented  ## Contex",
+      "tags": [
+        "adr",
+        "retroactivo",
+        "electron-fingerprint"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "03_Decisions/adr-002-retroactivo.md",
+      "title": "ADR-002 — docs: inicializar vault v27 (Vault-Obsidian-Architecture sta (retroactivo)",
+      "preview": "# ADR-002 — docs: inicializar vault v27 (Vault-Obsidian-Architecture sta (retroactivo)  **Fecha detectada:** 2026-05-23 (commit `369a8f03`) **Autor:** Carlos Ivan CM **Status:** implemented  ## Contex",
+      "tags": [
+        "adr",
+        "retroactivo",
+        "electron-fingerprint"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "03_Decisions/index.md",
+      "title": "index",
+      "preview": "|---| | [[adr-001-retroactivo|ADR-001 — docs(vault): sync spec v29 + upgrade standard-version v27→v2 (retroactivo)]] |  | 2026-06-02T08:17:02.000Z | | [[adr-002-retroactivo|ADR-002 — docs: inicializar",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "04_Sessions/2025-11-fase-inicial.md",
+      "title": "2025-11 — Fase inicial",
+      "preview": "# 2025-11 — Fase inicial  > Fase del proyecto reconstruida desde git log.  **Período:** 2025-11-01 → 2025-11-28 **Commits:** 8 | **Contribuidores:** Carlos Ivan CM **Estado:** Inicio del proyecto  ## ",
+      "tags": [
+        "session",
+        "historial",
+        "electron-fingerprint",
+        "2025"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "04_Sessions/2026-05-fase-2.md",
+      "title": "2026-05 — Fase 2",
+      "preview": "# 2026-05 — Fase 2  > Fase del proyecto reconstruida desde git log.  **Período:** 2026-05-01 → 2026-06-28 **Commits:** 14 | **Contribuidores:** Carlos Ivan CM **Estado:** Estado actual del proyecto  #",
+      "tags": [
+        "session",
+        "historial",
+        "electron-fingerprint",
+        "2026"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "04_Sessions/index.md",
+      "title": "index",
+      "preview": "|---| | [[2025-11-fase-inicial|2025-11 — Fase inicial]] |  | 2026-06-02T08:17:02.000Z | | [[2026-05-fase-2|2026-05 — Fase 2]] |  | 2026-06-02T08:17:02.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "05_Patterns/architecture/electron-fingerprint-service-layer.md",
+      "title": "Service Layer",
+      "preview": "# Service Layer  > Patrón detectado automáticamente por vault_onboard. Verificar implementación real.  **Categoría:** architecture **Evidencia:** 5 archivos de tipo `service`  ## Descripción  Separaci",
+      "tags": [
+        "pattern",
+        "architecture",
+        "electron-fingerprint",
+        "service"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "05_Patterns/architecture/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-service-layer|Service Layer]] |  | 2026-06-02T08:17:02.000Z |",
       "tags": [],
       "updatedAt": ""
     },
     {
       "path": "05_Patterns/index.md",
       "title": "index",
-      "preview": "# 05_Patterns — Índice  > Patrones reutilizables de código y arquitectura > Generado automáticamente · 2026-05-24T03:40:39.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "preview": "|---| | [[electron-fingerprint-service-layer|Service Layer]] |  | 2026-06-02T08:17:02.000Z |",
       "tags": [],
       "updatedAt": ""
+    },
+    {
+      "path": "06_Diagrams/component/electron-fingerprint-architecture.md",
+      "title": "electron-fingerprint — Arquitectura de componentes",
+      "preview": "# electron-fingerprint — Arquitectura de componentes  > Diagrama generado por vault_onboard desde estructura de archivos. Verificar y ajustar.  **Lenguaje:** typescript **Framework:** Electron  ## Dia",
+      "tags": [
+        "diagram",
+        "architecture",
+        "electron-fingerprint"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
     },
     {
       "path": "06_Diagrams/component/electron-fingerprint-arquitectura-del-sistema.md",
@@ -57,6 +165,13 @@
       "updatedAt": "2026-05-24T03:25:58.000Z"
     },
     {
+      "path": "06_Diagrams/component/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-architecture|electron-fingerprint — Arquitectura de componentes]] |  | 2026-06-02T08:17:02.000Z | | [[electron-fingerprint-arquitectura-del-sistema|Arquitectura del Sist",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
       "path": "06_Diagrams/entity/electron-fingerprint-erd-schema-sqlite.md",
       "title": "ERD Schema SQLite",
       "preview": "## Descripción  Diagrama entidad-relacion del schema SQLite. 5 tablas: departments, shifts, employees, fingerprints, attendance_records. Clave: fingerprints.template_data almacena plantilla ISO base64",
@@ -64,9 +179,16 @@
       "updatedAt": "2026-05-24T03:27:14.000Z"
     },
     {
+      "path": "06_Diagrams/entity/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-erd-schema-sqlite|ERD Schema SQLite]] |  | 2026-05-24T03:27:14.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
       "path": "06_Diagrams/index.md",
       "title": "index",
-      "preview": "|---| | [[electron-fingerprint-arquitectura-del-sistema|Arquitectura del Sistema]] |  | 2026-05-24T03:25:58.000Z | | [[electron-fingerprint-erd-schema-sqlite|ERD Schema SQLite]] |  | 2026-05-24T03:27:",
+      "preview": "|---| | [[electron-fingerprint-architecture|electron-fingerprint — Arquitectura de componentes]] |  | 2026-06-02T08:17:02.000Z | | [[electron-fingerprint-arquitectura-del-sistema|Arquitectura del Sist",
       "tags": [],
       "updatedAt": ""
     },
@@ -78,10 +200,108 @@
         "biometrico",
         "api",
         "fingerprint",
-        "electron",
+        "electron-fingerprint",
         "8080"
       ],
       "updatedAt": "2026-05-24T03:21:41.000Z"
+    },
+    {
+      "path": "07_Knowledge/apis/index.md",
+      "title": "index",
+      "preview": "|---| | [[biometric-engine-http-api-localhost8080|Biometric Engine HTTP API — localhost:8080]] |  | 2026-05-24T03:21:41.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "07_Knowledge/business-rules/index.md",
+      "title": "index",
+      "preview": "# 07_Knowledge/business-rules — Índice  > **Propósito:** Base de conocimiento técnico y conceptual > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añad",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "07_Knowledge/concepts/arquitectura-t-cnica.md",
+      "title": "Arquitectura Técnica",
+      "preview": "# Arquitectura Técnica  > Concepto detectado en README del proyecto electron-fingerprint. Pendiente de documentar.  **Proyecto:** electron-fingerprint **Fuente:** README.md — sección `## Arquitectura ",
+      "tags": [
+        "concept",
+        "electron-fingerprint",
+        "readme"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "07_Knowledge/concepts/caracter-sticas.md",
+      "title": "Características",
+      "preview": "# Características  > Concepto detectado en README del proyecto electron-fingerprint. Pendiente de documentar.  **Proyecto:** electron-fingerprint **Fuente:** README.md — sección `## Características`  ",
+      "tags": [
+        "concept",
+        "electron-fingerprint",
+        "readme"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "07_Knowledge/concepts/componentes-del-engine.md",
+      "title": "Componentes del Engine",
+      "preview": "# Componentes del Engine  > Concepto detectado en README del proyecto electron-fingerprint. Pendiente de documentar.  **Proyecto:** electron-fingerprint **Fuente:** README.md — sección `## Componentes",
+      "tags": [
+        "concept",
+        "electron-fingerprint",
+        "readme"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "07_Knowledge/concepts/estructura-del-proyecto.md",
+      "title": "Estructura del Proyecto",
+      "preview": "# Estructura del Proyecto  > Concepto detectado en README del proyecto electron-fingerprint. Pendiente de documentar.  **Proyecto:** electron-fingerprint **Fuente:** README.md — sección `## Estructura",
+      "tags": [
+        "concept",
+        "electron-fingerprint",
+        "readme"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+      "title": "Guía de Uso de la Interfaz",
+      "preview": "# Guía de Uso de la Interfaz  > Concepto detectado en README del proyecto electron-fingerprint. Pendiente de documentar.  **Proyecto:** electron-fingerprint **Fuente:** README.md — sección `## Guía de",
+      "tags": [
+        "concept",
+        "electron-fingerprint",
+        "readme"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "07_Knowledge/concepts/index.md",
+      "title": "index",
+      "preview": "|---| | [[arquitectura-t-cnica|Arquitectura Técnica]] |  | 2026-06-02T08:17:02.000Z | | [[caracter-sticas|Características]] |  | 2026-06-02T08:17:02.000Z | | [[componentes-del-engine|Componentes del E",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "07_Knowledge/concepts/instalaci-n.md",
+      "title": "Instalación",
+      "preview": "# Instalación  > Concepto detectado en README del proyecto electron-fingerprint. Pendiente de documentar.  **Proyecto:** electron-fingerprint **Fuente:** README.md — sección `## Instalación`  ## Descr",
+      "tags": [
+        "concept",
+        "electron-fingerprint",
+        "readme"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "07_Knowledge/concepts/requisitos-previos.md",
+      "title": "Requisitos Previos",
+      "preview": "# Requisitos Previos  > Concepto detectado en README del proyecto electron-fingerprint. Pendiente de documentar.  **Proyecto:** electron-fingerprint **Fuente:** README.md — sección `## Requisitos Prev",
+      "tags": [
+        "concept",
+        "electron-fingerprint",
+        "readme"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
     },
     {
       "path": "07_Knowledge/concepts/sqlite-schema-sistema-de-asistencia.md",
@@ -96,16 +316,141 @@
       "updatedAt": "2026-05-24T03:04:58.000Z"
     },
     {
+      "path": "07_Knowledge/concepts/test-v29-delta.md",
+      "title": "Test v29 Delta",
+      "preview": "# Test v29 Delta  Esta nota verifica el funcionamiento de vault_delta y vault_tags en v29.  ## Objetivo Confirmar deteccion de cambios entre sesiones y registro canonico de tags.  ## Componentes proba",
+      "tags": [
+        "test",
+        "electron-fingerprint",
+        "database"
+      ],
+      "updatedAt": "2026-05-27T08:17:41.000Z"
+    },
+    {
+      "path": "07_Knowledge/concepts/uso.md",
+      "title": "Uso",
+      "preview": "# Uso  > Concepto detectado en README del proyecto electron-fingerprint. Pendiente de documentar.  **Proyecto:** electron-fingerprint **Fuente:** README.md — sección `## Uso`  ## Descripción  _Pendien",
+      "tags": [
+        "concept",
+        "electron-fingerprint",
+        "readme"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "07_Knowledge/config/index.md",
+      "title": "index",
+      "preview": "# 07_Knowledge/config — Índice  > **Propósito:** Base de conocimiento técnico y conceptual > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la pri",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "07_Knowledge/dependencies/index.md",
+      "title": "index",
+      "preview": "# 07_Knowledge/dependencies — Índice  > **Propósito:** Base de conocimiento técnico y conceptual > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade ",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "07_Knowledge/frameworks/electron.md",
+      "title": "electron",
+      "preview": "# electron  > Dependencia clave detectada en package.json del proyecto electron-fingerprint.  **Tipo:** framework **Proyecto que lo usa:** [[electron-fingerprint-overview]]  ## Para documentar  ```bas",
+      "tags": [
+        "framework",
+        "electron-fingerprint",
+        "electron"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "07_Knowledge/frameworks/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron|electron]] |  | 2026-06-02T08:17:02.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "07_Knowledge/glossary/index.md",
+      "title": "index",
+      "preview": "# 07_Knowledge/glossary — Índice  > **Propósito:** Base de conocimiento técnico y conceptual > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la p",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
       "path": "07_Knowledge/index.md",
       "title": "index",
-      "preview": "|---| | [[biometric-engine-http-api-localhost8080|Biometric Engine HTTP API — localhost:8080]] |  | 2026-05-24T03:21:41.000Z | | [[sqlite-schema-sistema-de-asistencia|SQLite Schema — Sistema de Asiste",
+      "preview": "|---| | [[biometric-engine-http-api-localhost8080|Biometric Engine HTTP API — localhost:8080]] |  | 2026-05-24T03:21:41.000Z | | [[arquitectura-t-cnica|Arquitectura Técnica]] |  | 2026-06-02T08:17:02.",
       "tags": [],
       "updatedAt": ""
     },
     {
       "path": "08_Runbooks/index.md",
       "title": "index",
-      "preview": "# 08_Runbooks — Índice  > Procedimientos operativos paso a paso > Generado automáticamente · 2026-05-24T03:40:39.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "preview": "|---| | [[electron-fingerprint-npm-build|npm run build]] |  | 2026-06-02T08:17:02.000Z | | [[electron-fingerprint-npm-dev|npm run dev]] |  | 2026-06-02T08:17:02.000Z | | [[electron-fingerprint-npm-sta",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "08_Runbooks/pipeline/electron-fingerprint-npm-build.md",
+      "title": "npm run build",
+      "preview": "# npm run build  > Runbook generado por vault_onboard desde package.json. Verificar pasos reales.  **Trigger:** Ejecutar `build` del proyecto **Categoría:** pipeline **Comando:** `tsc -p tsconfig.json",
+      "tags": [
+        "runbook",
+        "pipeline",
+        "electron-fingerprint",
+        "npm"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "08_Runbooks/pipeline/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-npm-build|npm run build]] |  | 2026-06-02T08:17:02.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "08_Runbooks/setup/electron-fingerprint-npm-dev.md",
+      "title": "npm run dev",
+      "preview": "# npm run dev  > Runbook generado por vault_onboard desde package.json. Verificar pasos reales.  **Trigger:** Ejecutar `dev` del proyecto **Categoría:** setup **Comando:** `npm run build && electron .",
+      "tags": [
+        "runbook",
+        "setup",
+        "electron-fingerprint",
+        "npm"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "08_Runbooks/setup/electron-fingerprint-npm-start.md",
+      "title": "npm run start",
+      "preview": "# npm run start  > Runbook generado por vault_onboard desde package.json. Verificar pasos reales.  **Trigger:** Ejecutar `start` del proyecto **Categoría:** setup **Comando:** `npm run build && electr",
+      "tags": [
+        "runbook",
+        "setup",
+        "electron-fingerprint",
+        "npm"
+      ],
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "08_Runbooks/setup/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-npm-dev|npm run dev]] |  | 2026-06-02T08:17:02.000Z | | [[electron-fingerprint-npm-start|npm run start]] |  | 2026-06-02T08:17:02.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "09_Infrastructure/containers/index.md",
+      "title": "index",
+      "preview": "# 09_Infrastructure/containers — Índice  > **Propósito:** Infraestructura, entornos y configuraciones > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. A",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "09_Infrastructure/databases/index.md",
+      "title": "index",
+      "preview": "|---| | [[sqlite-asistencia|sqlite-asistencia]] | database | 2026-05-24T03:34:19.000Z |",
       "tags": [],
       "updatedAt": ""
     },
@@ -121,9 +466,27 @@
       "updatedAt": "2026-05-24T03:34:19.000Z"
     },
     {
+      "path": "09_Infrastructure/electron-fingerprint/index.md",
+      "title": "index",
+      "preview": "|---| | [[infra|electron-fingerprint — Infraestructura]] |  | 2026-06-02T07:46:09.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "09_Infrastructure/electron-fingerprint/infra.md",
+      "title": "electron-fingerprint — Infraestructura",
+      "preview": "# electron-fingerprint — Infraestructura  > Stub generado por vault_onboard desde archivos de configuración detectados.  ## Archivos detectados  - `docker-compose.yml` - `Dockerfile`  ## Servicios (do",
+      "tags": [
+        "stub",
+        "infrastructure",
+        "electron-fingerprint"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
       "path": "09_Infrastructure/index.md",
       "title": "index",
-      "preview": "|---| | [[sqlite-asistencia|sqlite-asistencia]] | database | 2026-05-24T03:34:19.000Z | | [[infra-map|Infrastructure Map]] |  | 2026-05-24T03:34:19.000Z | | [[biometric-engine|biometric-engine]] | ser",
+      "preview": "|---| | [[sqlite-asistencia|sqlite-asistencia]] | database | 2026-05-24T03:34:19.000Z | | [[infra|electron-fingerprint — Infraestructura]] |  | 2026-06-02T07:46:09.000Z | | [[infra-map|Infrastructure ",
       "tags": [],
       "updatedAt": ""
     },
@@ -133,6 +496,34 @@
       "preview": "## Network Map  ```mermaid graph LR     subgraph local[\"🏠 Local\"]         biometric-engine⚙️ biometric-engine :8080         sqlite-asistencia(\"sqlite-asistencia :0)     end     sqlite-asistencia -->|\"",
       "tags": [],
       "updatedAt": "2026-05-24T03:34:19.000Z"
+    },
+    {
+      "path": "09_Infrastructure/network/index.md",
+      "title": "index",
+      "preview": "# 09_Infrastructure/network — Índice  > **Propósito:** Infraestructura, entornos y configuraciones > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añad",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "09_Infrastructure/pipelines/index.md",
+      "title": "index",
+      "preview": "# 09_Infrastructure/pipelines — Índice  > **Propósito:** Infraestructura, entornos y configuraciones > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añ",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "09_Infrastructure/secrets/index.md",
+      "title": "index",
+      "preview": "# 09_Infrastructure/secrets — Índice  > **Propósito:** Infraestructura, entornos y configuraciones > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añad",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "09_Infrastructure/servers/index.md",
+      "title": "index",
+      "preview": "# 09_Infrastructure/servers — Índice  > **Propósito:** Infraestructura, entornos y configuraciones > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añad",
+      "tags": [],
+      "updatedAt": ""
     },
     {
       "path": "09_Infrastructure/services/biometric-engine.md",
@@ -146,57 +537,316 @@
       "updatedAt": "2026-05-24T03:33:43.000Z"
     },
     {
-      "path": "10_Migrated/index.md",
+      "path": "09_Infrastructure/services/index.md",
       "title": "index",
-      "preview": "# 10_Migrated — Índice  > Documentos migrados de otras fuentes > Generado automáticamente · 2026-05-24T03:40:39.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "preview": "|---| | [[biometric-engine|biometric-engine]] | service | 2026-05-24T03:33:43.000Z |",
       "tags": [],
       "updatedAt": ""
     },
     {
-      "path": "11_Code/electron-fingerprint/biometricservice.md",
-      "title": "BiometricService.ts",
-      "preview": "**Ruta:** `sistema-asistencia/services/BiometricService.ts`  |  **Lenguaje:** `typescript`  |  **Tipo ISO:** `service`   ## Proposito  Servicio principal de autenticacion biometrica. Gestiona comunica",
+      "path": "10_Migrated/index.md",
+      "title": "index",
+      "preview": "# 10_Migrated — Índice  > Documentos migrados de otras fuentes > Generado automáticamente · 2026-05-24T03:42:51.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "11_Code/electron-fingerprint/attendancemodel-d.md",
+      "title": "AttendanceModel.d — Model",
+      "preview": "# AttendanceModel.d — Model  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/models/AttendanceModel.d.ts` **Lenguaje:** typescript **Tipo inferid",
       "tags": [
-        "biometrico",
-        "fingerprint",
-        "sqlite",
-        "electron",
-        "electron-fingerprint",
+        "stub",
         "code",
-        "biometricservice",
+        "electron-fingerprint",
+        "model"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/attendancemodel.md",
+      "title": "AttendanceModel — Model",
+      "preview": "# AttendanceModel — Model  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/models/AttendanceModel.ts` **Lenguaje:** typescript **Tipo inferido:**",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "model"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/attendanceservice-d.md",
+      "title": "AttendanceService.d — Service",
+      "preview": "# AttendanceService.d — Service  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/services/AttendanceService.d.ts` **Lenguaje:** typescript **Tipo",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
         "service"
       ],
-      "updatedAt": "2026-05-24T02:58:05.000Z"
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/attendanceservice.md",
+      "title": "AttendanceService — Service",
+      "preview": "# AttendanceService — Service  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/services/AttendanceService.ts` **Lenguaje:** typescript **Tipo inf",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "service"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/biometricservice-d.md",
+      "title": "BiometricService.d — Service",
+      "preview": "# BiometricService.d — Service  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/services/BiometricService.d.ts` **Lenguaje:** typescript **Tipo i",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "service"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/biometricservice.md",
+      "title": "BiometricService — Service",
+      "preview": "# BiometricService — Service  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/services/BiometricService.ts` **Lenguaje:** typescript **Tipo infer",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "service"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/departmentmodel.md",
+      "title": "DepartmentModel — Model",
+      "preview": "# DepartmentModel — Model  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/models/DepartmentModel.ts` **Lenguaje:** typescript **Tipo inferido:**",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "model"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/employeemodel.md",
+      "title": "EmployeeModel — Model",
+      "preview": "# EmployeeModel — Model  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/models/EmployeeModel.ts` **Lenguaje:** typescript **Tipo inferido:** mod",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "model"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/fingerprintmodel-d.md",
+      "title": "FingerprintModel.d — Model",
+      "preview": "# FingerprintModel.d — Model  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/models/FingerprintModel.d.ts` **Lenguaje:** typescript **Tipo infer",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "model"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/fingerprintmodel.md",
+      "title": "FingerprintModel — Model",
+      "preview": "# FingerprintModel — Model  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/models/FingerprintModel.ts` **Lenguaje:** typescript **Tipo inferido:",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "model"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/index.md",
+      "title": "index",
+      "preview": "|---| | [[attendancemodel-d|AttendanceModel.d — Model]] |  | 2026-06-02T07:46:09.000Z | | [[attendancemodel|AttendanceModel — Model]] |  | 2026-06-02T07:46:09.000Z | | [[attendanceservice-d|Attendance",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "11_Code/electron-fingerprint/shiftmodel.md",
+      "title": "ShiftModel — Model",
+      "preview": "# ShiftModel — Model  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/models/ShiftModel.ts` **Lenguaje:** typescript **Tipo inferido:** model **L",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "model"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
+    },
+    {
+      "path": "11_Code/electron-fingerprint/touchmodeservice.md",
+      "title": "TouchModeService — Service",
+      "preview": "# TouchModeService — Service  > Stub generado por vault_onboard. Enriquecer con vault_code_module.  **Archivo:** `sistema-asistencia/services/TouchModeService.ts` **Lenguaje:** typescript **Tipo infer",
+      "tags": [
+        "stub",
+        "code",
+        "electron-fingerprint",
+        "service"
+      ],
+      "updatedAt": "2026-06-02T07:46:09.000Z"
     },
     {
       "path": "11_Code/index.md",
       "title": "index",
-      "preview": "|---| | [[biometricservice|BiometricService.ts]] | code-module | 2026-05-24T02:58:05.000Z |",
+      "preview": "|---| | [[attendancemodel-d|AttendanceModel.d — Model]] |  | 2026-06-02T07:46:09.000Z | | [[attendancemodel|AttendanceModel — Model]] |  | 2026-06-02T07:46:09.000Z | | [[attendanceservice-d|Attendance",
       "tags": [],
       "updatedAt": ""
     },
     {
-      "path": "07_Knowledge\\concepts\\test-v29-delta.md",
-      "title": "Test v29 Delta",
-      "preview": "# Test v29 Delta  Esta nota verifica el funcionamiento de vault_delta y vault_tags en v29.  ## Objetivo Confirmar deteccion de cambios entre sesiones y registro canonico de tags.  ## Componentes proba",
-      "tags": [
-        "test",
-        "electron-fingerprint",
-        "database"
-      ],
-      "updatedAt": "2026-05-27T08:17:41.000Z"
+      "path": "13_Flows/dataflow/index.md",
+      "title": "index",
+      "preview": "# 13_Flows/dataflow — Índice  > **Propósito:** Flujos de datos entre componentes o servicios > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la p",
+      "tags": [],
+      "updatedAt": ""
     },
     {
-      "path": "07_Knowledge\\concepts\\nota-ghost-link.md",
-      "title": "Nota Ghost Link",
-      "preview": "# Nota con ghost link  Esta nota referencia a [[biometricservice]] que si existe en el vault.  Pero tambien referencia [[nota-que-no-existe-en-ningun-lado]] que es un ghost link.  El sistema debe perm",
+      "path": "13_Flows/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-enrolamiento-de-huella-dactilar|Enrolamiento de Huella Dactilar]] | flow | 2026-05-24T03:31:17.000Z | | [[electron-fingerprint-identificacion-biometrica-1-n|Identificaci",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "13_Flows/lifecycle/index.md",
+      "title": "index",
+      "preview": "# 13_Flows/lifecycle — Índice  > **Propósito:** Ciclos de vida de entidades, tickets o deploys > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "13_Flows/pipeline/index.md",
+      "title": "index",
+      "preview": "# 13_Flows/pipeline — Índice  > **Propósito:** Pipelines de CI/CD, datos o procesamiento > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la prime",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "13_Flows/workflow/electron-fingerprint-enrolamiento-de-huella-dactilar.md",
+      "title": "Enrolamiento de Huella Dactilar",
+      "preview": "**Proyecto:** `electron-fingerprint`  |  **Tipo:** `workflow`   ## Descripcion  Flujo de enrolamiento: el administrador selecciona empleado y posicion del dedo. El motor .NET captura y evalua calidad,",
+      "tags": [
+        "electron-fingerprint",
+        "workflow",
+        "workflow"
+      ],
+      "updatedAt": "2026-05-24T03:31:17.000Z"
+    },
+    {
+      "path": "13_Flows/workflow/electron-fingerprint-identificacion-biometrica-1-n.md",
+      "title": "Identificacion Biometrica 1-N",
+      "preview": "**Proyecto:** `electron-fingerprint`  |  **Tipo:** `workflow`   ## Descripcion  Flujo de identificacion 1-N: el sistema captura una huella, carga todas las plantillas de SQLite, las envia al motor .NE",
+      "tags": [
+        "electron-fingerprint",
+        "workflow",
+        "workflow"
+      ],
+      "updatedAt": "2026-05-24T03:30:40.000Z"
+    },
+    {
+      "path": "13_Flows/workflow/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-enrolamiento-de-huella-dactilar|Enrolamiento de Huella Dactilar]] | flow | 2026-05-24T03:31:17.000Z | | [[electron-fingerprint-identificacion-biometrica-1-n|Identificaci",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "14_Requirements/index.md",
+      "title": "index",
+      "preview": "# 14_Requirements — Índice  > **Propósito:** Requerimientos funcionales y no funcionales (ISO 29148) > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añ",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "15_Tests/acceptance/index.md",
+      "title": "index",
+      "preview": "# 15_Tests/acceptance — Índice  > **Propósito:** Tests de aceptación con criterios de usuario > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la ",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "15_Tests/e2e/index.md",
+      "title": "index",
+      "preview": "# 15_Tests/e2e — Índice  > **Propósito:** Tests end-to-end sobre flujos completos > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la primera con:",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "15_Tests/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-inventory|electron-fingerprint — Tests performance]] |  | 2026-06-02T08:17:02.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "15_Tests/integration/index.md",
+      "title": "index",
+      "preview": "# 15_Tests/integration — Índice  > **Propósito:** Tests de integración entre componentes > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la prime",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "15_Tests/performance/electron-fingerprint-inventory.md",
+      "title": "electron-fingerprint — Tests performance",
+      "preview": "# electron-fingerprint — Tests performance  > Inventario generado por vault_onboard desde archivos de test detectados.  **Tipo:** performance **Archivos encontrados:** 1  ## Archivos  - `electron/prel",
       "tags": [
         "test",
+        "performance",
         "electron-fingerprint"
       ],
-      "updatedAt": "2026-05-27T08:27:01.000Z"
+      "updatedAt": "2026-06-02T08:17:02.000Z"
+    },
+    {
+      "path": "15_Tests/performance/index.md",
+      "title": "index",
+      "preview": "|---| | [[electron-fingerprint-inventory|electron-fingerprint — Tests performance]] |  | 2026-06-02T08:17:02.000Z |",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "15_Tests/security/index.md",
+      "title": "index",
+      "preview": "# 15_Tests/security — Índice  > **Propósito:** Tests de seguridad y penetración > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la primera con:  ",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "15_Tests/unit/index.md",
+      "title": "index",
+      "preview": "# 15_Tests/unit — Índice  > **Propósito:** Tests unitarios por módulo o función > Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)  ## Estado  Sección sin notas. Añade la primera con:  ",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "99_Index/index.md",
+      "title": "index",
+      "preview": "# 99_Index — Índice  > Índices de navegación del vault > Generado automáticamente · 2026-05-24T03:42:51.000Z · 0 nota(s)  _Sin notas en esta sección._",
+      "tags": [],
+      "updatedAt": ""
+    },
+    {
+      "path": "99_Index/tag-index.md",
+      "title": "Tag Index",
+      "preview": "# Tag Index  _17 tags · 33 referencias · 7 notas sin tag_  ## `8080` (1)  - [[biometric-engine-http-api-localhost8080]]  ## `api` (1)  - [[biometric-engine-http-api-localhost8080]]  ## `asistencia` (1",
+      "tags": [],
+      "updatedAt": "2026-05-27T08:17:00.000Z"
     }
   ],
-  "rebuiltAt": "2026-05-24T03:41:36.000Z",
-  "totalNotes": 21
+  "rebuiltAt": "2026-06-07T23:55:53.000Z",
+  "totalNotes": 95
 }

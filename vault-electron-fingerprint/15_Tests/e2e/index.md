@@ -1,11 +1,12 @@
 # 15_Tests/e2e — Índice
 
+> [[15_Tests/index|← 15_Tests]]  ·  [[99_Index/index|Índice Maestro]]
 > **Propósito:** Tests end-to-end sobre flujos completos
-> Generado automáticamente · 2026-06-02T08:17:02.000Z · 0 nota(s)
+> Generado automáticamente · 2026-06-08T02:08:25.000Z · 0 nota(s)
 
-## Estado
+## Notas
 
-Sección sin notas. Añade la primera con:
+_Sección sin notas. Añade la primera con:_
 
 ```bash
 python scripts/vault_test_save --project <slug> --title <test>

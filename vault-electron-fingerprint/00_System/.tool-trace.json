@@ -1581,5 +1581,2114 @@
     ],
     "tool": "vault_onboard",
     "timestamp": "2026-06-02T02:17:02Z"
+  },
+  {
+    "ok": true,
+    "project": "electron-fingerprint",
+    "path_scanned": "C:\\Users\\Carlos Ivan\\Documents\\Proyectos VSCODE\\ElectronJS - Autenticacion por huella dactilar",
+    "dry_run": true,
+    "git_history": {
+      "is_git": true,
+      "current_branch": "sistema-asistencia",
+      "apparent_first_date": "2025-11-05",
+      "true_first_date": "2025-11-05",
+      "hidden_history": false,
+      "hidden_months": 0,
+      "last": "2026-06-02",
+      "total_commits": 23,
+      "total_commits_with_reflog": 23,
+      "contributors": [
+        "Carlos Ivan CM"
+      ],
+      "tags": [],
+      "branches": 5,
+      "snap_branches": [],
+      "stashes": 0,
+      "reflog_extra_commits": 0,
+      "phases_detected": 2
+    },
+    "discovered": {
+      "runtime": "Node.js",
+      "language": "typescript",
+      "framework": "Electron",
+      "description": "Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500",
+      "module_count": 20,
+      "has_infra": true
+    },
+    "created": {
+      "overview": "01_Projects/electron-fingerprint/overview.md",
+      "sessions": [
+        "04_Sessions/2025-11-fase-inicial.md",
+        "04_Sessions/2026-05-fase-2.md"
+      ],
+      "decisions": [
+        "03_Decisions/adr-001-retroactivo.md",
+        "03_Decisions/adr-002-retroactivo.md"
+      ],
+      "patterns": "05_Patterns/architecture/electron-fingerprint-service-layer.md",
+      "diagrams": "06_Diagrams/component/electron-fingerprint-architecture.md",
+      "knowledge": [
+        "07_Knowledge/concepts/caracter-sticas.md",
+        "07_Knowledge/concepts/requisitos-previos.md",
+        "07_Knowledge/concepts/estructura-del-proyecto.md",
+        "07_Knowledge/concepts/instalaci-n.md",
+        "07_Knowledge/concepts/uso.md",
+        "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+        "07_Knowledge/concepts/arquitectura-t-cnica.md",
+        "07_Knowledge/concepts/componentes-del-engine.md",
+        "07_Knowledge/frameworks/electron.md"
+      ],
+      "runbooks": [
+        "08_Runbooks/pipeline/electron-fingerprint-npm-build.md",
+        "08_Runbooks/setup/electron-fingerprint-npm-start.md",
+        "08_Runbooks/setup/electron-fingerprint-npm-dev.md"
+      ],
+      "infra": "09_Infrastructure/electron-fingerprint/infra.md",
+      "modules": [
+        "11_Code/electron-fingerprint/touchmodeservice.md",
+        "11_Code/electron-fingerprint/attendanceservice.md",
+        "11_Code/electron-fingerprint/biometricservice.md",
+        "11_Code/electron-fingerprint/attendanceservice-d.md",
+        "11_Code/electron-fingerprint/biometricservice-d.md",
+        "11_Code/electron-fingerprint/attendancemodel.md",
+        "11_Code/electron-fingerprint/employeemodel.md",
+        "11_Code/electron-fingerprint/fingerprintmodel.md",
+        "11_Code/electron-fingerprint/shiftmodel.md",
+        "11_Code/electron-fingerprint/departmentmodel.md",
+        "11_Code/electron-fingerprint/attendancemodel-d.md",
+        "11_Code/electron-fingerprint/fingerprintmodel-d.md",
+        "11_Code/electron-fingerprint/employeemodel-d.md",
+        "11_Code/electron-fingerprint/shiftmodel-d.md",
+        "11_Code/electron-fingerprint/departmentmodel-d.md",
+        "11_Code/electron-fingerprint/main.md",
+        "11_Code/electron-fingerprint/server.md",
+        "11_Code/electron-fingerprint/index.md",
+        "11_Code/electron-fingerprint/init.md",
+        "11_Code/electron-fingerprint/index-d.md"
+      ],
+      "tests": "15_Tests/performance/electron-fingerprint-inventory.md",
+      "indexes_updated": [
+        "01_Projects/index.md",
+        "02_Observability/index.md",
+        "03_Decisions/index.md",
+        "04_Sessions/index.md",
+        "05_Patterns/index.md",
+        "06_Diagrams/index.md",
+        "07_Knowledge/index.md",
+        "08_Runbooks/index.md",
+        "09_Infrastructure/index.md",
+        "11_Code/index.md",
+        "13_Flows/index.md",
+        "14_Requirements/index.md",
+        "15_Tests/index.md"
+      ]
+    },
+    "merge_stats": {
+      "created": 0,
+      "merged": 0,
+      "skipped": 0,
+      "dry_run": 41
+    },
+    "warnings": [],
+    "next_steps": [
+      "vault_project_overview --project electron-fingerprint  # enriquecer overview",
+      "vault_code_module --project ... --file_path ...  # enriquecer módulos",
+      "vault_audit  # verificar health score"
+    ],
+    "tool": "vault_onboard",
+    "timestamp": "2026-06-02T02:26:24Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 57,
+    "stats": {
+      "total": 47,
+      "byFolder": {
+        "00_System": 2,
+        "01_Projects": 2,
+        "03_Decisions": 2,
+        "04_Sessions": 2,
+        "05_Patterns": 1,
+        "06_Diagrams": 3,
+        "07_Knowledge": 12,
+        "08_Runbooks": 3,
+        "09_Infrastructure": 4,
+        "11_Code": 12,
+        "13_Flows": 2,
+        "15_Tests": 1,
+        "99_Index": 1
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "target"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "carpeta/nota"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "identity"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/arquitectura-t-cnica.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/caracter-sticas.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/componentes-del-engine.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/estructura-del-proyecto.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/instalaci-n.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/requisitos-previos.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/uso.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/frameworks/electron.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "01_Projects/electron-fingerprint/overview.md",
+          "link": "electron-fingerprint-code-map"
+        }
+      ],
+      "canonicalShadow": [
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendancemodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendancemodel.md",
+          "titleA": "attendancemodel.d — model",
+          "titleB": "attendancemodel — model",
+          "similarity": 0.958
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendanceservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendanceservice.md",
+          "titleA": "attendanceservice.d — service",
+          "titleB": "attendanceservice — service",
+          "similarity": 0.964
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/biometricservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/biometricservice.md",
+          "titleA": "biometricservice.d — service",
+          "titleB": "biometricservice — service",
+          "similarity": 0.963
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/fingerprintmodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/fingerprintmodel.md",
+          "titleA": "fingerprintmodel.d — model",
+          "titleB": "fingerprintmodel — model",
+          "similarity": 0.96
+        }
+      ],
+      "crossFolderDuplicates": [],
+      "malformedWikilinks": [
+        {
+          "norm_code": "AP-22",
+          "path": "00_System/vault-obsidian-architecture.md",
+          "opens": 14,
+          "closes": 14,
+          "empty_links": 6
+        }
+      ],
+      "emptyIndexes": [
+        {
+          "norm_code": "AP-03",
+          "folder": "02_Observability",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "10_Migrated",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "12_Bibliography",
+          "index_exists": false,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "14_Requirements",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "16_AI_Governance",
+          "index_exists": false,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        }
+      ]
+    },
+    "norm_refs": {
+      "AP-14": "Wiki-links rotos o vacíos",
+      "AP-17": "Canonical-shadow duplication",
+      "AP-18": "Cross-folder content duplication",
+      "AP-22": "Bracket sanity — corchetes desbalanceados o vacíos"
+    },
+    "summary": "Score: 57/100 · 47 notas · 19 links rotos · 4 pares AP-17 · 1 corchetes AP-22 · 5 secciones vacias AP-03",
+    "tagHealth": {
+      "total_tags": 17,
+      "orphaned_tags": [],
+      "near_duplicate_pairs": 1,
+      "untagged_notes_count": 7,
+      "tag_health_score": 83,
+      "registry_at": "2026-05-27T08:17:00.000Z"
+    },
+    "tool": "vault_audit",
+    "timestamp": "2026-06-07T17:54:53Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 57,
+    "stats": {
+      "total": 47,
+      "byFolder": {
+        "00_System": 2,
+        "01_Projects": 2,
+        "03_Decisions": 2,
+        "04_Sessions": 2,
+        "05_Patterns": 1,
+        "06_Diagrams": 3,
+        "07_Knowledge": 12,
+        "08_Runbooks": 3,
+        "09_Infrastructure": 4,
+        "11_Code": 12,
+        "13_Flows": 2,
+        "15_Tests": 1,
+        "99_Index": 1
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "target"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "carpeta/nota"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "identity"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/arquitectura-t-cnica.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/caracter-sticas.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/componentes-del-engine.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/estructura-del-proyecto.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/instalaci-n.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/requisitos-previos.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/uso.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/frameworks/electron.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "01_Projects/electron-fingerprint/overview.md",
+          "link": "electron-fingerprint-code-map"
+        }
+      ],
+      "canonicalShadow": [
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendancemodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendancemodel.md",
+          "titleA": "attendancemodel.d — model",
+          "titleB": "attendancemodel — model",
+          "similarity": 0.958
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendanceservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendanceservice.md",
+          "titleA": "attendanceservice.d — service",
+          "titleB": "attendanceservice — service",
+          "similarity": 0.964
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/biometricservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/biometricservice.md",
+          "titleA": "biometricservice.d — service",
+          "titleB": "biometricservice — service",
+          "similarity": 0.963
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/fingerprintmodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/fingerprintmodel.md",
+          "titleA": "fingerprintmodel.d — model",
+          "titleB": "fingerprintmodel — model",
+          "similarity": 0.96
+        }
+      ],
+      "crossFolderDuplicates": [],
+      "malformedWikilinks": [
+        {
+          "norm_code": "AP-22",
+          "path": "00_System/vault-obsidian-architecture.md",
+          "opens": 14,
+          "closes": 14,
+          "empty_links": 6
+        }
+      ],
+      "emptyIndexes": [
+        {
+          "norm_code": "AP-03",
+          "folder": "02_Observability",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "10_Migrated",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "12_Bibliography",
+          "index_exists": false,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "14_Requirements",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "16_AI_Governance",
+          "index_exists": false,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        }
+      ]
+    },
+    "norm_refs": {
+      "AP-14": "Wiki-links rotos o vacíos",
+      "AP-17": "Canonical-shadow duplication",
+      "AP-18": "Cross-folder content duplication",
+      "AP-22": "Bracket sanity — corchetes desbalanceados o vacíos"
+    },
+    "summary": "Score: 57/100 · 47 notas · 19 links rotos · 4 pares AP-17 · 1 corchetes AP-22 · 5 secciones vacias AP-03",
+    "tagHealth": {
+      "total_tags": 17,
+      "orphaned_tags": [],
+      "near_duplicate_pairs": 1,
+      "untagged_notes_count": 7,
+      "tag_health_score": 83,
+      "registry_at": "2026-05-27T08:17:00.000Z"
+    },
+    "tool": "vault_audit",
+    "timestamp": "2026-06-07T17:55:06Z"
+  },
+  {
+    "ok": true,
+    "indexed": 95,
+    "skipped": 0,
+    "dry_run": false,
+    "path": "99_Index/search-index.json",
+    "hash_index": "99_Index/hash-index.json",
+    "indexes_rebuilt": true,
+    "tool": "vault_reindex",
+    "timestamp": "2026-06-07T17:55:53Z"
+  },
+  {
+    "ok": true,
+    "path": "01_Projects/index.md",
+    "noteCount": 2,
+    "is_empty": false,
+    "subdirIndexes": [
+      "01_Projects/electron-fingerprint/index.md"
+    ],
+    "tool": "vault_section_index",
+    "timestamp": "2026-06-07T17:56:40Z"
+  },
+  {
+    "ok": true,
+    "path": "99_Index/index.md",
+    "sectionsTotal": 18,
+    "notesTotal": 47,
+    "tool": "vault_master_index",
+    "timestamp": "2026-06-07T17:56:41Z"
+  },
+  {
+    "ok": false,
+    "tool": "vault_incident_save",
+    "error_code": "UNEXPECTED_ERROR",
+    "category": "infrastructure",
+    "severity": "critical",
+    "message": "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\Carlos Ivan\\\\Documents\\\\Proyectos VSCODE\\\\ElectronJS - Autenticacion por huella dactilar\\\\vault-electron-fingerprint\\\\02_Observability\\\\incidents\\\\.electron-fingerprint-2026-06-07-test-auto-index-sensor-dp4500-timeout-en-arranque-frio.md.42612.87f9982d5be54f4ba68f54c375b44cc0.tmp'",
+    "recovery": {
+      "action": "manual",
+      "hint": "Revisar el trace log en 00_System/.tool-trace.json para el detalle completo del error.",
+      "docs": null
+    },
+    "timestamp": "2026-06-07T17:59:29Z",
+    "traceback": "NoneType: None\n"
+  },
+  {
+    "ok": true,
+    "path": "02_Observability/incidents/electron-fingerprint-2026-06-08-sensor-dp4500-timeout-arranque-frio.md",
+    "project": "electron-fingerprint",
+    "severity": "P2",
+    "severity_label": "High",
+    "status": "investigating",
+    "mttr": "—",
+    "action_items_count": 0,
+    "iso_standard": "ISO 20000-1:2018 §8.6 / ISO 22301:2019 §8.4",
+    "tool": "vault_incident_save",
+    "timestamp": "2026-06-07T18:01:02Z"
+  },
+  {
+    "ok": true,
+    "path": "02_Observability/slos/electron-fingerprint-biometric-engine-availability.md",
+    "project": "electron-fingerprint",
+    "service": "biometric-engine",
+    "slo_type": "availability",
+    "slo": "availability ≥ 99.5%",
+    "window": "30d",
+    "error_budget": {
+      "allowed_failure_pct": 0.5,
+      "allowed_downtime_minutes": 216.0,
+      "allowed_downtime_human": "3h 36m",
+      "burn_rate_1h": 0.3
+    },
+    "iso_standard": "ISO 20000-1:2018 §8.3 / ISO/IEC 25010:2023 §4.2.1",
+    "tool": "vault_slo_save",
+    "timestamp": "2026-06-07T18:22:05Z"
+  },
+  {
+    "ok": true,
+    "path": "02_Observability/risks/electron-fingerprint-fallo-de-sensor-en-temperatura-extrema.md",
+    "project": "electron-fingerprint",
+    "risk_type": "operational",
+    "score": 12,
+    "level": "Medium",
+    "treatment": "mitigate",
+    "status": "open",
+    "iso_standard": "ISO 31000:2018 / ISO/IEC 27005:2022",
+    "tool": "vault_risk_save",
+    "timestamp": "2026-06-07T18:22:06Z"
+  },
+  {
+    "ok": true,
+    "path": "01_Projects/electron-fingerprint/overview.md",
+    "sections": [
+      "Stack técnico",
+      "Frameworks",
+      "Decisiones técnicas",
+      "Patrones activos",
+      "Infraestructura"
+    ],
+    "tool": "vault_project_overview",
+    "timestamp": "2026-06-07T20:07:51Z"
+  },
+  {
+    "ok": true,
+    "path": "02_Observability/quality/electron-fingerprint-2026-06-archivos-d-ts-duplicando-notas-de-modulos-typescript.md",
+    "ncr_id": "NCR-2026-154",
+    "project": "electron-fingerprint",
+    "ncr_type": "documentation",
+    "severity": "minor",
+    "status": "open",
+    "corrective_actions_count": 0,
+    "iso_standard": "ISO 9001:2015 §10.2",
+    "tool": "vault_ncr_save",
+    "timestamp": "2026-06-07T20:07:53Z"
+  },
+  {
+    "ok": true,
+    "path": "99_Index/index.md",
+    "sectionsTotal": 18,
+    "notesTotal": 51,
+    "tool": "vault_master_index",
+    "timestamp": "2026-06-07T20:08:25Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 59,
+    "stats": {
+      "total": 51,
+      "byFolder": {
+        "00_System": 2,
+        "01_Projects": 2,
+        "02_Observability": 4,
+        "03_Decisions": 2,
+        "04_Sessions": 2,
+        "05_Patterns": 1,
+        "06_Diagrams": 3,
+        "07_Knowledge": 12,
+        "08_Runbooks": 3,
+        "09_Infrastructure": 4,
+        "11_Code": 12,
+        "13_Flows": 2,
+        "15_Tests": 1,
+        "99_Index": 1
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "target"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "carpeta/nota"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "identity"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "01_Projects/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "01_Projects/index.md",
+          "link": "01_Projects/electron-fingerprint/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/index.md",
+          "link": "02_Observability/incidents/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/index.md",
+          "link": "02_Observability/quality/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/index.md",
+          "link": "02_Observability/risks/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/index.md",
+          "link": "02_Observability/slos/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "03_Decisions/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "04_Sessions/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "05_Patterns/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "05_Patterns/index.md",
+          "link": "05_Patterns/architecture/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "06_Diagrams/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "06_Diagrams/index.md",
+          "link": "06_Diagrams/component/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "06_Diagrams/index.md",
+          "link": "06_Diagrams/entity/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/index.md",
+          "link": "07_Knowledge/apis/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/index.md",
+          "link": "07_Knowledge/business-rules/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/index.md",
+          "link": "07_Knowledge/concepts/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/index.md",
+          "link": "07_Knowledge/config/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/index.md",
+          "link": "07_Knowledge/dependencies/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/index.md",
+          "link": "07_Knowledge/frameworks/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/index.md",
+          "link": "07_Knowledge/glossary/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "08_Runbooks/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "08_Runbooks/index.md",
+          "link": "08_Runbooks/pipeline/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "08_Runbooks/index.md",
+          "link": "08_Runbooks/setup/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "09_Infrastructure/containers/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "09_Infrastructure/databases/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "09_Infrastructure/electron-fingerprint/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "09_Infrastructure/network/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "09_Infrastructure/pipelines/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "09_Infrastructure/secrets/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "09_Infrastructure/servers/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/index.md",
+          "link": "09_Infrastructure/services/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "11_Code/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "11_Code/index.md",
+          "link": "11_Code/electron-fingerprint/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/index.md",
+          "link": "12_Bibliography/apis/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/index.md",
+          "link": "12_Bibliography/books/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/index.md",
+          "link": "12_Bibliography/docs/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/index.md",
+          "link": "12_Bibliography/papers/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/index.md",
+          "link": "12_Bibliography/web/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/index.md",
+          "link": "13_Flows/dataflow/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/index.md",
+          "link": "13_Flows/lifecycle/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/index.md",
+          "link": "13_Flows/pipeline/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/index.md",
+          "link": "13_Flows/workflow/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "14_Requirements/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/index.md",
+          "link": "15_Tests/acceptance/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/index.md",
+          "link": "15_Tests/e2e/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/index.md",
+          "link": "15_Tests/integration/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/index.md",
+          "link": "15_Tests/performance/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/index.md",
+          "link": "15_Tests/security/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/index.md",
+          "link": "15_Tests/unit/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "16_AI_Governance/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "16_AI_Governance/index.md",
+          "link": "16_AI_Governance/decisions/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "00_System/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "01_Projects/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "02_Observability/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "03_Decisions/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "04_Sessions/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "05_Patterns/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "06_Diagrams/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "08_Runbooks/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "10_Migrated/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "11_Code/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "12_Bibliography/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "13_Flows/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "14_Requirements/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "15_Tests/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "16_AI_Governance/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "99_Index/search-index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "99_Index/index.md",
+          "link": "99_Index/graph"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "16_AI_Governance/decisions/index.md",
+          "link": "16_AI_Governance/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "16_AI_Governance/decisions/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/acceptance/index.md",
+          "link": "15_Tests/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/acceptance/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/e2e/index.md",
+          "link": "15_Tests/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/e2e/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/integration/index.md",
+          "link": "15_Tests/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/integration/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/performance/index.md",
+          "link": "15_Tests/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/performance/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/security/index.md",
+          "link": "15_Tests/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/security/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/unit/index.md",
+          "link": "15_Tests/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "15_Tests/unit/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/dataflow/index.md",
+          "link": "13_Flows/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/dataflow/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/lifecycle/index.md",
+          "link": "13_Flows/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/lifecycle/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/pipeline/index.md",
+          "link": "13_Flows/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/pipeline/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/workflow/index.md",
+          "link": "13_Flows/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "13_Flows/workflow/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/apis/index.md",
+          "link": "12_Bibliography/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/apis/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/books/index.md",
+          "link": "12_Bibliography/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/books/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/docs/index.md",
+          "link": "12_Bibliography/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/docs/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/papers/index.md",
+          "link": "12_Bibliography/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/papers/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/web/index.md",
+          "link": "12_Bibliography/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "12_Bibliography/web/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "11_Code/electron-fingerprint/index.md",
+          "link": "11_Code/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "11_Code/electron-fingerprint/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/containers/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/containers/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/databases/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/databases/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/electron-fingerprint/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/electron-fingerprint/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/network/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/network/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/pipelines/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/pipelines/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/secrets/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/secrets/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/servers/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/servers/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/services/index.md",
+          "link": "09_Infrastructure/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "09_Infrastructure/services/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "08_Runbooks/pipeline/index.md",
+          "link": "08_Runbooks/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "08_Runbooks/pipeline/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "08_Runbooks/setup/index.md",
+          "link": "08_Runbooks/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "08_Runbooks/setup/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/apis/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/apis/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/business-rules/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/business-rules/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/arquitectura-t-cnica.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/caracter-sticas.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/componentes-del-engine.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/estructura-del-proyecto.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/instalaci-n.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/requisitos-previos.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/uso.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/config/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/config/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/dependencies/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/dependencies/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/frameworks/electron.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/frameworks/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/frameworks/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/glossary/index.md",
+          "link": "07_Knowledge/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/glossary/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "06_Diagrams/component/index.md",
+          "link": "06_Diagrams/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "06_Diagrams/component/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "06_Diagrams/entity/index.md",
+          "link": "06_Diagrams/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "06_Diagrams/entity/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "05_Patterns/architecture/index.md",
+          "link": "05_Patterns/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "05_Patterns/architecture/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/incidents/index.md",
+          "link": "02_Observability/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/incidents/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/quality/index.md",
+          "link": "02_Observability/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/quality/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/risks/index.md",
+          "link": "02_Observability/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/risks/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/slos/index.md",
+          "link": "02_Observability/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "02_Observability/slos/index.md",
+          "link": "99_Index/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "01_Projects/electron-fingerprint/index.md",
+          "link": "01_Projects/index"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "01_Projects/electron-fingerprint/index.md",
+          "link": "99_Index/index"
+        }
+      ],
+      "canonicalShadow": [
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendancemodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendancemodel.md",
+          "titleA": "attendancemodel.d — model",
+          "titleB": "attendancemodel — model",
+          "similarity": 0.958
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendanceservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendanceservice.md",
+          "titleA": "attendanceservice.d — service",
+          "titleB": "attendanceservice — service",
+          "similarity": 0.964
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/biometricservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/biometricservice.md",
+          "titleA": "biometricservice.d — service",
+          "titleB": "biometricservice — service",
+          "similarity": 0.963
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/fingerprintmodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/fingerprintmodel.md",
+          "titleA": "fingerprintmodel.d — model",
+          "titleB": "fingerprintmodel — model",
+          "similarity": 0.96
+        }
+      ],
+      "crossFolderDuplicates": [],
+      "malformedWikilinks": [
+        {
+          "norm_code": "AP-22",
+          "path": "00_System/vault-obsidian-architecture.md",
+          "opens": 14,
+          "closes": 14,
+          "empty_links": 6
+        }
+      ],
+      "emptyIndexes": [
+        {
+          "norm_code": "AP-03",
+          "folder": "10_Migrated",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "12_Bibliography",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "14_Requirements",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "16_AI_Governance",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        }
+      ]
+    },
+    "norm_refs": {
+      "AP-14": "Wiki-links rotos o vacíos",
+      "AP-17": "Canonical-shadow duplication",
+      "AP-18": "Cross-folder content duplication",
+      "AP-22": "Bracket sanity — corchetes desbalanceados o vacíos"
+    },
+    "summary": "Score: 59/100 · 51 notas · 180 links rotos · 4 pares AP-17 · 1 corchetes AP-22 · 4 secciones vacias AP-03",
+    "tagHealth": {
+      "total_tags": 17,
+      "orphaned_tags": [],
+      "near_duplicate_pairs": 1,
+      "untagged_notes_count": 7,
+      "tag_health_score": 83,
+      "registry_at": "2026-05-27T08:17:00.000Z"
+    },
+    "tool": "vault_audit",
+    "timestamp": "2026-06-07T20:08:27Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 59,
+    "stats": {
+      "total": 51,
+      "byFolder": {
+        "00_System": 2,
+        "01_Projects": 2,
+        "02_Observability": 4,
+        "03_Decisions": 2,
+        "04_Sessions": 2,
+        "05_Patterns": 1,
+        "06_Diagrams": 3,
+        "07_Knowledge": 12,
+        "08_Runbooks": 3,
+        "09_Infrastructure": 4,
+        "11_Code": 12,
+        "13_Flows": 2,
+        "15_Tests": 1,
+        "99_Index": 1
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "target"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "carpeta/nota"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "identity"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/arquitectura-t-cnica.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/caracter-sticas.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/componentes-del-engine.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/estructura-del-proyecto.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/instalaci-n.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/requisitos-previos.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/uso.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/frameworks/electron.md",
+          "link": "electron-fingerprint-overview"
+        }
+      ],
+      "canonicalShadow": [
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendancemodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendancemodel.md",
+          "titleA": "attendancemodel.d — model",
+          "titleB": "attendancemodel — model",
+          "similarity": 0.958
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendanceservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendanceservice.md",
+          "titleA": "attendanceservice.d — service",
+          "titleB": "attendanceservice — service",
+          "similarity": 0.964
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/biometricservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/biometricservice.md",
+          "titleA": "biometricservice.d — service",
+          "titleB": "biometricservice — service",
+          "similarity": 0.963
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/fingerprintmodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/fingerprintmodel.md",
+          "titleA": "fingerprintmodel.d — model",
+          "titleB": "fingerprintmodel — model",
+          "similarity": 0.96
+        }
+      ],
+      "crossFolderDuplicates": [],
+      "malformedWikilinks": [
+        {
+          "norm_code": "AP-22",
+          "path": "00_System/vault-obsidian-architecture.md",
+          "opens": 14,
+          "closes": 14,
+          "empty_links": 6
+        }
+      ],
+      "emptyIndexes": [
+        {
+          "norm_code": "AP-03",
+          "folder": "10_Migrated",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "12_Bibliography",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "14_Requirements",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "16_AI_Governance",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        }
+      ]
+    },
+    "norm_refs": {
+      "AP-14": "Wiki-links rotos o vacíos",
+      "AP-17": "Canonical-shadow duplication",
+      "AP-18": "Cross-folder content duplication",
+      "AP-22": "Bracket sanity — corchetes desbalanceados o vacíos"
+    },
+    "summary": "Score: 59/100 · 51 notas · 18 links rotos · 4 pares AP-17 · 1 corchetes AP-22 · 4 secciones vacias AP-03",
+    "tagHealth": {
+      "total_tags": 17,
+      "orphaned_tags": [],
+      "near_duplicate_pairs": 1,
+      "untagged_notes_count": 7,
+      "tag_health_score": 83,
+      "registry_at": "2026-05-27T08:17:00.000Z"
+    },
+    "tool": "vault_audit",
+    "timestamp": "2026-06-07T20:14:05Z"
+  },
+  {
+    "ok": true,
+    "healthScore": 59,
+    "stats": {
+      "total": 51,
+      "byFolder": {
+        "00_System": 2,
+        "01_Projects": 2,
+        "02_Observability": 4,
+        "03_Decisions": 2,
+        "04_Sessions": 2,
+        "05_Patterns": 1,
+        "06_Diagrams": 3,
+        "07_Knowledge": 12,
+        "08_Runbooks": 3,
+        "09_Infrastructure": 4,
+        "11_Code": 12,
+        "13_Flows": 2,
+        "15_Tests": 1,
+        "99_Index": 1
+      }
+    },
+    "issues": {
+      "orphans": [],
+      "stale": [],
+      "stuckPatterns": [],
+      "staleProjects": [],
+      "brokenLinks": [
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "target"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "carpeta/nota"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "stem"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "wiki-links"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": "identity"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "00_System/vault-obsidian-architecture.md",
+          "link": ""
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/arquitectura-t-cnica.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/caracter-sticas.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/componentes-del-engine.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/estructura-del-proyecto.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/gu-a-de-uso-de-la-interfaz.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/instalaci-n.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/requisitos-previos.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/concepts/uso.md",
+          "link": "electron-fingerprint-overview"
+        },
+        {
+          "norm_code": "AP-14",
+          "from": "07_Knowledge/frameworks/electron.md",
+          "link": "electron-fingerprint-overview"
+        }
+      ],
+      "canonicalShadow": [
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendancemodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendancemodel.md",
+          "titleA": "attendancemodel.d — model",
+          "titleB": "attendancemodel — model",
+          "similarity": 0.958
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/attendanceservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/attendanceservice.md",
+          "titleA": "attendanceservice.d — service",
+          "titleB": "attendanceservice — service",
+          "similarity": 0.964
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/biometricservice-d.md",
+          "noteB": "11_Code/electron-fingerprint/biometricservice.md",
+          "titleA": "biometricservice.d — service",
+          "titleB": "biometricservice — service",
+          "similarity": 0.963
+        },
+        {
+          "norm_code": "AP-17",
+          "noteA": "11_Code/electron-fingerprint/fingerprintmodel-d.md",
+          "noteB": "11_Code/electron-fingerprint/fingerprintmodel.md",
+          "titleA": "fingerprintmodel.d — model",
+          "titleB": "fingerprintmodel — model",
+          "similarity": 0.96
+        }
+      ],
+      "crossFolderDuplicates": [],
+      "malformedWikilinks": [
+        {
+          "norm_code": "AP-22",
+          "path": "00_System/vault-obsidian-architecture.md",
+          "opens": 14,
+          "closes": 14,
+          "empty_links": 6
+        }
+      ],
+      "emptyIndexes": [
+        {
+          "norm_code": "AP-03",
+          "folder": "10_Migrated",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "12_Bibliography",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "14_Requirements",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        },
+        {
+          "norm_code": "AP-03",
+          "folder": "16_AI_Governance",
+          "index_exists": true,
+          "note": "Seccion sin notas — index es stub sin contenido real"
+        }
+      ]
+    },
+    "norm_refs": {
+      "AP-14": "Wiki-links rotos o vacíos",
+      "AP-17": "Canonical-shadow duplication",
+      "AP-18": "Cross-folder content duplication",
+      "AP-22": "Bracket sanity — corchetes desbalanceados o vacíos"
+    },
+    "summary": "Score: 59/100 · 51 notas · 18 links rotos · 4 pares AP-17 · 1 corchetes AP-22 · 4 secciones vacias AP-03",
+    "tagHealth": {
+      "total_tags": 17,
+      "orphaned_tags": [],
+      "near_duplicate_pairs": 1,
+      "untagged_notes_count": 7,
+      "tag_health_score": 83,
+      "registry_at": "2026-05-27T08:17:00.000Z"
+    },
+    "tool": "vault_audit",
+    "timestamp": "2026-06-07T20:14:18Z"
   }
 ]

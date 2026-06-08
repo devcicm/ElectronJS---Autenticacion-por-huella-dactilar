@@ -1,7 +1,10 @@
 # 04_Sessions — Índice
 
+> [[99_Index/index|← Índice Maestro]]
 > **Propósito:** Diarios de sesión y contexto de trabajo
-> Generado automáticamente · 2026-06-02T08:17:02.000Z · 2 nota(s)
+> Generado automáticamente · 2026-06-08T02:08:25.000Z · 2 nota(s)
+
+
 
 | Nota | Tipo | Actualizado |
 |---|---|---|

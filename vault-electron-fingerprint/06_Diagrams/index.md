@@ -1,7 +1,17 @@
 # 06_Diagrams — Índice
 
+> [[99_Index/index|← Índice Maestro]]
 > **Propósito:** Diagramas y representaciones visuales
-> Generado automáticamente · 2026-06-02T08:17:02.000Z · 3 nota(s)
+> Generado automáticamente · 2026-06-08T02:08:25.000Z · 3 nota(s)
+
+## Subcarpetas
+
+| Subcarpeta | Propósito |
+|---|---|
+| [[06_Diagrams/component/index|component]] | Diagramas y representaciones visuales |
+| [[06_Diagrams/entity/index|entity]] | Diagramas y representaciones visuales |
+
+## Notas
 
 | Nota | Tipo | Actualizado |
 |---|---|---|

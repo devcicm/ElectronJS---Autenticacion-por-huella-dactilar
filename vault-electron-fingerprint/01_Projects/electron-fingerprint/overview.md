@@ -1,65 +1,51 @@
 ---
-title: electron-fingerprint — Overview
-id: 0deb8613-3b21-45e4-9f5f-c9990c3db945
-createdAt: 2026-06-02T07:46:09.000Z
-updatedAt: 2026-06-02T07:46:09.000Z
-tags: ["project", "overview", "electron-fingerprint"]
-norm_refs: ["AP-11", "AP-12", "AP-13", "AP-16", "AP-20", "CN-01", "CN-02", "SP-01"]
-status: stub
-cia_integrity: medium
-cia_availability: medium
-cia_sensitivity: internal
-agent: claude
+title: Overview: electron-fingerprint
 project: electron-fingerprint
+type: project-overview
+updatedAt: 2026-06-08T02:07:51.000Z
 ---
 
-# electron-fingerprint — Overview
+# Overview: electron-fingerprint
 
-> Stub generado por vault_onboard. Enriquecer con vault_project_overview.
 
 ## Descripción
 
-Integración de ElectronJS con Engine Edge-URU-UI para captura de huellas dactilares DP4500
+Sistema de control de asistencia con autenticacion biometrica DP4500
 
-## Stack detectado
 
-| Campo | Valor |
-|---|---|
-| Runtime | Node.js / Electron |
-| Lenguaje | typescript |
-| Versión | 1.0.0 |
-| Fuente detección | package.json |
+_Actualizado: 2026-06-08 · deps: 0 · frameworks: 1 · ADRs: 2 · patrones: 1_
 
-## Scripts disponibles
 
-- `build`
-- `start`
-- `dev`
+## Stack técnico
 
-## Próximos pasos
+- **Runtime:** ElectronJS 31 + TypeScript + better-sqlite3
 
-- Verificar descripción con el equipo
-- Completar stack real (base de datos, caches, queues)
-- Vincular módulos de código: [[electron-fingerprint-code-map]]
 
-## Historial del proyecto
+## Frameworks
 
-| | |
-|---|---|
-| Primer commit/archivo | 2025-11-05 |
-| Último commit/archivo | 2026-06-02 |
-| Total commits | 22 |
-| Fases detectadas | 2 |
 
-## Línea de tiempo
+- [[electron|electron]]
 
-- **2025-11** — Fase inicial: 8 commits
-- **2026-05** — Fase 2: 14 commits
 
-## Versiones detectadas
 
-— Sin tags detectados
+## Decisiones técnicas (ADR) (2)
 
-## Contribuidores
 
-- Carlos Ivan CM
+- [[adr-001-retroactivo|ADR-001 — docs(vault): sync spec v29 + upgrade standard-version v27→v2 (retroactivo)]]
+
+- [[adr-002-retroactivo|ADR-002 — docs: inicializar vault v27 (Vault-Obsidian-Architecture sta (retroactivo)]]
+
+
+
+## Patrones activos (1)
+
+
+- [[electron-fingerprint-service-layer|service-layer]] · `stub`
+
+
+
+## Infraestructura (1)
+
+
+- [[infra|electron-fingerprint — Infraestructura]]
+

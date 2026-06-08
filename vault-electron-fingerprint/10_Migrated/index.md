@@ -1,6 +1,15 @@
 # 10_Migrated — Índice
 
-> Documentos migrados de otras fuentes
-> Generado automáticamente · 2026-05-24T03:42:51.000Z · 0 nota(s)
+> [[99_Index/index|← Índice Maestro]]
+> **Propósito:** Documentos migrados de otras fuentes
+> Generado automáticamente · 2026-06-08T02:08:25.000Z · 0 nota(s)
 
-_Sin notas en esta sección._
+## Notas
+
+_Sección sin notas. Añade la primera con:_
+
+```bash
+python scripts/vault_migrate_docs --source <path>
+```
+
+Una vez creada la primera nota, este índice se regenera automáticamente.
