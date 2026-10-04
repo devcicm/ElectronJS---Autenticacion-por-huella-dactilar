@@ -25,6 +25,7 @@ export class TouchModeService {
     private biometricService: BiometricService;
     private attendanceModel: AttendanceModel;
     private eventSource: any = null; // Usar any para compatibilidad con EventSource de Node.js
+    private reconnectTimer: NodeJS.Timeout | null = null; // B4: lifecycle
     private state: TouchModeState = {
         isActive: false,
         lastEventTime: null,
@@ -324,7 +325,9 @@ export class TouchModeService {
 
             // Intentar reconectar después de 3 segundos
             if (this.state.isActive) {
-                setTimeout(() => {
+                if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = setTimeout(() => {
+                    this.reconnectTimer = null;
                     if (this.state.isActive && this.eventSource?.readyState === 2) { // 2 = CLOSED
                         logger.info('[TouchModeService] Reconectando a eventos SSE...');
                         this.connectToEvents();
@@ -338,6 +341,10 @@ export class TouchModeService {
      * Desconectar de eventos SSE
      */
     private disconnectFromEvents() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
         if (this.eventSource) {
             this.eventSource.close();
             this.eventSource = null;

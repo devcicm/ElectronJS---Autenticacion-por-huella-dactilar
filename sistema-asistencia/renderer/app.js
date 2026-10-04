@@ -8,6 +8,8 @@ import { escapeHtml } from './js/escape-html.js';
 
 // Instancia única (antes: singleton global creado por su propio script tag)
 window.FingerprintEnroller = new FingerprintEnroller();
+// B4: liberar EventSource al cerrar la ventana (recurso del engine)
+window.addEventListener('beforeunload', () => window.FingerprintEnroller.disconnect());
 
 // ==================== ESTADO GLOBAL ====================
 let currentSection = 'dashboard';

@@ -193,16 +193,24 @@ function initIpcHandlers() {
   });
 
   // Importar servicios dinámicamente para evitar problemas de carga
+  let attendanceServiceInstance: any = null;
+  let biometricServiceInstance: any = null;
   const getAttendanceService = async () => {
-    // @ts-ignore - Module will be available at runtime after compilation
-    const { AttendanceService } = await import('../sistema-asistencia/services/AttendanceService.js');
-    return new AttendanceService();
+    if (!attendanceServiceInstance) {
+      // @ts-ignore - Module will be available at runtime after compilation
+      const { AttendanceService } = await import('../sistema-asistencia/services/AttendanceService.js');
+      attendanceServiceInstance = new AttendanceService();
+    }
+    return attendanceServiceInstance;
   };
 
   const getBiometricService = async () => {
-    // @ts-ignore - Module will be available at runtime after compilation
-    const { BiometricService } = await import('../sistema-asistencia/services/BiometricService.js');
-    return new BiometricService();
+    if (!biometricServiceInstance) {
+      // @ts-ignore - Module will be available at runtime after compilation
+      const { BiometricService } = await import('../sistema-asistencia/services/BiometricService.js');
+      biometricServiceInstance = new BiometricService();
+    }
+    return biometricServiceInstance;
   };
 
   const getModels = async () => {
