@@ -6,7 +6,7 @@
 import { getDatabaseManager } from '../database/init.js';
 import { FingerprintModel } from '../models/index.js';
 import { FingerPosition } from '../types/index.js';
-import { BIOMETRIC_SERVER } from '../shared/biometric-config.js';
+import { BIOMETRIC_SERVER, DEFAULT_TARGET_FARN, TIMEOUT_CAPTURE_MS, TIMEOUT_ENROLL_MS, TIMEOUT_VERIFY_MS, TIMEOUT_IDENTIFY_MS } from '../shared/biometric-config.js';
 import { logger } from '../shared/logger.js';
 
 export class BiometricService {
@@ -92,7 +92,7 @@ export class BiometricService {
             const response = await fetch(`${BIOMETRIC_SERVER}/api/single`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ timeoutMs: 10000 })
+                body: JSON.stringify({ timeoutMs: TIMEOUT_CAPTURE_MS })
             });
 
             if (!response.ok) {
@@ -157,8 +157,8 @@ export class BiometricService {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     tag: tag,
-                    timeoutMs: 30000,  // 30 segundos timeout
-                    targetFarn: 21474,  // Umbral de calidad
+                    timeoutMs: TIMEOUT_ENROLL_MS,
+                    targetFarn: DEFAULT_TARGET_FARN,
                     maxRetriesPerSample: 3,
                     maxSamples: 4
                 })
@@ -252,8 +252,8 @@ export class BiometricService {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     fingerprints: fingerprintArray,
-                    timeoutMs: 15000,
-                    targetFarn: 21474
+                    timeoutMs: TIMEOUT_VERIFY_MS,
+                    targetFarn: DEFAULT_TARGET_FARN
                 })
             });
 
@@ -346,8 +346,8 @@ export class BiometricService {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     fingerprints: fingerprintArray,
-                    timeoutMs: 15000,
-                    targetFarn: 21474
+                    timeoutMs: TIMEOUT_IDENTIFY_MS,
+                    targetFarn: DEFAULT_TARGET_FARN
                 })
             });
 
