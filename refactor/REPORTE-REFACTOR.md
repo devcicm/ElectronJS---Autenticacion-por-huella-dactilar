@@ -80,7 +80,14 @@ Regeneraciones explícitas justificadas (Regla 5, `paridad.md`): A.7a y B2.
 - **Cambioset reproductivos retro (gm4, gm1)**: 2, ambos con justificación explícita.
 - **Pasada de hardening posterior (H1+H2+H3)**: 3 commits adicionales (`2c44bd4` sanitize, `773ec2b` disconnect, `a2eae9a` TemplateManagerControl).
 - **Pasada Eje 2 (N1+X2 + tests)**: 4 commits (`70f1a6c` audit, `bef2746` is_default, `128895f`/`8f027cc` engine escapeHtml).
+- **B5-revert**: commit `9c541e0` — regresión de runtime detectada al ejecutar `npm start`. Ver "Lecciones aprendidas" abajo.
 - **Tests**: 40 passing (29 T1-T3 + 6 is_default migration + 5 engine escapeHtml).
+
+## Lecciones aprendidas (post-runtime)
+
+- **B5 introdujo una regresión de runtime detectada al ejecutar `npm start`**: el cambio a `spawn(process.execPath + ELECTRON_RUN_AS_NODE=1)` para evitar dependencia de `node` en PATH terminó provocando `ERR_DLOPEN_FAILED` en `edge-js`. El binario nativo de `edge-js 5.x` está precompilado para **Node 20.10**; bajo el Node 20.18 que Electron 31.x trae embebido, los símbolos no coinciden. B5-revert (commit `9c541e0`) restauró `spawn('node', ...)`, conservó el arranque por evento `waitForReady` (B5-keep, genuinamente útil).
+- **El problema de raíz (edge-js ABI) es pre-existente**: edge-js 5.x solo trae prebuilts para Node 20.x; system Node 24.x falla con "The edge module has not been pre-compiled for node.js version v24.14.0". Requiere `npm rebuild edge-js` dentro de `biometric-engine/node/` (cambia el binding nativo). No ejecutado aquí (cambia lockfile y ABI; changeset separado; línea roja #7).
+- **Verificación runtime importa**: unit tests + gm-verify cubren contrato y código, pero no detectan fallos de carga nativa. El `npm start` inmediato post-refactor habría detectado B5 antes de cerrar cambios. Para futuras pasadas de hardening: agregar un smoke test `npm start` (30s timeout) al pipeline / manual antes de cerrar cambios.
 
 ## Verificación final
 
