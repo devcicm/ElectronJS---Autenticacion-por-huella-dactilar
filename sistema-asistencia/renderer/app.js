@@ -696,7 +696,7 @@ function showEditEmployeeModal(employeeId) {
                             </div>
                             <div class="form-group">
                                 <label>Teléfono</label>
-                                <input type="tel" id="edit-emp-phone" class="form-control" value="${employee.phone || ''}">
+                                <input type="tel" id="edit-emp-phone" class="form-control" value="${escapeHtml(employee.phone)}">
                             </div>
                             <div class="form-group">
                                 <label>Departamento *</label>
@@ -863,7 +863,7 @@ async function showEmployeeDetails(employeeId) {
                             <strong>Email:</strong> <span>${escapeHtml(employee.email)}</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Teléfono:</strong> <span>${employee.phone || 'N/A'}</span>
+                            <strong>Teléfono:</strong> <span>${escapeHtml(employee.phone) || 'N/A'}</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
                             <strong>Departamento:</strong> <span>${escapeHtml(employee.department_name)}</span>
