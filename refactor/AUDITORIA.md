@@ -29,8 +29,7 @@
 | 6 | D-03 | `sistema-asistencia/renderer/js/controls/EnrollmentControl.js` ≡ `biometric-engine/node/public/js/controls/EnrollmentControl.js` | `fc /b`: byte-idénticos | CONFIRMED | PURE_REFACTOR | 🟡 | 🟢 | P3 |
 | 7 | BE-20 | app.js(78) · TouchModeService.ts(80) · main.ts(34) · FingerprintEnroller.js(7) · server.ts(7) · BiometricService.ts(4) | 210 `console.*` como única observabilidad | CONFIRMED | PURE_REFACTOR | 🟡 | 🟢 | P3 |
 | 8 | FE-15 | 74 ocurrencias innerHTML (app.js ×23, engine public ×51) | smell mecánico confirmado; **por ocurrencia**: templates estáticos → refactor; interpolación de datos de usuario (app.js:192, 484; controles con nombres/tags) → FIX (ver BUGS #2) | CONFIRMED | PURE_REFACTOR (solo ocurrencias estáticas) | 🔴 smell / 🟡 por-ocurrencia | 🟡 | P2 |
-| 9 | FE-19 | app.js:2551 | `JSON.parse(saved)` sin try/catch ni default (localStorage `attendance_settings`) | CONFIRMED | PURE_REFACTOR | 🟠 | 🟢 | P1 |
-| 10 | FE-01 | ambos index.html | `<script src>` clásicos sin `type="module"`; estado/funciones por globals (window.*) | CONFIRMED | PURE_REFACTOR | 🟠 | 🟡 | P3 (requiere FE-04-verify) |
+| 9 | FE-01 | ambos index.html | `<script src>` clásicos sin `type="module"`; estado/funciones por globals (window.*) | CONFIRMED | PURE_REFACTOR | 🟠 | 🟡 | P3 (requiere FE-04-verify) |
 
 ## Posibles (no confirmados)
 
@@ -55,6 +54,7 @@
 - **FE-13**: sin `var` en zonas de app (solo vault/C#) → limpio
 - **FE-22/FE-23/FE-24**: sin doble fuente de verdad, sin XHR síncrono → limpio
 - **FE-19** en TouchModeService.ts:298 y FingerprintEnroller.js:33: JSON.parse de SSE **sí** está en try/catch → limpio
+- **FE-19** en app.js:2551 (`loadSavedSettings`): CORRECCIÓN de auditoría — el `JSON.parse` **sí** está envuelto en try/catch con fallback a defaults (app.js:2549-2554); la evidencia original miró la línea sin su contexto. Estado final: **NOT_APPLICABLE**, sin cambio de código (verificado en ejecución del paso A.4)
 - **ALG**: listados renderizados con n pequeño (empleados); sin bucles anidados con volumen real → sin hallazgos
 - **D-02/D-04/D-06**: única fuente de datos por dominio; no se detectó falsa duplicación → limpio
 - **N-06**: capas UI→preload→IPC→services→models unidireccionales → limpio
