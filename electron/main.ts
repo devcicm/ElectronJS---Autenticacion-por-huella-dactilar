@@ -433,13 +433,13 @@ function initIpcHandlers() {
         const result3 = database.prepare('DELETE FROM employees').run();
         logger.info(`✅ [RESET] ${result3.changes} empleados eliminados`);
 
-        // 4. Eliminar departamentos personalizados (mantener solo los 5 por defecto)
-        const result4 = database.prepare('DELETE FROM departments WHERE id > 5').run();
-        logger.info(`✅ [RESET] ${result4.changes} departamentos personalizados eliminados`);
+// 4. Eliminar departamentos personalizados (N1: is_default, no posicional)
+            const result4 = database.prepare('DELETE FROM departments WHERE is_default = 0').run();
+            logger.info(`✅ [RESET] ${result4.changes} departamentos personalizados eliminados`);
 
-        // 5. Eliminar turnos personalizados (mantener solo los 4 por defecto)
-        const result5 = database.prepare('DELETE FROM shifts WHERE id > 4').run();
-        logger.info(`✅ [RESET] ${result5.changes} turnos personalizados eliminados`);
+            // 5. Eliminar turnos personalizados (N1: is_default, no posicional)
+            const result5 = database.prepare('DELETE FROM shifts WHERE is_default = 0').run();
+            logger.info(`✅ [RESET] ${result5.changes} turnos personalizados eliminados`);
 
         // 6. Resetear secuencias de autoincremento
         const result6 = database.prepare(`DELETE FROM sqlite_sequence WHERE name IN ('attendance_records', 'fingerprints', 'employees', 'departments', 'shifts')`).run();

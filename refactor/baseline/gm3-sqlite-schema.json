@@ -79,7 +79,7 @@
     {
       "type": "table",
       "name": "departments",
-      "sql": "CREATE TABLE departments (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    name TEXT NOT NULL UNIQUE,\r\n    description TEXT,\r\n    manager_id INTEGER,\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n)"
+      "sql": "CREATE TABLE departments (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    name TEXT NOT NULL UNIQUE,\r\n    description TEXT,\r\n    manager_id INTEGER,\r\n    is_default INTEGER NOT NULL DEFAULT 0,  -- N1: marca las filas base (1-5) para reset seguro\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n)"
     },
     {
       "type": "table",
@@ -94,7 +94,7 @@
     {
       "type": "table",
       "name": "shifts",
-      "sql": "CREATE TABLE shifts (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    name TEXT NOT NULL UNIQUE,\r\n    start_time TEXT NOT NULL,          -- HH:MM\r\n    end_time TEXT NOT NULL,            -- HH:MM\r\n    tolerance_minutes INTEGER NOT NULL DEFAULT 0,\r\n    color TEXT DEFAULT '#3B82F6',\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n)"
+      "sql": "CREATE TABLE shifts (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    name TEXT NOT NULL UNIQUE,\r\n    start_time TEXT NOT NULL,          -- HH:MM\r\n    end_time TEXT NOT NULL,            -- HH:MM\r\n    tolerance_minutes INTEGER NOT NULL DEFAULT 0,\r\n    color TEXT DEFAULT '#3B82F6',\r\n    is_default INTEGER NOT NULL DEFAULT 0,  -- N1: marca las filas base (1-4) para reset seguro\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n)"
     },
     {
       "type": "table",

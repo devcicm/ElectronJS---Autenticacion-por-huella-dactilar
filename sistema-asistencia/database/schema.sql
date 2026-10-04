@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS departments (
     name TEXT NOT NULL UNIQUE,
     description TEXT,
     manager_id INTEGER,
+    is_default INTEGER NOT NULL DEFAULT 0,  -- N1: marca las filas base (1-5) para reset seguro
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS shifts (
     end_time TEXT NOT NULL,            -- HH:MM
     tolerance_minutes INTEGER NOT NULL DEFAULT 0,
     color TEXT DEFAULT '#3B82F6',
+    is_default INTEGER NOT NULL DEFAULT 0,  -- N1: marca las filas base (1-4) para reset seguro
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -228,20 +230,20 @@ END;
 -- DATOS INICIALES
 -- ============================================================================
 
--- Departamentos de ejemplo
-INSERT OR IGNORE INTO departments (id, name, description) VALUES
-    (1, 'Recursos Humanos', 'Gestión de personal y recursos humanos'),
-    (2, 'Tecnología', 'Departamento de TI y desarrollo'),
-    (3, 'Ventas', 'Equipo de ventas y comercial'),
-    (4, 'Administración', 'Administración y finanzas'),
-    (5, 'Operaciones', 'Operaciones y logística');
+-- Departamentos de ejemplo (N1: is_default=1 marca filas base para reset seguro)
+INSERT OR IGNORE INTO departments (id, name, description, is_default) VALUES
+    (1, 'Recursos Humanos', 'Gestión de personal y recursos humanos', 1),
+    (2, 'Tecnología', 'Departamento de TI y desarrollo', 1),
+    (3, 'Ventas', 'Equipo de ventas y comercial', 1),
+    (4, 'Administración', 'Administración y finanzas', 1),
+    (5, 'Operaciones', 'Operaciones y logística', 1);
 
--- Turnos de ejemplo
-INSERT OR IGNORE INTO shifts (id, name, start_time, end_time, tolerance_minutes, color) VALUES
-    (1, 'Matutino', '08:00', '16:00', 10, '#3B82F6'),
-    (2, 'Vespertino', '14:00', '22:00', 10, '#F59E0B'),
-    (3, 'Nocturno', '22:00', '06:00', 15, '#8B5CF6'),
-    (4, 'Administrativo', '09:00', '18:00', 15, '#10B981');
+-- Turnos de ejemplo (N1: is_default=1 marca filas base para reset seguro)
+INSERT OR IGNORE INTO shifts (id, name, start_time, end_time, tolerance_minutes, color, is_default) VALUES
+    (1, 'Matutino', '08:00', '16:00', 10, '#3B82F6', 1),
+    (2, 'Vespertino', '14:00', '22:00', 10, '#F59E0B', 1),
+    (3, 'Nocturno', '22:00', '06:00', 15, '#8B5CF6', 1),
+    (4, 'Administrativo', '09:00', '18:00', 15, '#10B981', 1);
 
 -- ============================================================================
 -- FIN DEL ESQUEMA

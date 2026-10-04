@@ -4,7 +4,8 @@
     "scripts": {
       "build": "tsc -p tsconfig.json && tsc -p tsconfig.preload.json && tsc -p tsconfig.asistencia.json && xcopy /Y /I /E sistema-asistencia\\renderer dist\\sistema-asistencia\\renderer\\ && xcopy /Y /I sistema-asistencia\\database\\schema.sql dist\\sistema-asistencia\\database\\",
       "start": "npm run build && electron .",
-      "dev": "npm run build && electron . --dev"
+      "dev": "npm run build && electron . --dev",
+      "test": "node --test tests/refactor/*.test.mjs"
     },
     "deps": {
       "better-sqlite3": "^12.4.1",
