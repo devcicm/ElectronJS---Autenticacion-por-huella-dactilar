@@ -69,7 +69,13 @@ _nul
 *.db-wal
 *.db-shm
 
-# Artefactos TS compilados junto a su fuente (solo sistema-asistencia/database)
+# Artefactos TS compilados junto a su fuente (la fuente real JS vive solo en renderer/)
+sistema-asistencia/models/*.js
+sistema-asistencia/models/*.d.ts
+sistema-asistencia/services/*.js
+sistema-asistencia/services/*.d.ts
+sistema-asistencia/types/*.js
+sistema-asistencia/types/*.d.ts
 sistema-asistencia/database/init.js
 sistema-asistencia/database/init.d.ts
 
