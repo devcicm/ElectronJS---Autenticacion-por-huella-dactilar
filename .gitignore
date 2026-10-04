@@ -59,6 +59,20 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 
+# Artifacts de redirección mal hecha en PowerShell (> nul)
+nul
+_nul
+
+# Base de datos local (runtime, nunca versionar)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Artefactos TS compilados junto a su fuente (solo sistema-asistencia/database)
+sistema-asistencia/database/init.js
+sistema-asistencia/database/init.d.ts
+
 # System files
 .DS_Store
 .DS_Store?
