@@ -62,3 +62,5 @@
 ## Nota sobre FE-15 por ocurrencia
 
 La sustitución mecánica `innerHTML`→`textContent` **solo** es refactor puro donde el contenido es estático o interno. Donde se interpola dato de usuario (nombres de empleados, tags, códigos) el escape cambia la salida observable ante input malicioso: eso es **FIX** (BUGS #2), no refactor. El plan Fase 3 separará ambas listas ocurrencia por ocurrencia.
+
+**RESOLUCIÓN (ejecución paso A.5):** tabla ocurrencia-por-ocurrencia generada (`refactor/scripts/fe15-classify.cjs`) sobre las 28 asignaciones de sistema-asistencia: 19 estáticas puras (no son el smell — string constante sin datos), 4 interpolan dato de usuario (app.js:188, 235, 484, 3039 → FIX, se ejecutan en B3), 5 interpolan constantes internas (`finger.label` controlado por código, base64 del server — dominio seguro). **El subconjunto PURE_REFACTOR es vacío: no hay cambio de código en A.5.** La superficie ejecutable de FE-15 vive íntegra en B3 (hardening autorizado).
