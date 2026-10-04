@@ -35,10 +35,10 @@
 
 | # | Criterio | Ubicación | Estado | Duda / evidencia faltante |
 |---|---|---|---|---|
-| C1 | RES-05 | TouchModeService.ts:328-330 | CANDIDATE | reconexión SSE via setTimeout sin clear en stop(); mitigado por guard `state.isActive` — falta demostrar fuga real |
-| C2 | RES-05 | FingerprintEnroller.js:25,352 | CANDIDATE | `eventSource.close()` tiene 1 call-site; no se verificó que siempre se invoque al cerrar la vista |
-| C3 | OBJ-04 | main.ts:196-206, 229+ | CANDIDATE | `new AttendanceService()`/`BiometricService()` por llamada IPC; DatabaseManager es singleton → coste real no medido |
-| C4 | FE-16/FE-17 | TemplateManagerControl.js:573 | CANDIDATE | `onclick="window.location.reload()"` inline en UI demo del engine; verificar consumidores de esa vista |
+| C1 | RES-05 | TouchModeService.ts:328-330 | **NOT_APPLICABLE** | Reclasificado tras H2+B4: reconexión SSE con `reconnectTimer: NodeJS.Timeout` y `clearTimeout` en `disconnectFromEvents()` y `dispose()`; fuga STADA · lifecycle B4 confirmado: `window.addEventListener('beforeunload', () => window.FingerprintEnroller.disconnect())` en `app.js:13`. FingerprintEnroller (singular) además desconecta en 2 setTimeouts de cierre de enrollment + botón Cancelar del modal (H2) |
+| C2 | RES-05 | FingerprintEnroller.js:25,352 | **NOT_APPLICABLE** | Resuelto por H2: `enroller.disconnect()` invocado en 3 sitios terminales (success simple, success advanced, Cancel button); fuga STADA en esos tres puntos |
+| C3 | OBJ-04 | main.ts:196-206, 229+ | **RESUELTO en B4** | singletons cacheados (`attendanceServiceInstance`, `biometricServiceInstance`); se crean una vez por main process lifetime |
+| C4 | FE-16/FE-17 | TemplateManagerControl.js:573 | **RESUELTO en H3** | `onclick="window.location.reload()"` reemplazado por `addEventListener('click', () => this.loadTemplates())` (reintento idempotente, botón "Reintentar") |
 | C5 | N-04 | comentarios con workarounds en TouchModeService (reintentos) | CANDIDATE | verificar si protegen caso real antes de tocar |
 
 ## Zonas revisadas sin hallazgos
