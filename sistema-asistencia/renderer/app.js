@@ -1094,7 +1094,7 @@ async function showEnrollFingerprintModal(employeeId) {
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
+                    <button class="btn" onclick="window.FingerprintEnroller.disconnect(); closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
                     <button class="btn btn-primary" onclick="startFingerprintEnrollment(${employeeId})" id="start-enroll-btn">
                         Iniciar Captura
                     </button>
@@ -1229,6 +1229,7 @@ async function enrollSingleFingerprint(employeeId) {
             }
 
             setTimeout(() => {
+                enroller.disconnect();
                 closeModal();
                 loadEmployeesSection();
             }, 2000);
@@ -1364,6 +1365,7 @@ async function enrollAllFingerprints(employeeId) {
     }
 
     setTimeout(() => {
+        enroller.disconnect();
         closeModal();
         loadEmployeesSection();
     }, 3000);
