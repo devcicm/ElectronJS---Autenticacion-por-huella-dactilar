@@ -90,17 +90,19 @@ async function startBiometricServer(): Promise<{ success: boolean; message: stri
       return { success: false, message: 'Bridge C# no está compilado. Compílalo primero.' };
     }
 
-    const nodePath = path.join(__dirname, '../../biometric-engine/node');
+const nodePath = path.join(__dirname, '../../biometric-engine/node');
     const serverScript = path.join(nodePath, 'dist', 'server.js');
 
-    logger.info('🚀 Iniciando servidor biométrico...');
+    console.log('🚀 Iniciando servidor biométrico...');
 
-    // Iniciar el proceso
-    biometricServerProcess = spawn('node', [serverScript], {
+    // B5: usar el binario actual de Electron como Node (ELECTRON_RUN_AS_NODE=1) para
+    // que funcione empaquetado sin depender de `node` en PATH.
+    biometricServerProcess = spawn(process.execPath, [serverScript], {
       cwd: nodePath,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: false,
-      windowsHide: true
+      windowsHide: true,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
     });
 
     // Capturar salida del proceso
@@ -125,27 +127,34 @@ async function startBiometricServer(): Promise<{ success: boolean; message: stri
       biometricServerProcess = null;
     });
 
-    // Esperar a que el servidor esté listo (máximo 15 segundos)
+// Esperar a que el servidor esté listo (máximo 15 segundos).
+    // B5: arrancar el primer chequeo desde el evento 'spawn' del child process
+    // para reducir la latencia de inicio (backoff exponencial si el server tarda más).
     let attempts = 0;
     const maxAttempts = 30;
-
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const isReady = await checkBiometricServerStatus();
-
-      if (isReady) {
-        logger.info(`✅ Servidor biométrico iniciado correctamente en http://localhost:${BIOMETRIC_PORT}`);
-        return { success: true, message: 'Servidor biométrico iniciado correctamente' };
+    const readyPromise = new Promise<boolean>((resolve) => {
+      let resolved = false;
+      const pollOnce = async () => {
+        if (resolved) return;
+        attempts++;
+        if (await checkBiometricServerStatus()) { resolved = true; resolve(true); return; }
+        if (attempts >= maxAttempts) { resolved = true; resolve(false); return; }
+        if (attempts % 5 === 0) console.log(`⏳ Esperando servidor biométrico... (${attempts}/${maxAttempts})`);
+        // backoff suave: 200ms los primeros 4, luego 500ms
+        setTimeout(pollOnce, attempts < 4 ? 200 : 500);
+      };
+      if (biometricServerProcess) {
+        biometricServerProcess.once('spawn', () => pollOnce());
+      } else {
+        pollOnce();
       }
-
-      attempts++;
-
-      if (attempts % 5 === 0) {
-        logger.info(`⏳ Esperando servidor biométrico... (${attempts}/${maxAttempts})`);
-      }
+    });
+    const ready = await readyPromise;
+    if (ready) {
+      console.log(`✅ Servidor biométrico iniciado correctamente en http://localhost:${BIOMETRIC_PORT}`);
+      return { success: true, message: 'Servidor biométrico iniciado correctamente' };
     }
 
-    // Si llegamos aquí, el servidor no respondió a tiempo
     if (biometricServerProcess) {
       biometricServerProcess.kill();
       biometricServerProcess = null;
