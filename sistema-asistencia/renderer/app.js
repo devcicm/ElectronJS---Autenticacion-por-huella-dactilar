@@ -563,14 +563,14 @@ function showAddEmployeeModal() {
                                 <label>Departamento *</label>
                                 <select id="emp-department" class="form-control" required>
                                     <option value="">Seleccione...</option>
-                                    ${departments.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('')}
+                                    ${departments.map(dept => `<option value="${dept.id}">${escapeHtml(dept.name)}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Turno *</label>
                                 <select id="emp-shift" class="form-control" required>
                                     <option value="">Seleccione...</option>
-                                    ${shifts.map(shift => `<option value="${shift.id}">${shift.name}</option>`).join('')}
+                                    ${shifts.map(shift => `<option value="${shift.id}">${escapeHtml(shift.name)}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group" style="grid-column: 1 / -1;">
@@ -680,7 +680,7 @@ function showEditEmployeeModal(employeeId) {
                             </div>
                             <div class="form-group">
                                 <label>Fecha de Contratación *</label>
-                                <input type="date" id="edit-emp-hire-date" class="form-control" value="${employee.hire_date}" required>
+                                <input type="date" id="edit-emp-hire-date" class="form-control" value="${escapeHtml(employee.hire_date)}" required>
                             </div>
                             <div class="form-group">
                                 <label>Nombre(s) *</label>
@@ -701,13 +701,13 @@ function showEditEmployeeModal(employeeId) {
                             <div class="form-group">
                                 <label>Departamento *</label>
                                 <select id="edit-emp-department" class="form-control" required>
-                                    ${departments.map(dept => `<option value="${dept.id}" ${dept.id === employee.department_id ? 'selected' : ''}>${dept.name}</option>`).join('')}
+                                    ${departments.map(dept => `<option value="${dept.id}" ${dept.id === employee.department_id ? 'selected' : ''}>${escapeHtml(dept.name)}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Turno *</label>
                                 <select id="edit-emp-shift" class="form-control" required>
-                                    ${shifts.map(shift => `<option value="${shift.id}" ${shift.id === employee.shift_id ? 'selected' : ''}>${shift.name}</option>`).join('')}
+                                    ${shifts.map(shift => `<option value="${shift.id}" ${shift.id === employee.shift_id ? 'selected' : ''}>${escapeHtml(shift.name)}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group">
@@ -1441,7 +1441,7 @@ function loadDepartmentsSection() {
                             🏢
                         </div>
                         <div style="flex: 1; padding-right: 60px;">
-                            <h4 style="margin: 0; color: #1F2937;">${dept.name}</h4>
+                            <h4 style="margin: 0; color: #1F2937;">${escapeHtml(dept.name)}</h4>
                             <p style="margin: 5px 0 0; color: #6B7280; font-size: 13px;">
                                 ${employees.filter(e => e.department_id === dept.id).length} empleados
                             </p>
@@ -1533,7 +1533,7 @@ function showEditDepartmentModal(deptId) {
                     <form id="edit-department-form" onsubmit="event.preventDefault(); updateDepartment(${deptId});">
                         <div class="form-group">
                             <label>Nombre del Departamento *</label>
-                            <input type="text" id="edit-dept-name" class="form-control" value="${dept.name}" required>
+                            <input type="text" id="edit-dept-name" class="form-control" value="${escapeHtml(dept.name)}" required>
                         </div>
                         <div class="form-group">
                             <label>Descripción</label>
@@ -1594,7 +1594,7 @@ async function deleteDepartment(deptId) {
 
     if (employeesInDept.length > 0) {
         showNotification(
-            `No se puede eliminar el departamento "${dept.name}" porque tiene ${employeesInDept.length} empleado(s) asignado(s). ` +
+            `No se puede eliminar el departamento "${escapeHtml(dept.name)}" porque tiene ${employeesInDept.length} empleado(s) asignado(s). ` +
             `Por favor, reasigne los empleados a otro departamento primero.`,
             'warning'
         );
@@ -1603,7 +1603,7 @@ async function deleteDepartment(deptId) {
 
     const confirmDelete = confirm(
         `¿Está seguro de que desea eliminar el departamento?\n\n` +
-        `${dept.name}\n\n` +
+        `${escapeHtml(dept.name)}\n\n` +
         `Esta acción NO se puede deshacer.`
     );
 
@@ -1655,7 +1655,7 @@ function loadShiftsSection() {
                             🕐
                         </div>
                         <div style="flex: 1; padding-right: 60px;">
-                            <h4 style="margin: 0; color: #1F2937;">${shift.name}</h4>
+                            <h4 style="margin: 0; color: #1F2937;">${escapeHtml(shift.name)}</h4>
                             <p style="margin: 5px 0 0; color: #6B7280; font-size: 13px;">
                                 ${employees.filter(e => e.shift_id === shift.id).length} empleados
                             </p>
@@ -1780,7 +1780,7 @@ function showEditShiftModal(shiftId) {
                     <form id="edit-shift-form" onsubmit="event.preventDefault(); updateShift(${shiftId});">
                         <div class="form-group">
                             <label>Nombre del Turno *</label>
-                            <input type="text" id="edit-shift-name" class="form-control" value="${shift.name}" required>
+                            <input type="text" id="edit-shift-name" class="form-control" value="${escapeHtml(shift.name)}" required>
                         </div>
                         <div class="form-group">
                             <label>Hora de Inicio *</label>
@@ -1859,7 +1859,7 @@ async function deleteShift(shiftId) {
 
     if (employeesInShift.length > 0) {
         showNotification(
-            `No se puede eliminar el turno "${shift.name}" porque tiene ${employeesInShift.length} empleado(s) asignado(s). ` +
+            `No se puede eliminar el turno "${escapeHtml(shift.name)}" porque tiene ${employeesInShift.length} empleado(s) asignado(s). ` +
             `Por favor, reasigne los empleados a otro turno primero.`,
             'warning'
         );
@@ -1868,7 +1868,7 @@ async function deleteShift(shiftId) {
 
     const confirmDelete = confirm(
         `¿Está seguro de que desea eliminar el turno?\n\n` +
-        `${shift.name} (${shift.start_time} - ${shift.end_time})\n\n` +
+        `${escapeHtml(shift.name)} (${shift.start_time} - ${shift.end_time})\n\n` +
         `Esta acción NO se puede deshacer.`
     );
 
