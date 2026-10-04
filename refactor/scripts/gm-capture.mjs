@@ -27,7 +27,7 @@ function gm1_http() {
       method: m[1].toUpperCase(),
       path: m[2],
       validates: /return res\.status\(400\)/.test(body),
-      errorShape: '500 {ok:false,error:String(e)}',
+      errorShape: '500 {ok:false,code:"INTERNAL_ERROR",error:"msg"}',  // B2: BE-19 sanitizado
     });
   }
   endpoints.sort((a, b) => (a.path + a.method).localeCompare(b.path + b.method));

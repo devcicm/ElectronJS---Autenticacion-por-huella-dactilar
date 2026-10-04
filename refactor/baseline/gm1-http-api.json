@@ -5,133 +5,133 @@
       "method": "POST",
       "path": "/api/bootstrap",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/dispose",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/enroll-all-fingers",
       "validates": true,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/enroll",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/external/convert-template",
       "validates": true,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/external/register",
       "validates": true,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/external/verify-multiple",
       "validates": true,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/external/verify",
       "validates": true,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/identify",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/init",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/load-template",
       "validates": true,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "GET",
       "path": "/api/reader-info",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/single",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "GET",
       "path": "/api/store-stats",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "DELETE",
       "path": "/api/store",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "GET",
       "path": "/api/store",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/touch/identify-last",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/touch/start",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "GET",
       "path": "/api/touch/status",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/touch/stop",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "POST",
       "path": "/api/verify",
       "validates": true,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     },
     {
       "method": "GET",
       "path": "/events",
       "validates": false,
-      "errorShape": "500 {ok:false,error:String(e)}"
+      "errorShape": "500 {ok:false,code:\"INTERNAL_ERROR\",error:\"msg\"}"
     }
   ],
   "normalizer": "solo endpoints/validaciones; bodies con String(e) dependen del entorno (CANDIDATE, no congelados por valor)"

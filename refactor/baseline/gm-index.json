@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-04T13:52:09.714Z",
+  "capturedAt": "2026-10-04T13:57:11.091Z",
   "nondeterminismo": [
     "bodies String(e) de errores de entorno",
     "timestamps ISO de respuestas",
@@ -7,7 +7,7 @@
     "presencia del lector DP4500"
   ],
   "sections": {
-    "gm1-http-api.json": "c10afed2cd235ce0f590bebba6956b5c464cb4430a4cfaebcd32b995fbb7f7ca",
+    "gm1-http-api.json": "dbe5375ba09294e612e87348239afa6e43e5dec49f2dbe9ce9a4e1e114ec3f28",
     "gm2-ipc-contract.json": "956f21ba75badcc957b72040a82ea79e786c3b687cf2bff958aa8ca517acd7df",
     "gm3-sqlite-schema.json": "22019adc5a3f851188f8d9fae23127d37f7f6bfcaa175ee3e524331a2cc2d9c2",
     "gm4-renderer-dom.json": "951c78272811f2dbf850b9ec601e045155717383026cf2dca0ad9e41b7256553",
