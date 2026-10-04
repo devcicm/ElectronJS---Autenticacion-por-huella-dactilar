@@ -1,0 +1,34 @@
+{
+  "contract": "DOM renderer sistema-asistencia (carga por archivo)",
+  "elementIds": [
+    "page-title",
+    "current-date",
+    "current-time",
+    "dashboard-section",
+    "stat-present",
+    "stat-late",
+    "stat-absent",
+    "stat-percentage",
+    "today-records-table",
+    "check-in-section",
+    "auto-attendance-status",
+    "toggle-auto-attendance-btn",
+    "employees-list",
+    "employees-section",
+    "employees-table-container",
+    "attendance-section",
+    "attendance-records-container",
+    "departments-section",
+    "departments-container",
+    "shifts-section",
+    "shifts-container",
+    "reports-section",
+    "settings-section"
+  ],
+  "scriptLoadOrder": [
+    "js/controls/FingerprintEnroller.js",
+    "app.js"
+  ],
+  "stylesheets": [],
+  "viewSections": []
+}

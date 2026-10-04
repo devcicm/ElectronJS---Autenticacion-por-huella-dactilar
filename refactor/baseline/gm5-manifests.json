@@ -1,0 +1,32 @@
+{
+  "contract": "Manifiestos y scripts de build",
+  "root": {
+    "scripts": {
+      "build": "tsc -p tsconfig.json && tsc -p tsconfig.preload.json && tsc -p tsconfig.asistencia.json && xcopy /Y /I /E sistema-asistencia\\renderer dist\\sistema-asistencia\\renderer\\ && xcopy /Y /I sistema-asistencia\\database\\schema.sql dist\\sistema-asistencia\\database\\",
+      "start": "npm run build && electron .",
+      "dev": "npm run build && electron . --dev"
+    },
+    "deps": {
+      "better-sqlite3": "^12.4.1",
+      "eventsource": "^4.0.0"
+    },
+    "type": "module",
+    "main": "dist/electron/main.js"
+  },
+  "biometricNode": {
+    "scripts": {
+      "build": "tsc -p .",
+      "start": "node dist/server.js"
+    },
+    "deps": {
+      "body-parser": "^1.20.3",
+      "edge-js": "^20.3.0",
+      "express": "^4.21.1"
+    },
+    "devDeps": {
+      "@types/express": "^4.17.21",
+      "@types/node": "^20.14.10",
+      "typescript": "^5.5.4"
+    }
+  }
+}

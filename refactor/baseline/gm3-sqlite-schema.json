@@ -1,0 +1,240 @@
+{
+  "contract": "Esquema SQLite (schema.sql) + semillas + vistas ejecutables",
+  "objects": [
+    {
+      "type": "index",
+      "name": "idx_attendance_date",
+      "sql": "CREATE INDEX idx_attendance_date ON attendance_records(date)"
+    },
+    {
+      "type": "index",
+      "name": "idx_attendance_employee",
+      "sql": "CREATE INDEX idx_attendance_employee ON attendance_records(employee_id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_attendance_employee_date",
+      "sql": "CREATE INDEX idx_attendance_employee_date ON attendance_records(employee_id, date)"
+    },
+    {
+      "type": "index",
+      "name": "idx_attendance_status",
+      "sql": "CREATE INDEX idx_attendance_status ON attendance_records(status)"
+    },
+    {
+      "type": "index",
+      "name": "idx_departments_name",
+      "sql": "CREATE INDEX idx_departments_name ON departments(name)"
+    },
+    {
+      "type": "index",
+      "name": "idx_employees_code",
+      "sql": "CREATE INDEX idx_employees_code ON employees(employee_code)"
+    },
+    {
+      "type": "index",
+      "name": "idx_employees_department",
+      "sql": "CREATE INDEX idx_employees_department ON employees(department_id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_employees_email",
+      "sql": "CREATE INDEX idx_employees_email ON employees(email)"
+    },
+    {
+      "type": "index",
+      "name": "idx_employees_name",
+      "sql": "CREATE INDEX idx_employees_name ON employees(last_name, first_name)"
+    },
+    {
+      "type": "index",
+      "name": "idx_employees_shift",
+      "sql": "CREATE INDEX idx_employees_shift ON employees(shift_id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_employees_status",
+      "sql": "CREATE INDEX idx_employees_status ON employees(status)"
+    },
+    {
+      "type": "index",
+      "name": "idx_fingerprints_employee",
+      "sql": "CREATE INDEX idx_fingerprints_employee ON fingerprints(employee_id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_fingerprints_hand_finger",
+      "sql": "CREATE INDEX idx_fingerprints_hand_finger ON fingerprints(hand, finger_position)"
+    },
+    {
+      "type": "index",
+      "name": "idx_shifts_name",
+      "sql": "CREATE INDEX idx_shifts_name ON shifts(name)"
+    },
+    {
+      "type": "table",
+      "name": "attendance_records",
+      "sql": "CREATE TABLE attendance_records (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    employee_id INTEGER NOT NULL,\r\n    date TEXT NOT NULL,                -- ISO date (YYYY-MM-DD)\r\n    check_in_time TEXT,                -- HH:MM:SS\r\n    check_out_time TEXT,               -- HH:MM:SS\r\n    status TEXT NOT NULL DEFAULT 'present' CHECK(status IN ('present', 'late', 'absent', 'excused', 'half_day', 'on_leave')),\r\n    minutes_late INTEGER NOT NULL DEFAULT 0,\r\n    minutes_overtime INTEGER NOT NULL DEFAULT 0,\r\n    fingerprint_verified INTEGER NOT NULL DEFAULT 0,  -- Boolean (0 o 1)\r\n    notes TEXT,\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n\r\n    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,\r\n\r\n    -- Un empleado solo puede tener un registro por día\r\n    UNIQUE(employee_id, date)\r\n)"
+    },
+    {
+      "type": "table",
+      "name": "departments",
+      "sql": "CREATE TABLE departments (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    name TEXT NOT NULL UNIQUE,\r\n    description TEXT,\r\n    manager_id INTEGER,\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n)"
+    },
+    {
+      "type": "table",
+      "name": "employees",
+      "sql": "CREATE TABLE employees (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    employee_code TEXT NOT NULL UNIQUE,\r\n    first_name TEXT NOT NULL,\r\n    last_name TEXT NOT NULL,\r\n    email TEXT NOT NULL UNIQUE,\r\n    phone TEXT,\r\n    department_id INTEGER NOT NULL,\r\n    shift_id INTEGER NOT NULL,\r\n    position TEXT NOT NULL,\r\n    hire_date TEXT NOT NULL,           -- ISO date\r\n    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'suspended')),\r\n    photo_url TEXT,\r\n    enrollment_mode TEXT DEFAULT 'simple' CHECK(enrollment_mode IN ('simple', 'advanced')),\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n\r\n    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE RESTRICT,\r\n    FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE RESTRICT\r\n)"
+    },
+    {
+      "type": "table",
+      "name": "fingerprints",
+      "sql": "CREATE TABLE fingerprints (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    employee_id INTEGER NOT NULL,\r\n    finger_position TEXT NOT NULL CHECK(finger_position IN ('THUMB', 'INDEX', 'MIDDLE', 'RING', 'PINKY')),\r\n    hand TEXT NOT NULL CHECK(hand IN ('LEFT', 'RIGHT')),\r\n    template_data TEXT NOT NULL,      -- Base64 encoded template\r\n    quality_score INTEGER DEFAULT 0,  -- 0-100\r\n    enrolled_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n\r\n    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,\r\n\r\n    -- Un empleado no puede tener el mismo dedo registrado dos veces\r\n    UNIQUE(employee_id, hand, finger_position)\r\n)"
+    },
+    {
+      "type": "table",
+      "name": "shifts",
+      "sql": "CREATE TABLE shifts (\r\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n    name TEXT NOT NULL UNIQUE,\r\n    start_time TEXT NOT NULL,          -- HH:MM\r\n    end_time TEXT NOT NULL,            -- HH:MM\r\n    tolerance_minutes INTEGER NOT NULL DEFAULT 0,\r\n    color TEXT DEFAULT '#3B82F6',\r\n    created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n)"
+    },
+    {
+      "type": "table",
+      "name": "system_config",
+      "sql": "CREATE TABLE system_config (\r\n    key TEXT PRIMARY KEY,\r\n    value TEXT NOT NULL,\r\n    description TEXT,\r\n    updated_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n)"
+    },
+    {
+      "type": "trigger",
+      "name": "update_attendance_timestamp",
+      "sql": "CREATE TRIGGER update_attendance_timestamp\r\nAFTER UPDATE ON attendance_records\r\nBEGIN\r\n    UPDATE attendance_records SET updated_at = datetime('now') WHERE id = NEW.id;\r\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "update_config_timestamp",
+      "sql": "CREATE TRIGGER update_config_timestamp\r\nAFTER UPDATE ON system_config\r\nBEGIN\r\n    UPDATE system_config SET updated_at = datetime('now') WHERE key = NEW.key;\r\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "update_departments_timestamp",
+      "sql": "CREATE TRIGGER update_departments_timestamp\r\nAFTER UPDATE ON departments\r\nBEGIN\r\n    UPDATE departments SET updated_at = datetime('now') WHERE id = NEW.id;\r\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "update_employees_timestamp",
+      "sql": "CREATE TRIGGER update_employees_timestamp\r\nAFTER UPDATE ON employees\r\nBEGIN\r\n    UPDATE employees SET updated_at = datetime('now') WHERE id = NEW.id;\r\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "update_shifts_timestamp",
+      "sql": "CREATE TRIGGER update_shifts_timestamp\r\nAFTER UPDATE ON shifts\r\nBEGIN\r\n    UPDATE shifts SET updated_at = datetime('now') WHERE id = NEW.id;\r\nEND"
+    },
+    {
+      "type": "view",
+      "name": "attendance_with_details",
+      "sql": "CREATE VIEW attendance_with_details AS\r\nSELECT\r\n    ar.*,\r\n    e.employee_code,\r\n    e.first_name || ' ' || e.last_name AS employee_name,\r\n    d.name AS department_name,\r\n    s.name AS shift_name,\r\n    s.start_time AS shift_start_time,\r\n    s.end_time AS shift_end_time\r\nFROM attendance_records ar\r\nLEFT JOIN employees e ON ar.employee_id = e.id\r\nLEFT JOIN departments d ON e.department_id = d.id\r\nLEFT JOIN shifts s ON e.shift_id = s.id"
+    },
+    {
+      "type": "view",
+      "name": "daily_attendance_summary",
+      "sql": "CREATE VIEW daily_attendance_summary AS\r\nSELECT\r\n    date,\r\n    COUNT(DISTINCT employee_id) AS total_employees,\r\n    SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) AS present_count,\r\n    SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) AS late_count,\r\n    SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absent_count,\r\n    SUM(CASE WHEN status = 'excused' THEN 1 ELSE 0 END) AS excused_count,\r\n    SUM(CASE WHEN status = 'on_leave' THEN 1 ELSE 0 END) AS on_leave_count,\r\n    ROUND(\r\n        (SUM(CASE WHEN status IN ('present', 'late') THEN 1 ELSE 0 END) * 100.0) /\r\n        COUNT(DISTINCT employee_id),\r\n        2\r\n    ) AS present_percentage\r\nFROM attendance_records\r\nGROUP BY date\r\nORDER BY date DESC"
+    },
+    {
+      "type": "view",
+      "name": "employees_with_details",
+      "sql": "CREATE VIEW employees_with_details AS\r\nSELECT\r\n    e.*,\r\n    d.name AS department_name,\r\n    s.name AS shift_name,\r\n    s.start_time AS shift_start_time,\r\n    s.end_time AS shift_end_time,\r\n    (SELECT COUNT(*) FROM fingerprints WHERE employee_id = e.id) AS fingerprints_count\r\nFROM employees e\r\nLEFT JOIN departments d ON e.department_id = d.id\r\nLEFT JOIN shifts s ON e.shift_id = s.id"
+    }
+  ],
+  "seeds": {
+    "departments": [
+      {
+        "id": 1,
+        "name": "Recursos Humanos",
+        "description": "Gestión de personal y recursos humanos"
+      },
+      {
+        "id": 2,
+        "name": "Tecnología",
+        "description": "Departamento de TI y desarrollo"
+      },
+      {
+        "id": 3,
+        "name": "Ventas",
+        "description": "Equipo de ventas y comercial"
+      },
+      {
+        "id": 4,
+        "name": "Administración",
+        "description": "Administración y finanzas"
+      },
+      {
+        "id": 5,
+        "name": "Operaciones",
+        "description": "Operaciones y logística"
+      }
+    ],
+    "shifts": [
+      {
+        "id": 1,
+        "name": "Matutino",
+        "start_time": "08:00",
+        "end_time": "16:00",
+        "tolerance_minutes": 10,
+        "color": "#3B82F6"
+      },
+      {
+        "id": 2,
+        "name": "Vespertino",
+        "start_time": "14:00",
+        "end_time": "22:00",
+        "tolerance_minutes": 10,
+        "color": "#F59E0B"
+      },
+      {
+        "id": 3,
+        "name": "Nocturno",
+        "start_time": "22:00",
+        "end_time": "06:00",
+        "tolerance_minutes": 15,
+        "color": "#8B5CF6"
+      },
+      {
+        "id": 4,
+        "name": "Administrativo",
+        "start_time": "09:00",
+        "end_time": "18:00",
+        "tolerance_minutes": 15,
+        "color": "#10B981"
+      }
+    ],
+    "system_config": [
+      {
+        "key": "allow_manual_entry",
+        "value": "1",
+        "description": "Permite entrada manual de asistencia (1=sí, 0=no)"
+      },
+      {
+        "key": "auto_mark_absent_time",
+        "value": "09:00",
+        "description": "Hora para marcar ausencias automáticas (HH:MM)"
+      },
+      {
+        "key": "grace_period_minutes",
+        "value": "10",
+        "description": "Período de gracia en minutos"
+      },
+      {
+        "key": "notification_enabled",
+        "value": "1",
+        "description": "Notificaciones activadas (1=sí, 0=no)"
+      },
+      {
+        "key": "require_checkout",
+        "value": "1",
+        "description": "Requiere marcar salida (1=sí, 0=no)"
+      }
+    ]
+  },
+  "viewRowCounts": {
+    "attendance_with_details": 0,
+    "daily_attendance_summary": 0,
+    "employees_with_details": 0
+  }
+}
