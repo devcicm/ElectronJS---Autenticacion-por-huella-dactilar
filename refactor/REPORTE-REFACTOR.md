@@ -19,6 +19,7 @@
 | FE-19 JSON.parse sin guard en loadSettings | (reclasificado) | ya guardada |
 | FE-15 estáticas puras | 19 | (no era smell) |
 | FE-15 user-data en `innerHTML`/`insertAdjacentHTML` | 8 sitios | 0 (escapeHtml) |
+| FE-15 user-data en modales (`value="..."`, `<option>`) | 8+ sitios | 0 (escapeHtml en pasada adicional B3') |
 | FE-01 scripts sin módulos en renderer sistema | 2 scripts clásicos | 1 module con imports |
 | BE-19 `String(e)` filtrado al cliente | 21 handlers | 0 (helper `respondInternal`) |
 | Exposición 0.0.0.0 sin auth | sí | no (default loopback + guard de token) |
@@ -88,7 +89,7 @@ git log --oneline b0cf676..HEAD     →  17 commits del refactor + housekeeping
 
 ## Pasada de hardening adicional sugerida (post-sesión)
 
-1. **escapeHtml en modales `insertAdjacentHTML`**: `showEditEmployeeModal` (line 672+) y `showEnrollFingerprintModal` (line 1008+) — interpolan `employee.first_name`, `last_name`, `employee_code`, `email`, `phone`, `position` dentro de `value="..."`. Mismo patrón, mismo riesgo, misma solución (57 escapes adicionales estimados).
+1. **escapeHtml en modales `insertAdjacentHTML`**: ~~`showEditEmployeeModal` (line 672+) y `showEnrollFingerprintModal` (line 1008+) — interpolan `employee.first_name`, `last_name`, `employee_code`, `email`, `phone`, `position` dentro de `value="..."`. Mismo patrón, mismo riesgo, misma solución (57 escapes adicionales estimados).~~ ✅ **Ejecutado en pasada B3'** — commits `493af94` y `a86bc03` (13+2 escapes en `dept.name`/`shift.name` en `<option>`+`<input value="...">`, `employee.hire_date`/`employee.phone`).
 2. **Validación de entrada user-controlled en formularios** (FE-22-adjacent): regex actual en `saveNewEmployee`/`updateEmployee` solo valida email; añadir normalización/sanitización para nombres/códigos antes de persistir (defensa en profundidad: no confiar solo en la capa de escape).
 3. **CANDIDATE C1 (RES-05 en FingerprintEnroller)**: si la app añade vistas que alternan el control, asegurar `disconnect()` al desmontar; hoy vive en el singleton del módulo.
 4. **Engine demo UI → ES modules** (FE-01) si crece la demo; hoy valor/coste desfavorable.

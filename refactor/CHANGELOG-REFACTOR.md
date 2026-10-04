@@ -26,6 +26,7 @@ Convención de Paridad: ✅ idéntica · ⚠️ diferencias esperadas documentad
 | B1 | seguridad red | `app.listen(PORT, HOST)` con `BIOMETRIC_HOST` env (default `127.0.0.1`); guard: si HOST no loopback → exigir `X-Api-Token` (`BIOMETRIC_API_TOKEN`) o `process.exit(1)` | ✅ gm1 (endpoints/validaciones intactas; bind y 401 no son parte de gm1) |
 | B2 | BE-19 | Helper `respondInternal()` en `server.ts`; 21 `error:String(e)` → `{ok:false,code:"INTERNAL_ERROR",error:"Error interno..."}`; log full server-side. **gm1 regenerada explícitamente**: solo `errorShape` (resto intacto) | ⚠️ gm1 (errorShape) |
 | B3 | FE-15 (FIX) | `escapeHtml()` util; 57 escapes en 8 sitios `innerHTML`/`insertAdjacentHTML` con interpolación user-controlled (nombres, códigos, emails, dept/shift) | ✅ gm1-5 (innerHTML de tablas ≠ contrato congelado) |
+| B3' | FE-15 (FIX, pasada adicional) | 13+2 escapes en modales: `dept.name`/`shift.name` en `<option>` + `<input value="...">`, `employee.hire_date`/`employee.phone` (incluido `\|\|`). Confirm dialogs intactos (texto plano, no HTML) | ✅ |
 | B4 | RES-05 + OBJ-04 | `TouchModeService`: `reconnectTimer` con `clearTimeout` en `disconnectFromEvents`; `main.ts`: singletons cacheados para `AttendanceService`/`BiometricService`; `app.js`: `FingerprintEnroller.disconnect()` en `beforeunload` | ✅ (sin cambios de contrato observable) |
 | B5 | BE-15-adj | `spawn(process.execPath, ...)` con `ELECTRON_RUN_AS_NODE=1` (funciona empaquetado, sin PATH de `node`); arranque por evento con backoff 200→500ms | ✅ (max wait 15s preservado) |
 
