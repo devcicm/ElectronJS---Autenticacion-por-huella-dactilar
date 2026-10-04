@@ -3,6 +3,7 @@
  * Conecta la interfaz con el backend a través de la API expuesta por preload
  */
 import { FingerprintEnroller } from './js/controls/FingerprintEnroller.js';
+import { logger } from './logger.js';
 
 // Instancia única (antes: singleton global creado por su propio script tag)
 window.FingerprintEnroller = new FingerprintEnroller();
@@ -25,7 +26,7 @@ let autoAttendanceState = {
 
 // ==================== INICIALIZACIÓN ====================
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 Sistema de Asistencia - Iniciando...');
+    logger.info('🚀 Sistema de Asistencia - Iniciando...');
 
     // Configurar navegación
     setupNavigation();
@@ -43,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Mostrar dashboard por defecto
     showSection('dashboard');
 
-    console.log('✅ Sistema listo');
+    logger.info('✅ Sistema listo');
 });
 
 // ==================== NAVEGACIÓN ====================
@@ -150,9 +151,9 @@ async function loadInitialData() {
             window.attendance.getShifts()
         ]);
 
-        console.log(`✅ Datos cargados: ${employees.length} empleados, ${departments.length} departamentos, ${shifts.length} turnos`);
+        logger.info(`✅ Datos cargados: ${employees.length} empleados, ${departments.length} departamentos, ${shifts.length} turnos`);
     } catch (error) {
-        console.error('❌ Error cargando datos iniciales:', error);
+        logger.error('❌ Error cargando datos iniciales:', error);
         showNotification('Error al cargar datos iniciales', 'error');
     }
 }
@@ -171,7 +172,7 @@ async function loadDashboard() {
 
         todayRecords = records;
     } catch (error) {
-        console.error('❌ Error cargando dashboard:', error);
+        logger.error('❌ Error cargando dashboard:', error);
         showNotification('Error al cargar dashboard', 'error');
     }
 }
@@ -370,7 +371,7 @@ async function performCheckIn() {
             showNotification(result.message, 'error');
         }
     } catch (error) {
-        console.error('Error en check-in:', error);
+        logger.error('Error en check-in:', error);
         showNotification('Error al registrar entrada', 'error');
     }
 }
@@ -389,7 +390,7 @@ async function performCheckOut() {
             showNotification(result.message, 'error');
         }
     } catch (error) {
-        console.error('Error en check-out:', error);
+        logger.error('Error en check-out:', error);
         showNotification('Error al registrar salida', 'error');
     }
 }
@@ -647,7 +648,7 @@ async function saveNewEmployee() {
             showNotification(result.message || 'Error al crear empleado', 'error');
         }
     } catch (error) {
-        console.error('Error creando empleado:', error);
+        logger.error('Error creando empleado:', error);
         showNotification(error.message || 'Error al crear empleado', 'error');
     }
 }
@@ -788,7 +789,7 @@ async function updateEmployee(employeeId) {
             showNotification(result.message || 'Error al actualizar empleado', 'error');
         }
     } catch (error) {
-        console.error('Error actualizando empleado:', error);
+        logger.error('Error actualizando empleado:', error);
         showNotification(error.message || 'Error al actualizar empleado', 'error');
     }
 }
@@ -825,7 +826,7 @@ async function deleteEmployee(employeeId) {
             showNotification('Error al eliminar empleado', 'error');
         }
     } catch (error) {
-        console.error('Error eliminando empleado:', error);
+        logger.error('Error eliminando empleado:', error);
         showNotification(error.message || 'Error al eliminar empleado', 'error');
     }
 }
@@ -976,7 +977,7 @@ async function deleteFingerprint(fingerprintId, employeeId) {
             showNotification('Error al eliminar la huella', 'error');
         }
     } catch (error) {
-        console.error('Error al eliminar huella:', error);
+        logger.error('Error al eliminar huella:', error);
         showNotification('Error al eliminar la huella', 'error');
     }
 }
@@ -1158,14 +1159,14 @@ async function startFingerprintEnrollment(employeeId) {
 
             // Eliminar todas las huellas existentes
             const deleted = await window.attendance.deleteAllEmployeeFingerprints(employeeId);
-            console.log(`[Renderer] ${deleted} huellas eliminadas`);
+            logger.info(`[Renderer] ${deleted} huellas eliminadas`);
             showNotification(`${deleted} huella(s) eliminada(s)`, 'success');
 
             // Esperar un momento antes de continuar
             await new Promise(resolve => setTimeout(resolve, 500));
         }
     } catch (error) {
-        console.error('[Renderer] Error checking existing fingerprints:', error);
+        logger.error('[Renderer] Error checking existing fingerprints:', error);
     }
 
     // Continuar con el enrollment según el modo seleccionado
@@ -1200,13 +1201,13 @@ async function enrollSingleFingerprint(employeeId) {
     enroller.startEnrollment(statusDiv);
 
     try {
-        console.log('[Renderer] Iniciando enrollment...');
-        console.log('[Renderer] Employee ID:', employeeId);
-        console.log('[Renderer] Finger position:', fingerPositionStr);
+        logger.info('[Renderer] Iniciando enrollment...');
+        logger.info('[Renderer] Employee ID:', employeeId);
+        logger.info('[Renderer] Finger position:', fingerPositionStr);
 
         const result = await window.biometric.enrollFingerprint(employeeId, fingerPositionStr);
 
-        console.log('[Renderer] Enrollment completado, resultado:', result);
+        logger.info('[Renderer] Enrollment completado, resultado:', result);
 
         if (result.success) {
             enroller.finishEnrollment(true, '¡Huella registrada exitosamente!');
@@ -1218,9 +1219,9 @@ async function enrollSingleFingerprint(employeeId) {
                     id: employeeId,
                     enrollment_mode: 'simple'
                 });
-                console.log('[Renderer] enrollment_mode actualizado a: simple');
+                logger.info('[Renderer] enrollment_mode actualizado a: simple');
             } catch (err) {
-                console.error('[Renderer] Error actualizando enrollment_mode:', err);
+                logger.error('[Renderer] Error actualizando enrollment_mode:', err);
             }
 
             setTimeout(() => {
@@ -1233,8 +1234,8 @@ async function enrollSingleFingerprint(employeeId) {
             startBtn.textContent = 'Reintentar';
         }
     } catch (error) {
-        console.error('[Renderer] Error enrolling fingerprint:', error);
-        console.error('[Renderer] Error stack:', error.stack);
+        logger.error('[Renderer] Error enrolling fingerprint:', error);
+        logger.error('[Renderer] Error stack:', error.stack);
         enroller.finishEnrollment(false, 'Error de conexión con el lector');
         startBtn.disabled = false;
         startBtn.textContent = 'Reintentar';
@@ -1310,7 +1311,7 @@ async function enrollAllFingerprints(employeeId) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         } catch (error) {
-            console.error(`Error enrolling ${finger.label}:`, error);
+            logger.error(`Error enrolling ${finger.label}:`, error);
             progressDiv.style.color = '#EF4444';
             progressDiv.innerHTML = `❌ ${finger.label}`;
             enroller.finishEnrollment(false, 'Error de conexión');
@@ -1352,9 +1353,9 @@ async function enrollAllFingerprints(employeeId) {
                 id: employeeId,
                 enrollment_mode: 'advanced'
             });
-            console.log('[Renderer] enrollment_mode actualizado a: advanced');
+            logger.info('[Renderer] enrollment_mode actualizado a: advanced');
         } catch (err) {
-            console.error('[Renderer] Error actualizando enrollment_mode:', err);
+            logger.error('[Renderer] Error actualizando enrollment_mode:', err);
         }
     }
 
@@ -1405,7 +1406,7 @@ async function loadAttendanceSection() {
             </div>
         `;
     } catch (error) {
-        console.error('Error cargando registros:', error);
+        logger.error('Error cargando registros:', error);
     }
 }
 
@@ -1505,7 +1506,7 @@ async function saveDepartment() {
             showNotification('Error al crear departamento', 'error');
         }
     } catch (error) {
-        console.error('Error creando departamento:', error);
+        logger.error('Error creando departamento:', error);
         showNotification(error.message || 'Error al crear departamento', 'error');
     }
 }
@@ -1573,7 +1574,7 @@ async function updateDepartment(deptId) {
             showNotification('Error al actualizar departamento', 'error');
         }
     } catch (error) {
-        console.error('Error actualizando departamento:', error);
+        logger.error('Error actualizando departamento:', error);
         showNotification(error.message || 'Error al actualizar departamento', 'error');
     }
 }
@@ -1618,7 +1619,7 @@ async function deleteDepartment(deptId) {
             showNotification('Error al eliminar departamento', 'error');
         }
     } catch (error) {
-        console.error('Error eliminando departamento:', error);
+        logger.error('Error eliminando departamento:', error);
         showNotification(error.message || 'Error al eliminar departamento', 'error');
     }
 }
@@ -1752,7 +1753,7 @@ async function saveShift() {
             showNotification('Error al crear turno', 'error');
         }
     } catch (error) {
-        console.error('Error creando turno:', error);
+        logger.error('Error creando turno:', error);
         showNotification(error.message || 'Error al crear turno', 'error');
     }
 }
@@ -1838,7 +1839,7 @@ async function updateShift(shiftId) {
             showNotification('Error al actualizar turno', 'error');
         }
     } catch (error) {
-        console.error('Error actualizando turno:', error);
+        logger.error('Error actualizando turno:', error);
         showNotification(error.message || 'Error al actualizar turno', 'error');
     }
 }
@@ -1883,7 +1884,7 @@ async function deleteShift(shiftId) {
             showNotification('Error al eliminar turno', 'error');
         }
     } catch (error) {
-        console.error('Error eliminando turno:', error);
+        logger.error('Error eliminando turno:', error);
         showNotification(error.message || 'Error al eliminar turno', 'error');
     }
 }
@@ -2014,7 +2015,7 @@ async function generateDailyReport() {
         `;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
-        console.error('Error generando reporte diario:', error);
+        logger.error('Error generando reporte diario:', error);
         showNotification('Error al generar el reporte diario', 'error');
     }
 }
@@ -2116,7 +2117,7 @@ async function generateWeeklyReport() {
         `;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
-        console.error('Error generando reporte semanal:', error);
+        logger.error('Error generando reporte semanal:', error);
         showNotification('Error al generar el reporte semanal', 'error');
     }
 }
@@ -2209,7 +2210,7 @@ async function generateMonthlyReport() {
         `;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
-        console.error('Error generando reporte mensual:', error);
+        logger.error('Error generando reporte mensual:', error);
         showNotification('Error al generar el reporte mensual', 'error');
     }
 }
@@ -2362,7 +2363,7 @@ async function showEmployeeReportDetails() {
         `;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
-        console.error('Error generando reporte de empleado:', error);
+        logger.error('Error generando reporte de empleado:', error);
         showNotification('Error al generar el reporte del empleado', 'error');
     }
 }
@@ -2601,9 +2602,9 @@ async function saveSettings() {
             showNotification('Configuración guardada exitosamente', 'success');
         }
 
-        console.log('Configuración guardada:', newSettings);
+        logger.info('Configuración guardada:', newSettings);
     } catch (error) {
-        console.error('Error guardando configuración:', error);
+        logger.error('Error guardando configuración:', error);
         showNotification('Error al guardar la configuración', 'error');
     }
 }
@@ -2644,7 +2645,7 @@ async function resetDatabase() {
     }
 
     try {
-        console.log('🗑️ Iniciando reseteo completo de base de datos...');
+        logger.info('🗑️ Iniciando reseteo completo de base de datos...');
         showNotification('Reseteando base de datos...', 'info');
 
         // Llamar al IPC handler para resetear la base de datos
@@ -2657,45 +2658,45 @@ async function resetDatabase() {
             await loadInitialData();
 
             // Navegar automáticamente al dashboard para mostrar que está vacío
-            console.log('📊 Navegando al dashboard para mostrar datos limpios...');
+            logger.info('📊 Navegando al dashboard para mostrar datos limpios...');
             showSection('dashboard');
 
             // Reiniciar Touch Mode después del reset
-            console.log('🔄 Reiniciando Touch Mode después del reset...');
+            logger.info('🔄 Reiniciando Touch Mode después del reset...');
             try {
                 // Detener Touch Mode si está activo
                 const currentState = await window.touchMode.getLocalState();
                 if (currentState.isActive) {
-                    console.log('⏸️ Deteniendo Touch Mode actual...');
+                    logger.info('⏸️ Deteniendo Touch Mode actual...');
                     await window.touchMode.stop();
                     stopTouchModePolling();
                     await new Promise(resolve => setTimeout(resolve, 500)); // Esperar 500ms
                 }
 
                 // Reiniciar Touch Mode
-                console.log('▶️ Reiniciando Touch Mode...');
+                logger.info('▶️ Reiniciando Touch Mode...');
                 const startResult = await window.touchMode.start();
 
                 if (startResult.success) {
-                    console.log('✅ Touch Mode reiniciado exitosamente');
+                    logger.info('✅ Touch Mode reiniciado exitosamente');
                     const newState = await window.touchMode.getLocalState();
                     touchModeState = newState;
                     updateTouchModeUI();
                     startTouchModePolling();
                     showNotification('Touch Mode reiniciado', 'info');
                 } else {
-                    console.warn('⚠️ No se pudo reiniciar Touch Mode:', startResult.message);
+                    logger.warn('⚠️ No se pudo reiniciar Touch Mode:', startResult.message);
                 }
             } catch (touchModeError) {
-                console.error('❌ Error al reiniciar Touch Mode:', touchModeError);
+                logger.error('❌ Error al reiniciar Touch Mode:', touchModeError);
             }
 
-            console.log('✅ Base de datos reseteada y datos recargados');
+            logger.info('✅ Base de datos reseteada y datos recargados');
         } else {
             showNotification('Error al resetear la base de datos: ' + (result.message || 'Error desconocido'), 'error');
         }
     } catch (error) {
-        console.error('Error al resetear base de datos:', error);
+        logger.error('Error al resetear base de datos:', error);
         showNotification('Error crítico al resetear la base de datos', 'error');
     }
 }
@@ -2796,13 +2797,13 @@ let touchModePollingInterval = null;
  */
 async function initializeTouchMode() {
     try {
-        console.log('🚀 Inicializando Touch Mode...');
+        logger.info('🚀 Inicializando Touch Mode...');
 
         // Configurar listener para errores críticos
         if (window.touchMode.onCriticalError) {
             window.touchMode.onCriticalError((data) => {
-                console.error('❌❌❌ ERROR CRÍTICO EN MODO AUTOMÁTICO ❌❌❌');
-                console.error('Mensaje:', data.message);
+                logger.error('❌❌❌ ERROR CRÍTICO EN MODO AUTOMÁTICO ❌❌❌');
+                logger.error('Mensaje:', data.message);
 
                 // Mostrar notificación de error crítico
                 showNotification(
@@ -2817,13 +2818,13 @@ async function initializeTouchMode() {
                 // Detener polling
                 stopTouchModePolling();
             });
-            console.log('[UI] Listener de errores críticos configurado');
+            logger.info('[UI] Listener de errores críticos configurado');
         }
 
         // Configurar listener para asistencias registradas
         if (window.touchMode.onAttendanceRegistered) {
             window.touchMode.onAttendanceRegistered((eventData) => {
-                console.log('✅ [UI] Asistencia registrada recibida:', eventData);
+                logger.info('✅ [UI] Asistencia registrada recibida:', eventData);
 
                 const { type, data } = eventData;
 
@@ -2841,11 +2842,11 @@ async function initializeTouchMode() {
                         );
                     }
                 } else {
-                    console.log(`ℹ️ [UI] Asistencia registrada pero score no es perfecto (score: ${data.score})`);
+                    logger.info(`ℹ️ [UI] Asistencia registrada pero score no es perfecto (score: ${data.score})`);
                 }
 
                 // Recargar la vista actual si estamos en dashboard o records
-                console.log('[UI] Recargando datos de asistencia...');
+                logger.info('[UI] Recargando datos de asistencia...');
                 setTimeout(async () => {
                     await loadInitialData();
 
@@ -2856,7 +2857,7 @@ async function initializeTouchMode() {
                     }
                 }, 500);
             });
-            console.log('[UI] Listener de asistencias registradas configurado');
+            logger.info('[UI] Listener de asistencias registradas configurado');
         }
 
         // Obtener estado inicial
@@ -2866,11 +2867,11 @@ async function initializeTouchMode() {
 
         // Auto-iniciar el modo automático si no está activo
         if (!state.isActive) {
-            console.log('🔄 Auto-iniciando Modo Automático de Asistencia...');
+            logger.info('🔄 Auto-iniciando Modo Automático de Asistencia...');
             const result = await window.touchMode.start();
 
             if (result.success) {
-                console.log('✅ Modo automático auto-iniciado exitosamente');
+                logger.info('✅ Modo automático auto-iniciado exitosamente');
                 showNotification('Modo Automático de Asistencia activado', 'success');
 
                 // Actualizar estado y UI
@@ -2883,21 +2884,21 @@ async function initializeTouchMode() {
             } else {
                 // Si el servidor no está disponible, solo registrar en consola (no mostrar error al usuario)
                 if (result.message && result.message.includes('Servidor biométrico no disponible')) {
-                    console.warn('⚠️ Servidor biométrico no disponible - Touch Mode no iniciado');
-                    console.log('ℹ️ Inicie el servidor edge-uru-ui para habilitar el modo automático');
+                    logger.warn('⚠️ Servidor biométrico no disponible - Touch Mode no iniciado');
+                    logger.info('ℹ️ Inicie el servidor edge-uru-ui para habilitar el modo automático');
                 } else {
-                    console.error('❌ Error al auto-iniciar modo automático:', result.message);
+                    logger.error('❌ Error al auto-iniciar modo automático:', result.message);
                     showNotification('Error al activar modo automático: ' + result.message, 'error');
                 }
             }
         } else {
-            console.log('ℹ️ Modo automático ya estaba activo');
+            logger.info('ℹ️ Modo automático ya estaba activo');
             startTouchModePolling();
         }
 
-        console.log('✅ Touch Mode inicializado');
+        logger.info('✅ Touch Mode inicializado');
     } catch (error) {
-        console.error('❌ Error inicializando Touch Mode:', error);
+        logger.error('❌ Error inicializando Touch Mode:', error);
         showNotification('Error al inicializar modo automático: ' + error.message, 'error');
         // Asegurar que la UI refleje el estado de error
         updateTouchModeUI();
@@ -2910,28 +2911,28 @@ async function initializeTouchMode() {
 async function toggleAutoAttendance() {
     try {
         if (touchModeState.isActive) {
-            console.log('🛑 [UI] Deteniendo modo automático...');
+            logger.info('🛑 [UI] Deteniendo modo automático...');
             // Detener
             const result = await window.touchMode.stop();
             if (result.success) {
-                console.log('✅ [UI] Modo automático detenido exitosamente');
+                logger.info('✅ [UI] Modo automático detenido exitosamente');
                 showNotification('Modo automático detenido', 'info');
                 stopTouchModePolling();
             } else {
-                console.error('❌ [UI] Error al detener:', result.message);
+                logger.error('❌ [UI] Error al detener:', result.message);
                 showNotification(result.message || 'Error al detener modo automático', 'error');
             }
         } else {
-            console.log('🚀 [UI] Iniciando modo automático...');
+            logger.info('🚀 [UI] Iniciando modo automático...');
             // Iniciar
             const result = await window.touchMode.start();
             if (result.success) {
-                console.log('✅ [UI] Modo automático iniciado exitosamente');
-                console.log('👂 [UI] Lector escuchando eventos de huellas...');
+                logger.info('✅ [UI] Modo automático iniciado exitosamente');
+                logger.info('👂 [UI] Lector escuchando eventos de huellas...');
                 showNotification(result.message || 'Modo automático iniciado - El lector está escuchando', 'success');
                 startTouchModePolling();
             } else {
-                console.error('❌ [UI] Error al iniciar:', result.message);
+                logger.error('❌ [UI] Error al iniciar:', result.message);
                 showNotification(result.message || 'Error al iniciar modo automático', 'error');
             }
         }
@@ -2939,11 +2940,11 @@ async function toggleAutoAttendance() {
         // Actualizar estado local
         const state = await window.touchMode.getLocalState();
         touchModeState = state;
-        console.log('[UI] Estado touch mode:', touchModeState);
+        logger.info('[UI] Estado touch mode:', touchModeState);
         updateTouchModeUI();
 
     } catch (error) {
-        console.error('❌ [UI] Error alternando modo automático:', error);
+        logger.error('❌ [UI] Error alternando modo automático:', error);
         showNotification('Error al controlar el modo automático: ' + error.message, 'error');
     }
 }
@@ -2956,7 +2957,7 @@ function startTouchModePolling() {
         clearInterval(touchModePollingInterval);
     }
 
-    console.log('📊 [UI] Iniciando polling de estado (cada 1 segundo)');
+    logger.info('📊 [UI] Iniciando polling de estado (cada 1 segundo)');
 
     touchModePollingInterval = setInterval(async () => {
         try {
@@ -2966,25 +2967,25 @@ function startTouchModePolling() {
 
             // Detectar cambios en fingerprints capturadas
             if (state.totalFingerprints > previousState.totalFingerprints) {
-                console.log(`✅ [UI] Nueva huella procesada (total: ${state.totalFingerprints})`);
+                logger.info(`✅ [UI] Nueva huella procesada (total: ${state.totalFingerprints})`);
                 // Nota: No mostramos notificación aquí porque el listener de eventos
                 // ya maneja esto correctamente (solo muestra mensaje cuando score = 0)
 
                 // Recargar datos si estamos en dashboard
                 if (currentSection === 'dashboard') {
-                    console.log('[UI] Recargando dashboard...');
+                    logger.info('[UI] Recargando dashboard...');
                     setTimeout(() => loadDashboard(), 1000);
                 }
             }
 
             // Detectar toques
             if (state.totalTouches > previousState.totalTouches) {
-                console.log(`👆 [UI] Dedo detectado en el lector (total: ${state.totalTouches})`);
+                logger.info(`👆 [UI] Dedo detectado en el lector (total: ${state.totalTouches})`);
             }
 
             updateTouchModeUI();
         } catch (error) {
-            console.error('❌ [UI] Error polling touch mode state:', error);
+            logger.error('❌ [UI] Error polling touch mode state:', error);
         }
     }, 1000); // Polling cada segundo
 }
@@ -3161,7 +3162,7 @@ async function validateBeforeEnrollment(employeeId) {
 
         return true;
     } catch (error) {
-        console.error('Error validando enrollment:', error);
+        logger.error('Error validando enrollment:', error);
         return true; // Permitir continuar si hay error
     }
 }

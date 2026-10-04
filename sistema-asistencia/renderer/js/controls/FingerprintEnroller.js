@@ -1,3 +1,4 @@
+import { logger } from './logger.js';
 /**
  * FingerprintEnroller - Manejo de progreso en tiempo real para enrollment
  * Basado en EnrollmentControl.js del biometric-engine
@@ -18,7 +19,7 @@ export class FingerprintEnroller {
      */
     async connectToSSE() {
         if (this.eventSource) {
-            console.log('[FingerprintEnroller] Ya conectado al SSE');
+            logger.info('[FingerprintEnroller] Ya conectado al SSE');
             return;
         }
 
@@ -27,7 +28,7 @@ export class FingerprintEnroller {
         this.eventSource = new EventSource(`http://localhost:${cfg.biometricPort}/events`);
 
         this.eventSource.onopen = () => {
-            console.log('[FingerprintEnroller] ✅ Conectado a eventos SSE');
+            logger.info('[FingerprintEnroller] ✅ Conectado a eventos SSE');
         };
 
         this.eventSource.onmessage = (event) => {
@@ -35,12 +36,12 @@ export class FingerprintEnroller {
                 const data = JSON.parse(event.data);
                 this.handleEvent(data);
             } catch (e) {
-                console.error('[FingerprintEnroller] Error parsing SSE event:', e);
+                logger.error('[FingerprintEnroller] Error parsing SSE event:', e);
             }
         };
 
         this.eventSource.onerror = () => {
-            console.error('[FingerprintEnroller] Error en conexión SSE');
+            logger.error('[FingerprintEnroller] Error en conexión SSE');
         };
     }
 
@@ -51,7 +52,7 @@ export class FingerprintEnroller {
         if (!this.isEnrolling) return;
 
         const eventType = data.eventType || data.evt || '';
-        console.log(`[FingerprintEnroller] 📨 Evento: ${eventType}`, data);
+        logger.info(`[FingerprintEnroller] 📨 Evento: ${eventType}`, data);
 
         // Eventos que queremos mostrar
         const realtimeEvents = [
@@ -263,7 +264,7 @@ export class FingerprintEnroller {
      * Actualizar progreso
      */
     updateProgress(current, total, percentage) {
-        console.log(`[FingerprintEnroller] 📊 Progreso: ${current}/${total} (${percentage}%)`);
+        logger.info(`[FingerprintEnroller] 📊 Progreso: ${current}/${total} (${percentage}%)`);
 
         this.currentSample = current;
         this.totalSamples = total;
@@ -353,7 +354,7 @@ export class FingerprintEnroller {
         if (this.eventSource) {
             this.eventSource.close();
             this.eventSource = null;
-            console.log('[FingerprintEnroller] Desconectado del SSE');
+            logger.info('[FingerprintEnroller] Desconectado del SSE');
         }
     }
 }
