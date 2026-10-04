@@ -21,7 +21,7 @@
     },
     "deps": {
       "body-parser": "^1.20.3",
-      "edge-js": "^20.3.0",
+      "edge-js": "26.1.0",
       "express": "^4.21.1"
     },
     "devDeps": {
