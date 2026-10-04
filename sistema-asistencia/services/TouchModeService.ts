@@ -9,8 +9,7 @@ import { EventSource } from 'eventsource';
 import { BiometricService } from './BiometricService.js';
 import { getDatabaseManager } from '../database/init.js';
 import { AttendanceModel } from '../models/index.js';
-
-const BIOMETRIC_SERVER = 'http://localhost:8080';
+import { BIOMETRIC_SERVER } from '../shared/biometric-config.js';
 
 export interface TouchModeState {
     isActive: boolean;

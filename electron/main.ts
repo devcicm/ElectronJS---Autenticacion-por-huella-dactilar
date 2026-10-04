@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
+import { BIOMETRIC_PORT } from '../sistema-asistencia/shared/biometric-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,8 +16,6 @@ if (process.platform === 'win32') {
 // Variables globales
 let biometricServerProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
-
-const BIOMETRIC_PORT = 8080;
 
 function createWindow() {
   mainWindow = new BrowserWindow({

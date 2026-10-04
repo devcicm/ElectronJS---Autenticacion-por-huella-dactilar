@@ -16,13 +16,15 @@ class FingerprintEnroller {
     /**
      * Conectar a eventos SSE del biometric-engine
      */
-    connectToSSE() {
+    async connectToSSE() {
         if (this.eventSource) {
             console.log('[FingerprintEnroller] Ya conectado al SSE');
             return;
         }
 
-        this.eventSource = new EventSource('http://localhost:8080/events');
+        // Puerto único vía contrato IPC existente (window.config, preload.ts)
+        const cfg = await window.config.get();
+        this.eventSource = new EventSource(`http://localhost:${cfg.biometricPort}/events`);
 
         this.eventSource.onopen = () => {
             console.log('[FingerprintEnroller] ✅ Conectado a eventos SSE');
