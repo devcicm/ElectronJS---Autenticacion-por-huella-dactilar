@@ -38,6 +38,17 @@ Convención de Paridad: ✅ idéntica · ⚠️ diferencias esperadas documentad
 | H2 | RES-05 (residual) | `enroller.disconnect()` en 2 setTimeouts de cierre (success simple/advanced) + botón Cancelar del modal de enrollment | ✅ |
 | H3 | FE-16 + FE-17 (engine demo) | `TemplateManagerControl.js`: `onclick="window.location.reload()"` → `addEventListener('click', () => this.loadTemplates())` con `id="retry-load-templates-btn"`. Botón "Recargar Página" → "Reintentar" (reintento idempotente) | ✅ |
 
+## Tests (Eje 3 — T1+T2+T3)
+
+| Paso | Qué cubre | Resultado |
+|---|---|---|
+| T1 | `escapeHtml` (8 tests): vacíos, passthrough seguro, 5 entidades, XSS completo, orden, atributos, números/bool, idempotencia | ✅ |
+| T2 | `sanitize` (17 tests): trim, control chars, HTML strip, cap maxLen, default 100, stripHtml=false, unicode, phone (vacíos/digitos/strip/cap/solo chars), email (vacíos/lowercase/cap), payload realista | ✅ |
+| T3 | `logger` renderer JS (4 tests): default info filtra debug, prefijo [LEVEL], niveles mayusculas, argumentos múltiples | ✅ |
+| T4 | IPC parity — ya implementado via `gm-verify.mjs` (no duplicado) | ✅ |
+
+**Total: 29 tests, cero deps (node:test nativo Node 24). Script: `npm test`.**
+
 ## Hallazgos no ejecutados (referenciados)
 
 | Criterio | Estado | Notas |
