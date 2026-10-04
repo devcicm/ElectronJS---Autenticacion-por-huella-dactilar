@@ -74,6 +74,27 @@ async function checkCSharpBridge(): Promise<boolean> {
   }
 }
 
+// B5-fix: esperar readiness con polling por evento spawn (helper reutilizable)
+function waitForReady(proc: ChildProcess | null, maxAttempts: number): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+        let resolved = false;
+        let attempts = 0;
+        const pollOnce = async () => {
+            if (resolved) return;
+            attempts++;
+            if (await checkBiometricServerStatus()) { resolved = true; resolve(true); return; }
+            if (attempts >= maxAttempts) { resolved = true; resolve(false); return; }
+            if (attempts % 5 === 0) console.log(`⏳ Esperando servidor biométrico... (${attempts}/${maxAttempts})`);
+            setTimeout(pollOnce, attempts < 4 ? 200 : 500);
+        };
+        if (proc) {
+            proc.once('spawn', () => pollOnce());
+        } else {
+            pollOnce();
+        }
+    });
+}
+
 // Iniciar el servidor biométrico
 async function startBiometricServer(): Promise<{ success: boolean; message: string }> {
   try {
@@ -90,19 +111,21 @@ async function startBiometricServer(): Promise<{ success: boolean; message: stri
       return { success: false, message: 'Bridge C# no está compilado. Compílalo primero.' };
     }
 
-const nodePath = path.join(__dirname, '../../biometric-engine/node');
+    const nodePath = path.join(__dirname, '../../biometric-engine/node');
     const serverScript = path.join(nodePath, 'dist', 'server.js');
 
     console.log('🚀 Iniciando servidor biométrico...');
 
-    // B5: usar el binario actual de Electron como Node (ELECTRON_RUN_AS_NODE=1) para
-    // que funcione empaquetado sin depender de `node` en PATH.
-    biometricServerProcess = spawn(process.execPath, [serverScript], {
+    // B5-revert: usar 'node' del PATH (system node). edge-js 5.x trae un binario .node
+    // precompilado para Node 20.x; bajo system Node funciona; bajo Electron's bundled
+    // Node falla con ERR_DLOPEN_FAILED. Si en el futuro packaged apps no tienen 'node'
+    // en PATH, se requerira edge-js rebuilt para el ABI de Electron (línea roja #7
+    // prohibe upgrades en este changeset). Probado OK: ver REPORTE-REFACTOR.md.
+    biometricServerProcess = spawn('node', [serverScript], {
       cwd: nodePath,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: false,
-      windowsHide: true,
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+      windowsHide: true
     });
 
     // Capturar salida del proceso
@@ -127,29 +150,9 @@ const nodePath = path.join(__dirname, '../../biometric-engine/node');
       biometricServerProcess = null;
     });
 
-// Esperar a que el servidor esté listo (máximo 15 segundos).
-    // B5: arrancar el primer chequeo desde el evento 'spawn' del child process
-    // para reducir la latencia de inicio (backoff exponencial si el server tarda más).
-    let attempts = 0;
-    const maxAttempts = 30;
-    const readyPromise = new Promise<boolean>((resolve) => {
-      let resolved = false;
-      const pollOnce = async () => {
-        if (resolved) return;
-        attempts++;
-        if (await checkBiometricServerStatus()) { resolved = true; resolve(true); return; }
-        if (attempts >= maxAttempts) { resolved = true; resolve(false); return; }
-        if (attempts % 5 === 0) console.log(`⏳ Esperando servidor biométrico... (${attempts}/${maxAttempts})`);
-        // backoff suave: 200ms los primeros 4, luego 500ms
-        setTimeout(pollOnce, attempts < 4 ? 200 : 500);
-      };
-      if (biometricServerProcess) {
-        biometricServerProcess.once('spawn', () => pollOnce());
-      } else {
-        pollOnce();
-      }
-    });
-    const ready = await readyPromise;
+    // Esperar a que el servidor esté listo (máximo 15 segundos).
+    // B5-keep: arranque por evento 'spawn' del child process + backoff suave.
+    const ready = await waitForReady(biometricServerProcess, 30);
     if (ready) {
       console.log(`✅ Servidor biométrico iniciado correctamente en http://localhost:${BIOMETRIC_PORT}`);
       return { success: true, message: 'Servidor biométrico iniciado correctamente' };

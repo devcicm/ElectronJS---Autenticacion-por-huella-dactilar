@@ -54,6 +54,7 @@ Convención de Paridad: ✅ idéntica · ⚠️ diferencias esperadas documentad
 | C1-C4 | audit | Reclasificación C1-C4: RES-05 + OBJ-04 + FE-16/17 ya resueltos en B4, H2, H3 | doc |
 | N1 | N-03-adjacent (data safety) | Columna `is_default INTEGER NOT NULL DEFAULT 0` en `departments` + `shifts`; INSERTs del seed marcan id≤5 y id≤4 como base; migración `ALTER TABLE` en `init.ts` (idempotente, marca solo si DB fresca); `resetDatabase` usa `WHERE is_default = 0`. **gm3 regenerada explícitamente** (solo CREATE TABLE; seeds/índices/vistas/triggers intactos) | ⚠️ gm3 (CREATE TABLE) |
 | X2 | FE-15 (engine hardening) | `escapeHtml` (mirror de sistema) en `biometric-engine/node/public/js/escape-html.js`; cargado via `<script>` antes de controles en `demo-avance.html`; 40 sitios de `${error.message}` y `${template.tag}/${dept.name}` etc. wrapped en engine public | ✅ |
+| B5-revert | regresión runtime | Revertir `spawn(process.execPath + ELECTRON_RUN_AS_NODE=1)` → `spawn('node', ...)`. Causa: edge-js 5.x prebuilt Node 20.10; Electron 31 trae Node 20.18 → ABI mismatch. Mantener `waitForReady` (B5-keep, arranque por evento). Edge-js ABI root cause pendiente en changeset propio (requiere `npm rebuild edge-js`) | ⚠️ runtime fix |
 
 **Total: 29 tests, cero deps (node:test nativo Node 24). Script: `npm test`.**
 
