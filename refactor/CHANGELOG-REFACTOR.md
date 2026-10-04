@@ -30,6 +30,14 @@ Convención de Paridad: ✅ idéntica · ⚠️ diferencias esperadas documentad
 | B4 | RES-05 + OBJ-04 | `TouchModeService`: `reconnectTimer` con `clearTimeout` en `disconnectFromEvents`; `main.ts`: singletons cacheados para `AttendanceService`/`BiometricService`; `app.js`: `FingerprintEnroller.disconnect()` en `beforeunload` | ✅ (sin cambios de contrato observable) |
 | B5 | BE-15-adj | `spawn(process.execPath, ...)` con `ELECTRON_RUN_AS_NODE=1` (funciona empaquetado, sin PATH de `node`); arranque por evento con backoff 200→500ms | ✅ (max wait 15s preservado) |
 
+## Pasada de hardening Eje 1 (H1+H2+H3)
+
+| Paso | Criterio | Qué cambió | Paridad |
+|---|---|---|---|
+| H1 | FE-22-adjacent | Helper `sanitize.js`: `sanitizeText` (trim + strip control + strip HTML peligrosos + cap maxLen), `sanitizePhone`, `sanitizeEmail`. Aplicado en `saveNewEmployee`/`updateEmployee`/`saveDepartment`/`updateDepartment`/`saveShift`/`updateShift` | ✅ |
+| H2 | RES-05 (residual) | `enroller.disconnect()` en 2 setTimeouts de cierre (success simple/advanced) + botón Cancelar del modal de enrollment | ✅ |
+| H3 | FE-16 + FE-17 (engine demo) | `TemplateManagerControl.js`: `onclick="window.location.reload()"` → `addEventListener('click', () => this.loadTemplates())` con `id="retry-load-templates-btn"`. Botón "Recargar Página" → "Reintentar" (reintento idempotente) | ✅ |
+
 ## Hallazgos no ejecutados (referenciados)
 
 | Criterio | Estado | Notas |
