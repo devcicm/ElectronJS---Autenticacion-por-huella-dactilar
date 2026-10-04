@@ -2,7 +2,7 @@
  * FingerprintEnroller - Manejo de progreso en tiempo real para enrollment
  * Basado en EnrollmentControl.js del biometric-engine
  */
-class FingerprintEnroller {
+export class FingerprintEnroller {
     constructor() {
         this.eventSource = null;
         this.isEnrolling = false;
@@ -357,6 +357,3 @@ class FingerprintEnroller {
         }
     }
 }
-
-// Exportar instancia global
-window.FingerprintEnroller = new FingerprintEnroller();

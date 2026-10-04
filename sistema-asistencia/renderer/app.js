@@ -2,6 +2,10 @@
  * Sistema de Asistencia - Renderer Application
  * Conecta la interfaz con el backend a través de la API expuesta por preload
  */
+import { FingerprintEnroller } from './js/controls/FingerprintEnroller.js';
+
+// Instancia única (antes: singleton global creado por su propio script tag)
+window.FingerprintEnroller = new FingerprintEnroller();
 
 // ==================== ESTADO GLOBAL ====================
 let currentSection = 'dashboard';
@@ -3225,3 +3229,42 @@ function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES');
 }
+
+// FE-01: exposicion explicita requerida por handlers onclick inline (contrato DOM preservado).
+// En modulo ES estas funciones ya no son globals implicitas.
+Object.assign(window, {
+    closeModal,
+    deleteDepartment,
+    deleteEmployee,
+    deleteFingerprint,
+    deleteShift,
+    generateDailyReport,
+    generateEmployeeReport,
+    generateMonthlyReport,
+    generateWeeklyReport,
+    performCheckIn,
+    performCheckOut,
+    printReport,
+    resetDatabase,
+    resetSettings,
+    saveDepartment,
+    saveNewEmployee,
+    saveSettings,
+    saveShift,
+    selectCaptureMode,
+    selectEmployeeForCheckIn,
+    showAddDepartmentModal,
+    showAddEmployeeModal,
+    showAddShiftModal,
+    showEditDepartmentModal,
+    showEditEmployeeModal,
+    showEditShiftModal,
+    showEmployeeDetails,
+    showEmployeeReportDetails,
+    showEnrollFingerprintModal,
+    startFingerprintEnrollment,
+    updateDepartment,
+    updateEmployee,
+    updateShift,
+    toggleAutoAttendance,
+});

@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-04T13:16:42.275Z",
+  "capturedAt": "2026-10-04T13:52:09.714Z",
   "nondeterminismo": [
     "bodies String(e) de errores de entorno",
     "timestamps ISO de respuestas",
@@ -10,7 +10,7 @@
     "gm1-http-api.json": "c10afed2cd235ce0f590bebba6956b5c464cb4430a4cfaebcd32b995fbb7f7ca",
     "gm2-ipc-contract.json": "956f21ba75badcc957b72040a82ea79e786c3b687cf2bff958aa8ca517acd7df",
     "gm3-sqlite-schema.json": "22019adc5a3f851188f8d9fae23127d37f7f6bfcaa175ee3e524331a2cc2d9c2",
-    "gm4-renderer-dom.json": "2ac504eede71944741f58faaf59f1205cab19002bbef475a0ca6807a78f3cae4",
+    "gm4-renderer-dom.json": "951c78272811f2dbf850b9ec601e045155717383026cf2dca0ad9e41b7256553",
     "gm5-manifests.json": "a77df93e771d8513609faeb6aa0e4154ec9fdc0db81b63b38fd31ead3c89551f"
   }
 }

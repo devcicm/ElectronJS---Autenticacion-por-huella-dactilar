@@ -26,7 +26,6 @@
     "settings-section"
   ],
   "scriptLoadOrder": [
-    "js/controls/FingerprintEnroller.js",
     "app.js"
   ],
   "stylesheets": [],
