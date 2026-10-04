@@ -4,6 +4,7 @@
  */
 import { FingerprintEnroller } from './js/controls/FingerprintEnroller.js';
 import { logger } from './logger.js';
+import { escapeHtml } from './js/escape-html.js';
 
 // Instancia única (antes: singleton global creado por su propio script tag)
 window.FingerprintEnroller = new FingerprintEnroller();
@@ -196,11 +197,11 @@ function updateTodayRecordsTable(records) {
 
     tbody.innerHTML = records.map(record => `
         <tr>
-            <td>${record.employee_code || '-'}</td>
-            <td>${record.employee_name || '-'}</td>
-            <td>${record.department_name || '-'}</td>
-            <td>${record.check_in_time || '-'}</td>
-            <td>${record.check_out_time || '-'}</td>
+            <td>${escapeHtml(record.employee_code) || '-'}</td>
+            <td>${escapeHtml(record.employee_name) || '-'}</td>
+            <td>${escapeHtml(record.department_name) || '-'}</td>
+            <td>${escapeHtml(record.check_in_time) || '-'}</td>
+            <td>${escapeHtml(record.check_out_time) || '-'}</td>
             <td><span class="badge badge-${getStatusBadgeClass(record.status)}">${getStatusLabel(record.status)}</span></td>
         </tr>
     `).join('');
@@ -250,17 +251,17 @@ async function loadCheckInSection() {
                      onclick="selectEmployeeForCheckIn(${emp.id})">
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: 600;">
-                            ${getInitials(emp.first_name, emp.last_name)}
+                            ${escapeHtml(getInitials(emp.first_name, emp.last_name))}
                         </div>
                         <div style="flex: 1;">
                             <div style="font-weight: 600; font-size: 16px; color: #1F2937; margin-bottom: 4px;">
-                                ${emp.first_name} ${emp.last_name}
+                                ${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)}
                             </div>
                             <div style="font-size: 13px; color: #6B7280;">
-                                ${emp.employee_code} • ${emp.department_name}
+                                ${escapeHtml(emp.employee_code)} • ${escapeHtml(emp.department_name)}
                             </div>
                             <div style="font-size: 12px; color: #9CA3AF; margin-top: 2px;">
-                                ${emp.shift_name}
+                                ${escapeHtml(emp.shift_name)}
                             </div>
                         </div>
                     </div>
@@ -301,9 +302,9 @@ async function selectEmployeeForCheckIn(employeeId) {
                         <div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: 600; margin: 0 auto 15px;">
                             ${getInitials(employee.first_name, employee.last_name)}
                         </div>
-                        <h3 style="margin: 0 0 5px; color: #1F2937;">${employee.first_name} ${employee.last_name}</h3>
-                        <p style="color: #6B7280; margin: 0;">${employee.employee_code}</p>
-                        <p style="color: #6B7280; margin: 5px 0 0;">${employee.department_name} • ${employee.shift_name}</p>
+                        <h3 style="margin: 0 0 5px; color: #1F2937;">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
+                        <p style="color: #6B7280; margin: 0;">${escapeHtml(employee.employee_code)}</p>
+                        <p style="color: #6B7280; margin: 5px 0 0;">${escapeHtml(employee.department_name)} • ${escapeHtml(employee.shift_name)}</p>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -447,18 +448,18 @@ async function loadEmployeesSection() {
 
                         return `
                         <tr>
-                            <td>${emp.employee_code}</td>
-                            <td>${emp.first_name} ${emp.last_name}</td>
-                            <td>${emp.email}</td>
-                            <td>${emp.department_name}</td>
-                            <td>${emp.shift_name}</td>
+                            <td>${escapeHtml(emp.employee_code)}</td>
+                            <td>${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)}</td>
+                            <td>${escapeHtml(emp.email)}</td>
+                            <td>${escapeHtml(emp.department_name)}</td>
+                            <td>${escapeHtml(emp.shift_name)}</td>
                             <td style="text-align: center;">${emp.fingerprints_count || 0}/10</td>
                             <td style="text-align: center;">
                                 <span style="background: ${enrollmentColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
                                     ${enrollmentText}
                                 </span>
                             </td>
-                            <td><span class="badge badge-${emp.status === 'active' ? 'success' : 'danger'}">${emp.status}</span></td>
+                            <td><span class="badge badge-${emp.status === 'active' ? 'success' : 'danger'}">${escapeHtml(emp.status)}</span></td>
                             <td>
                                 <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #3B82F6; color: white;" title="Ver detalles">👁️</button>
                                 <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #10B981; color: white;" title="Editar">✏️</button>
@@ -497,18 +498,18 @@ function filterEmployees(searchText) {
 
         return `
         <tr>
-            <td>${emp.employee_code}</td>
-            <td>${emp.first_name} ${emp.last_name}</td>
-            <td>${emp.email}</td>
-            <td>${emp.department_name}</td>
-            <td>${emp.shift_name}</td>
+            <td>${escapeHtml(emp.employee_code)}</td>
+            <td>${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)}</td>
+            <td>${escapeHtml(emp.email)}</td>
+            <td>${escapeHtml(emp.department_name)}</td>
+            <td>${escapeHtml(emp.shift_name)}</td>
             <td style="text-align: center;">${emp.fingerprints_count || 0}/10</td>
             <td style="text-align: center;">
                 <span style="background: ${enrollmentColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
                     ${enrollmentText}
                 </span>
             </td>
-            <td><span class="badge badge-${emp.status === 'active' ? 'success' : 'danger'}">${emp.status}</span></td>
+            <td><span class="badge badge-${emp.status === 'active' ? 'success' : 'danger'}">${escapeHtml(emp.status)}</span></td>
             <td>
                 <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #3B82F6; color: white;" title="Ver detalles">👁️</button>
                 <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #10B981; color: white;" title="Editar">✏️</button>
@@ -673,7 +674,7 @@ function showEditEmployeeModal(employeeId) {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div class="form-group">
                                 <label>Código de Empleado *</label>
-                                <input type="text" id="edit-emp-code" class="form-control" value="${employee.employee_code}" required>
+                                <input type="text" id="edit-emp-code" class="form-control" value="${escapeHtml(employee.employee_code)}" required>
                             </div>
                             <div class="form-group">
                                 <label>Fecha de Contratación *</label>
@@ -681,15 +682,15 @@ function showEditEmployeeModal(employeeId) {
                             </div>
                             <div class="form-group">
                                 <label>Nombre(s) *</label>
-                                <input type="text" id="edit-emp-firstname" class="form-control" value="${employee.first_name}" required>
+                                <input type="text" id="edit-emp-firstname" class="form-control" value="${escapeHtml(employee.first_name)}" required>
                             </div>
                             <div class="form-group">
                                 <label>Apellido(s) *</label>
-                                <input type="text" id="edit-emp-lastname" class="form-control" value="${employee.last_name}" required>
+                                <input type="text" id="edit-emp-lastname" class="form-control" value="${escapeHtml(employee.last_name)}" required>
                             </div>
                             <div class="form-group">
                                 <label>Email *</label>
-                                <input type="email" id="edit-emp-email" class="form-control" value="${employee.email}" required>
+                                <input type="email" id="edit-emp-email" class="form-control" value="${escapeHtml(employee.email)}" required>
                             </div>
                             <div class="form-group">
                                 <label>Teléfono</label>
@@ -709,7 +710,7 @@ function showEditEmployeeModal(employeeId) {
                             </div>
                             <div class="form-group">
                                 <label>Puesto *</label>
-                                <input type="text" id="edit-emp-position" class="form-control" value="${employee.position}" required>
+                                <input type="text" id="edit-emp-position" class="form-control" value="${escapeHtml(employee.position)}" required>
                             </div>
                             <div class="form-group">
                                 <label>Estado *</label>
@@ -804,7 +805,7 @@ async function deleteEmployee(employeeId) {
 
     const confirmDelete = confirm(
         `¿Está seguro de que desea eliminar al empleado?\n\n` +
-        `${employee.first_name} ${employee.last_name} (${employee.employee_code})\n\n` +
+        `${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)} (${escapeHtml(employee.employee_code)})\n\n` +
         `Esta acción NO se puede deshacer. Se eliminarán también:\n` +
         `- Todos sus registros de asistencia\n` +
         `- Todas sus huellas registradas\n\n` +
@@ -851,25 +852,25 @@ async function showEmployeeDetails(employeeId) {
                         <div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: 600; margin: 0 auto 15px;">
                             ${getInitials(employee.first_name, employee.last_name)}
                         </div>
-                        <h3 style="margin: 0;">${employee.first_name} ${employee.last_name}</h3>
-                        <p style="color: #6B7280;">${employee.employee_code}</p>
+                        <h3 style="margin: 0;">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
+                        <p style="color: #6B7280;">${escapeHtml(employee.employee_code)}</p>
                     </div>
 
                     <div style="display: grid; gap: 15px;">
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Email:</strong> <span>${employee.email}</span>
+                            <strong>Email:</strong> <span>${escapeHtml(employee.email)}</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
                             <strong>Teléfono:</strong> <span>${employee.phone || 'N/A'}</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Departamento:</strong> <span>${employee.department_name}</span>
+                            <strong>Departamento:</strong> <span>${escapeHtml(employee.department_name)}</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Turno:</strong> <span>${employee.shift_name}</span>
+                            <strong>Turno:</strong> <span>${escapeHtml(employee.shift_name)}</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Puesto:</strong> <span>${employee.position}</span>
+                            <strong>Puesto:</strong> <span>${escapeHtml(employee.position)}</span>
                         </div>
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
                             <strong>Huellas:</strong> <span>${fingerprints.length}/10 registradas</span>
@@ -1014,8 +1015,8 @@ async function showEnrollFingerprintModal(employeeId) {
                 </div>
                 <div class="modal-body">
                     <div style="text-align: center; margin-bottom: 20px;">
-                        <h4>${employee.first_name} ${employee.last_name}</h4>
-                        <p style="color: #6B7280;">${employee.employee_code}</p>
+                        <h4>${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h4>
+                        <p style="color: #6B7280;">${escapeHtml(employee.employee_code)}</p>
                     </div>
 
                     <div class="form-group" style="margin-top: 20px;">
@@ -2230,7 +2231,7 @@ async function generateEmployeeReport() {
                         <select id="report-employee-select" class="form-control">
                             <option value="">Seleccione...</option>
                             ${employees.map(emp => `
-                                <option value="${emp.id}">${emp.first_name} ${emp.last_name} (${emp.employee_code})</option>
+                                <option value="${emp.id}">${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>
                             `).join('')}
                         </select>
                     </div>
@@ -3060,17 +3061,17 @@ async function handleAutoAttendanceRegistration(data) {
     // Mostrar notificación
     if (type === 'check-in') {
         showNotification(
-            `✅ ${employee.first_name} ${employee.last_name} - Entrada registrada ${result.record.status === 'late' ? '(tarde)' : ''}`,
+            `✅ ${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)} - Entrada registrada ${result.record.status === 'late' ? '(tarde)' : ''}`,
             result.record.status === 'late' ? 'warning' : 'success'
         );
     } else if (type === 'check-out') {
         showNotification(
-            `✅ ${employee.first_name} ${employee.last_name} - Salida registrada`,
+            `✅ ${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)} - Salida registrada`,
             'success'
         );
     } else if (type === 'already-registered') {
         showNotification(
-            `ℹ️ ${employee.first_name} ${employee.last_name} - ${message}`,
+            `ℹ️ ${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)} - ${message}`,
             'info'
         );
     } else if (type === 'not-identified') {
