@@ -47,6 +47,14 @@ Convención de Paridad: ✅ idéntica · ⚠️ diferencias esperadas documentad
 | T3 | `logger` renderer JS (4 tests): default info filtra debug, prefijo [LEVEL], niveles mayusculas, argumentos múltiples | ✅ |
 | T4 | IPC parity — ya implementado via `gm-verify.mjs` (no duplicado) | ✅ |
 
+## Pasada de hardening Eje 2 (N1+X2)
+
+| Paso | Criterio | Qué cambió | Paridad |
+|---|---|---|---|
+| C1-C4 | audit | Reclasificación C1-C4: RES-05 + OBJ-04 + FE-16/17 ya resueltos en B4, H2, H3 | doc |
+| N1 | N-03-adjacent (data safety) | Columna `is_default INTEGER NOT NULL DEFAULT 0` en `departments` + `shifts`; INSERTs del seed marcan id≤5 y id≤4 como base; migración `ALTER TABLE` en `init.ts` (idempotente, marca solo si DB fresca); `resetDatabase` usa `WHERE is_default = 0`. **gm3 regenerada explícitamente** (solo CREATE TABLE; seeds/índices/vistas/triggers intactos) | ⚠️ gm3 (CREATE TABLE) |
+| X2 | FE-15 (engine hardening) | `escapeHtml` (mirror de sistema) en `biometric-engine/node/public/js/escape-html.js`; cargado via `<script>` antes de controles en `demo-avance.html`; 40 sitios de `${error.message}` y `${template.tag}/${dept.name}` etc. wrapped en engine public | ✅ |
+
 **Total: 29 tests, cero deps (node:test nativo Node 24). Script: `npm test`.**
 
 ## Hallazgos no ejecutados (referenciados)

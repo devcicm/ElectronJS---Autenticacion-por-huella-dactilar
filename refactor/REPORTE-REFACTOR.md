@@ -79,6 +79,8 @@ Regeneraciones explícitas justificadas (Regla 5, `paridad.md`): A.7a y B2.
 - **Líneas netas añadidas**: ≈ 300 (config compartida, logger, escapeHtml, lifecycle, B5).
 - **Cambioset reproductivos retro (gm4, gm1)**: 2, ambos con justificación explícita.
 - **Pasada de hardening posterior (H1+H2+H3)**: 3 commits adicionales (`2c44bd4` sanitize, `773ec2b` disconnect, `a2eae9a` TemplateManagerControl).
+- **Pasada Eje 2 (N1+X2 + tests)**: 4 commits (`70f1a6c` audit, `bef2746` is_default, `128895f`/`8f027cc` engine escapeHtml).
+- **Tests**: 40 passing (29 T1-T3 + 6 is_default migration + 5 engine escapeHtml).
 
 ## Verificación final
 
