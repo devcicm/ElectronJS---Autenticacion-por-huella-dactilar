@@ -5,6 +5,7 @@
 import { FingerprintEnroller } from './js/controls/FingerprintEnroller.js';
 import { logger } from './logger.js';
 import { escapeHtml } from './js/escape-html.js';
+import { sanitizeText, sanitizePhone, sanitizeEmail } from './js/sanitize.js';
 
 // Instancia única (antes: singleton global creado por su propio script tag)
 window.FingerprintEnroller = new FingerprintEnroller();
@@ -627,14 +628,14 @@ async function saveNewEmployee() {
     }
 
     const data = {
-        employee_code: document.getElementById('emp-code').value.trim(),
-        first_name: document.getElementById('emp-firstname').value.trim(),
-        last_name: document.getElementById('emp-lastname').value.trim(),
-        email: email.trim().toLowerCase(),
-        phone: document.getElementById('emp-phone').value.trim() || null,
+        employee_code: sanitizeText(document.getElementById('emp-code').value, 50),
+        first_name: sanitizeText(document.getElementById('emp-firstname').value, 100),
+        last_name: sanitizeText(document.getElementById('emp-lastname').value, 100),
+        email: sanitizeEmail(email),
+        phone: sanitizePhone(document.getElementById('emp-phone').value),
         department_id: parseInt(document.getElementById('emp-department').value),
         shift_id: parseInt(document.getElementById('emp-shift').value),
-        position: document.getElementById('emp-position').value.trim(),
+        position: sanitizeText(document.getElementById('emp-position').value, 100),
         hire_date: document.getElementById('emp-hire-date').value,
         status: 'active'
     };
@@ -769,13 +770,13 @@ async function updateEmployee(employeeId) {
     const data = {
         id: employeeId,
         employee_code: document.getElementById('edit-emp-code').value.trim(),
-        first_name: document.getElementById('edit-emp-firstname').value.trim(),
-        last_name: document.getElementById('edit-emp-lastname').value.trim(),
-        email: email.trim().toLowerCase(),
-        phone: document.getElementById('edit-emp-phone').value.trim() || null,
+        first_name: sanitizeText(document.getElementById('edit-emp-firstname').value, 100),
+        last_name: sanitizeText(document.getElementById('edit-emp-lastname').value, 100),
+        email: sanitizeEmail(email),
+        phone: sanitizePhone(document.getElementById('edit-emp-phone').value),
         department_id: parseInt(document.getElementById('edit-emp-department').value),
         shift_id: parseInt(document.getElementById('edit-emp-shift').value),
-        position: document.getElementById('edit-emp-position').value.trim(),
+        position: sanitizeText(document.getElementById('edit-emp-position').value, 100),
         hire_date: document.getElementById('edit-emp-hire-date').value,
         status: document.getElementById('edit-emp-status').value
     };
@@ -1489,8 +1490,8 @@ function showAddDepartmentModal() {
 
 // Guardar departamento
 async function saveDepartment() {
-    const name = document.getElementById('dept-name').value.trim();
-    const description = document.getElementById('dept-description').value.trim();
+    const name = sanitizeText(document.getElementById('dept-name').value, 100);
+    const description = sanitizeText(document.getElementById('dept-description').value, 500);
 
     if (!name) {
         showNotification('El nombre del departamento es requerido', 'warning');
@@ -1553,8 +1554,8 @@ function showEditDepartmentModal(deptId) {
 
 // Actualizar departamento
 async function updateDepartment(deptId) {
-    const name = document.getElementById('edit-dept-name').value.trim();
-    const description = document.getElementById('edit-dept-description').value.trim();
+    const name = sanitizeText(document.getElementById('edit-dept-name').value, 100);
+    const description = sanitizeText(document.getElementById('edit-dept-description').value, 500);
 
     if (!name) {
         showNotification('El nombre del departamento es requerido', 'warning');
@@ -1727,7 +1728,7 @@ function showAddShiftModal() {
 
 // Guardar turno
 async function saveShift() {
-    const name = document.getElementById('shift-name').value.trim();
+    const name = sanitizeText(document.getElementById('shift-name').value, 100);
     const startTime = document.getElementById('shift-start-time').value;
     const endTime = document.getElementById('shift-end-time').value;
     const tolerance = parseInt(document.getElementById('shift-tolerance').value);
@@ -1812,7 +1813,7 @@ function showEditShiftModal(shiftId) {
 
 // Actualizar turno
 async function updateShift(shiftId) {
-    const name = document.getElementById('edit-shift-name').value.trim();
+    const name = sanitizeText(document.getElementById('edit-shift-name').value, 100);
     const startTime = document.getElementById('edit-shift-start-time').value;
     const endTime = document.getElementById('edit-shift-end-time').value;
     const tolerance = parseInt(document.getElementById('edit-shift-tolerance').value);
