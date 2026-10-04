@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
 import { BIOMETRIC_PORT } from '../sistema-asistencia/shared/biometric-config.js';
+import { logger } from '../sistema-asistencia/shared/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,11 +65,11 @@ async function checkCSharpBridge(): Promise<boolean> {
     await fs.access(dllPath);
     await fs.access(dpuruPath);
 
-    console.log('✅ Bridge C# ya está compilado');
+    logger.info('✅ Bridge C# ya está compilado');
     return true;
   } catch (error) {
-    console.error('❌ Bridge C# no encontrado o no compilado');
-    console.error('   Por favor ejecuta: msbuild biometric-engine/bridge-csharp/EdgeBridge.csproj /p:Configuration=Release');
+    logger.error('❌ Bridge C# no encontrado o no compilado');
+    logger.error('   Por favor ejecuta: msbuild biometric-engine/bridge-csharp/EdgeBridge.csproj /p:Configuration=Release');
     return false;
   }
 }
@@ -79,7 +80,7 @@ async function startBiometricServer(): Promise<{ success: boolean; message: stri
     // Verificar si ya está corriendo
     const isRunning = await checkBiometricServerStatus();
     if (isRunning) {
-      console.log('ℹ️  Servidor biométrico ya está corriendo');
+      logger.info('ℹ️  Servidor biométrico ya está corriendo');
       return { success: true, message: 'Servidor biométrico ya está activo' };
     }
 
@@ -92,7 +93,7 @@ async function startBiometricServer(): Promise<{ success: boolean; message: stri
     const nodePath = path.join(__dirname, '../../biometric-engine/node');
     const serverScript = path.join(nodePath, 'dist', 'server.js');
 
-    console.log('🚀 Iniciando servidor biométrico...');
+    logger.info('🚀 Iniciando servidor biométrico...');
 
     // Iniciar el proceso
     biometricServerProcess = spawn('node', [serverScript], {
@@ -105,22 +106,22 @@ async function startBiometricServer(): Promise<{ success: boolean; message: stri
     // Capturar salida del proceso
     if (biometricServerProcess.stdout) {
       biometricServerProcess.stdout.on('data', (data) => {
-        console.log(`[Biometric Server]: ${data.toString().trim()}`);
+        logger.info(`[Biometric Server]: ${data.toString().trim()}`);
       });
     }
 
     if (biometricServerProcess.stderr) {
       biometricServerProcess.stderr.on('data', (data) => {
-        console.error(`[Biometric Server Error]: ${data.toString().trim()}`);
+        logger.error(`[Biometric Server Error]: ${data.toString().trim()}`);
       });
     }
 
     biometricServerProcess.on('error', (error) => {
-      console.error('❌ Error en servidor biométrico:', error);
+      logger.error('❌ Error en servidor biométrico:', error);
     });
 
     biometricServerProcess.on('exit', (code, signal) => {
-      console.log(`⚠️  Servidor biométrico terminó. Código: ${code}, Señal: ${signal}`);
+      logger.info(`⚠️  Servidor biométrico terminó. Código: ${code}, Señal: ${signal}`);
       biometricServerProcess = null;
     });
 
@@ -133,14 +134,14 @@ async function startBiometricServer(): Promise<{ success: boolean; message: stri
       const isReady = await checkBiometricServerStatus();
 
       if (isReady) {
-        console.log(`✅ Servidor biométrico iniciado correctamente en http://localhost:${BIOMETRIC_PORT}`);
+        logger.info(`✅ Servidor biométrico iniciado correctamente en http://localhost:${BIOMETRIC_PORT}`);
         return { success: true, message: 'Servidor biométrico iniciado correctamente' };
       }
 
       attempts++;
 
       if (attempts % 5 === 0) {
-        console.log(`⏳ Esperando servidor biométrico... (${attempts}/${maxAttempts})`);
+        logger.info(`⏳ Esperando servidor biométrico... (${attempts}/${maxAttempts})`);
       }
     }
 
@@ -153,7 +154,7 @@ async function startBiometricServer(): Promise<{ success: boolean; message: stri
     return { success: false, message: 'Timeout: El servidor biométrico no respondió a tiempo' };
 
   } catch (error: any) {
-    console.error('❌ Error iniciando servidor biométrico:', error);
+    logger.error('❌ Error iniciando servidor biométrico:', error);
     return { success: false, message: `Error: ${error.message}` };
   }
 }
@@ -163,7 +164,7 @@ function stopBiometricServer(): { success: boolean; message: string } {
   if (biometricServerProcess) {
     biometricServerProcess.kill();
     biometricServerProcess = null;
-    console.log('🛑 Servidor biométrico detenido');
+    logger.info('🛑 Servidor biométrico detenido');
     return { success: true, message: 'Servidor biométrico detenido' };
   }
   return { success: false, message: 'El servidor biométrico no está corriendo' };
@@ -282,7 +283,7 @@ function initIpcHandlers() {
       const employee = employeeModel.create(data);
       return { success: true, data: employee, message: 'Empleado creado exitosamente' };
     } catch (error: any) {
-      console.error('Error creando empleado:', error);
+      logger.error('Error creando empleado:', error);
 
       // Parsear errores de SQLite para dar mensajes amigables
       let message = 'Error al crear empleado';
@@ -304,7 +305,7 @@ function initIpcHandlers() {
       const employee = employeeModel.update(data);
       return { success: true, data: employee, message: 'Empleado actualizado exitosamente' };
     } catch (error: any) {
-      console.error('Error actualizando empleado:', error);
+      logger.error('Error actualizando empleado:', error);
 
       let message = 'Error al actualizar empleado';
       if (error.message?.includes('UNIQUE constraint failed: employees.email')) {
@@ -395,37 +396,37 @@ function initIpcHandlers() {
       const db = getDatabaseManager();
       const database = db.getDatabase();
 
-      console.log('🗑️ [RESET] Iniciando reseteo completo de base de datos...');
+      logger.info('🗑️ [RESET] Iniciando reseteo completo de base de datos...');
 
       // Ejecutar todo en una transacción
       const resetTransaction = database.transaction(() => {
         // Desactivar foreign keys temporalmente
         database.pragma('foreign_keys = OFF');
-        console.log('🔓 [RESET] Foreign keys desactivadas');
+        logger.info('🔓 [RESET] Foreign keys desactivadas');
 
         // 1. Eliminar todos los registros de asistencia
         const result1 = database.prepare('DELETE FROM attendance_records').run();
-        console.log(`✅ [RESET] ${result1.changes} registros de asistencia eliminados`);
+        logger.info(`✅ [RESET] ${result1.changes} registros de asistencia eliminados`);
 
         // 2. Eliminar todas las huellas
         const result2 = database.prepare('DELETE FROM fingerprints').run();
-        console.log(`✅ [RESET] ${result2.changes} huellas dactilares eliminadas`);
+        logger.info(`✅ [RESET] ${result2.changes} huellas dactilares eliminadas`);
 
         // 3. Eliminar todos los empleados
         const result3 = database.prepare('DELETE FROM employees').run();
-        console.log(`✅ [RESET] ${result3.changes} empleados eliminados`);
+        logger.info(`✅ [RESET] ${result3.changes} empleados eliminados`);
 
         // 4. Eliminar departamentos personalizados (mantener solo los 5 por defecto)
         const result4 = database.prepare('DELETE FROM departments WHERE id > 5').run();
-        console.log(`✅ [RESET] ${result4.changes} departamentos personalizados eliminados`);
+        logger.info(`✅ [RESET] ${result4.changes} departamentos personalizados eliminados`);
 
         // 5. Eliminar turnos personalizados (mantener solo los 4 por defecto)
         const result5 = database.prepare('DELETE FROM shifts WHERE id > 4').run();
-        console.log(`✅ [RESET] ${result5.changes} turnos personalizados eliminados`);
+        logger.info(`✅ [RESET] ${result5.changes} turnos personalizados eliminados`);
 
         // 6. Resetear secuencias de autoincremento
         const result6 = database.prepare(`DELETE FROM sqlite_sequence WHERE name IN ('attendance_records', 'fingerprints', 'employees', 'departments', 'shifts')`).run();
-        console.log(`✅ [RESET] ${result6.changes} secuencias de autoincremento reseteadas`);
+        logger.info(`✅ [RESET] ${result6.changes} secuencias de autoincremento reseteadas`);
 
         // 7. Resetear valores de configuración a por defecto
         database.prepare("UPDATE system_config SET value = '09:00' WHERE key = 'auto_mark_absent_time'").run();
@@ -433,24 +434,24 @@ function initIpcHandlers() {
         database.prepare("UPDATE system_config SET value = '1' WHERE key = 'allow_manual_entry'").run();
         database.prepare("UPDATE system_config SET value = '10' WHERE key = 'grace_period_minutes'").run();
         database.prepare("UPDATE system_config SET value = '1' WHERE key = 'notification_enabled'").run();
-        console.log('✅ [RESET] Configuración reseteada a valores por defecto');
+        logger.info('✅ [RESET] Configuración reseteada a valores por defecto');
 
         // Reactivar foreign keys
         database.pragma('foreign_keys = ON');
-        console.log('🔒 [RESET] Foreign keys reactivadas');
+        logger.info('🔒 [RESET] Foreign keys reactivadas');
       });
 
       // Ejecutar la transacción
       resetTransaction();
 
-      console.log('✅ [RESET] Base de datos reseteada completamente');
+      logger.info('✅ [RESET] Base de datos reseteada completamente');
 
       return {
         success: true,
         message: 'Base de datos reseteada exitosamente. Los departamentos y turnos por defecto se han mantenido.'
       };
     } catch (error) {
-      console.error('❌ [RESET] Error al resetear base de datos:', error);
+      logger.error('❌ [RESET] Error al resetear base de datos:', error);
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Error desconocido al resetear base de datos'
@@ -530,7 +531,7 @@ function initIpcHandlers() {
       // Configurar event listener para eventos del TouchModeService
       touchModeServiceInstance.onEvent((eventType: string, data: any) => {
         if (eventType === 'CRITICAL_ERROR') {
-          console.error('[Main] Error crítico detectado en TouchModeService:', data.message);
+          logger.error('[Main] Error crítico detectado en TouchModeService:', data.message);
 
           // Enviar evento al renderer para actualizar UI
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -543,7 +544,7 @@ function initIpcHandlers() {
 
         // Enviar eventos de asistencia registrada al renderer
         if (eventType === 'CHECK_IN_REGISTERED' || eventType === 'CHECK_OUT_REGISTERED') {
-          console.log(`[Main] Asistencia registrada: ${eventType}`, data);
+          logger.info(`[Main] Asistencia registrada: ${eventType}`, data);
 
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('touchMode:attendanceRegistered', {
@@ -554,7 +555,7 @@ function initIpcHandlers() {
         }
       });
 
-      console.log('[Main] TouchModeService singleton creado e inicializado');
+      logger.info('[Main] TouchModeService singleton creado e inicializado');
     }
     return touchModeServiceInstance;
   };
@@ -582,7 +583,7 @@ function initIpcHandlers() {
 
 // Inicialización de la aplicación
 app.whenReady().then(async () => {
-  console.log('🚀 Iniciando aplicación ElectronJS con Engine Biométrico...');
+  logger.info('🚀 Iniciando aplicación ElectronJS con Engine Biométrico...');
 
   initIpcHandlers();
   createWindow();
@@ -590,9 +591,9 @@ app.whenReady().then(async () => {
   // Iniciar el servidor biométrico automáticamente
   const result = await startBiometricServer();
   if (result.success) {
-    console.log('✅ Sistema listo para capturar huellas');
+    logger.info('✅ Sistema listo para capturar huellas');
   } else {
-    console.error('❌ No se pudo iniciar el servidor biométrico:', result.message);
+    logger.error('❌ No se pudo iniciar el servidor biométrico:', result.message);
   }
 
   app.on('activate', () => {
@@ -611,7 +612,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   // Detener servidor biométrico
   if (biometricServerProcess) {
-    console.log('🛑 Deteniendo servidor biométrico...');
+    logger.info('🛑 Deteniendo servidor biométrico...');
     biometricServerProcess.kill();
     biometricServerProcess = null;
   }

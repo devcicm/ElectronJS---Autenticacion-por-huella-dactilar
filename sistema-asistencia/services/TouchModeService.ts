@@ -10,6 +10,7 @@ import { BiometricService } from './BiometricService.js';
 import { getDatabaseManager } from '../database/init.js';
 import { AttendanceModel } from '../models/index.js';
 import { BIOMETRIC_SERVER } from '../shared/biometric-config.js';
+import { logger } from '../shared/logger.js';
 
 export interface TouchModeState {
     isActive: boolean;
@@ -46,18 +47,18 @@ export class TouchModeService {
      */
     async start(): Promise<{ success: boolean; message: string }> {
         try {
-            console.log('=== INICIANDO MODO TOUCH CONTINUO ===');
+            logger.info('=== INICIANDO MODO TOUCH CONTINUO ===');
 
             // Verificar si el servidor está disponible
             const serverAvailable = await this.biometricService.isServerAvailable();
             if (!serverAvailable) {
-                console.error('[TouchModeService] ❌ Servidor biométrico no disponible');
+                logger.error('[TouchModeService] ❌ Servidor biométrico no disponible');
                 return {
                     success: false,
                     message: 'Servidor biométrico no disponible'
                 };
             }
-            console.log('[TouchModeService] ✅ Servidor biométrico disponible');
+            logger.info('[TouchModeService] ✅ Servidor biométrico disponible');
 
             // Verificar que hay empleados con huellas en la base de datos
             const db = getDatabaseManager();
@@ -66,16 +67,16 @@ export class TouchModeService {
             );
 
             if (employeesWithFingerprints.length === 0) {
-                console.error('[TouchModeService] ❌ No hay empleados con huellas registradas');
+                logger.error('[TouchModeService] ❌ No hay empleados con huellas registradas');
                 return {
                     success: false,
                     message: 'No hay empleados con huellas registradas. Por favor, registre huellas primero.'
                 };
             }
-            console.log(`[TouchModeService] ✅ ${employeesWithFingerprints.length} empleados con huellas en BD`);
+            logger.info(`[TouchModeService] ✅ ${employeesWithFingerprints.length} empleados con huellas en BD`);
 
             // Inicializar el lector si no está inicializado
-            console.log('[TouchModeService] 🔧 Inicializando lector biométrico...');
+            logger.info('[TouchModeService] 🔧 Inicializando lector biométrico...');
             const initResponse = await fetch(`${BIOMETRIC_SERVER}/api/init`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -83,14 +84,14 @@ export class TouchModeService {
 
             const initResult = await initResponse.json() as { ok: boolean; message?: string };
             if (!initResult.ok) {
-                console.warn('[TouchModeService] ⚠️ Advertencia al inicializar lector:', initResult.message);
+                logger.warn('[TouchModeService] ⚠️ Advertencia al inicializar lector:', initResult.message);
                 // Continuar de todos modos, puede que ya esté inicializado
             } else {
-                console.log('[TouchModeService] ✅ Lector inicializado correctamente');
+                logger.info('[TouchModeService] ✅ Lector inicializado correctamente');
             }
 
             // Iniciar modo touch en el backend
-            console.log('[TouchModeService] 🚀 Activando modo de captura continua en backend...');
+            logger.info('[TouchModeService] 🚀 Activando modo de captura continua en backend...');
             const response = await fetch(`${BIOMETRIC_SERVER}/api/touch/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -99,21 +100,21 @@ export class TouchModeService {
             const result = await response.json() as { ok: boolean; message?: string; mode?: string };
 
             if (!result.ok) {
-                console.error('[TouchModeService] ❌ Error al iniciar modo touch:', result.message);
+                logger.error('[TouchModeService] ❌ Error al iniciar modo touch:', result.message);
                 return {
                     success: false,
                     message: result.message || 'Error al iniciar modo touch'
                 };
             }
 
-            console.log('[TouchModeService] ✅ Backend en modo:', result.mode || 'Continuous');
+            logger.info('[TouchModeService] ✅ Backend en modo:', result.mode || 'Continuous');
 
             // Cargar huellas de la BD al store del backend para que identify funcione
-            console.log('[TouchModeService] 📋 Cargando huellas de BD al store del backend...');
+            logger.info('[TouchModeService] 📋 Cargando huellas de BD al store del backend...');
             await this.loadFingerprintsToBackendStore();
 
             // Conectar a eventos SSE
-            console.log('[TouchModeService] 📡 Conectando a eventos SSE...');
+            logger.info('[TouchModeService] 📡 Conectando a eventos SSE...');
             this.connectToEvents();
 
             this.state.isActive = true;
@@ -124,16 +125,16 @@ export class TouchModeService {
             this.consecutiveErrors = 0;
             this.errorDeactivationInProgress = false;
 
-            console.log('=== ✅ MODO TOUCH CONTINUO ACTIVO ===');
-            console.log(`[TouchModeService] 👂 Escuchando eventos del lector...`);
-            console.log(`[TouchModeService] 📊 ${employeesWithFingerprints.length} empleados disponibles para identificación`);
+            logger.info('=== ✅ MODO TOUCH CONTINUO ACTIVO ===');
+            logger.info(`[TouchModeService] 👂 Escuchando eventos del lector...`);
+            logger.info(`[TouchModeService] 📊 ${employeesWithFingerprints.length} empleados disponibles para identificación`);
 
             return {
                 success: true,
                 message: `Modo de captura continua activado (${employeesWithFingerprints.length} empleados registrados)`
             };
         } catch (error: any) {
-            console.error('[TouchModeService] ❌ Error al iniciar modo touch:', error);
+            logger.error('[TouchModeService] ❌ Error al iniciar modo touch:', error);
             return {
                 success: false,
                 message: error.message || 'Error al iniciar modo touch'
@@ -157,13 +158,13 @@ export class TouchModeService {
                 template_data: string;
             }>('SELECT * FROM fingerprints');
 
-            console.log(`[TouchModeService] Encontradas ${fingerprints.length} huellas en BD`);
+            logger.info(`[TouchModeService] Encontradas ${fingerprints.length} huellas en BD`);
 
             // Primero, limpiar el store del backend
             await fetch(`${BIOMETRIC_SERVER}/api/store`, {
                 method: 'DELETE'
             });
-            console.log('[TouchModeService] Store del backend limpiado');
+            logger.info('[TouchModeService] Store del backend limpiado');
 
             // Cargar cada huella al store usando el nuevo endpoint
             let loaded = 0;
@@ -186,20 +187,20 @@ export class TouchModeService {
                     const result = await response.json() as { ok: boolean; message?: string; tag?: string };
 
                     if (result.ok) {
-                        console.log(`[TouchModeService] ✅ Huella cargada: ${result.tag}`);
+                        logger.info(`[TouchModeService] ✅ Huella cargada: ${result.tag}`);
                         loaded++;
                     } else {
-                        console.warn(`[TouchModeService] ⚠️ Error cargando huella ${userId}:`, result.message);
+                        logger.warn(`[TouchModeService] ⚠️ Error cargando huella ${userId}:`, result.message);
                     }
                 } catch (error) {
-                    console.warn(`[TouchModeService] ❌ No se pudo cargar huella ${userId}:`, error);
+                    logger.warn(`[TouchModeService] ❌ No se pudo cargar huella ${userId}:`, error);
                 }
             }
 
-            console.log(`[TouchModeService] ✅ ${loaded}/${fingerprints.length} huellas cargadas al backend`);
+            logger.info(`[TouchModeService] ✅ ${loaded}/${fingerprints.length} huellas cargadas al backend`);
 
         } catch (error: any) {
-            console.error('[TouchModeService] Error cargando huellas al backend:', error);
+            logger.error('[TouchModeService] Error cargando huellas al backend:', error);
             throw error;
         }
     }
@@ -222,14 +223,14 @@ export class TouchModeService {
 
             this.state.isActive = false;
 
-            console.log('[TouchModeService] Modo touch detenido correctamente');
+            logger.info('[TouchModeService] Modo touch detenido correctamente');
 
             return {
                 success: true,
                 message: 'Modo de captura continua desactivado'
             };
         } catch (error: any) {
-            console.error('[TouchModeService] Error al detener modo touch:', error);
+            logger.error('[TouchModeService] Error al detener modo touch:', error);
             return {
                 success: false,
                 message: error.message || 'Error al detener modo touch'
@@ -250,7 +251,7 @@ export class TouchModeService {
                 mode: result.mode || 'OnDemand'
             };
         } catch (error) {
-            console.error('[TouchModeService] Error al obtener estado:', error);
+            logger.error('[TouchModeService] Error al obtener estado:', error);
             return {
                 isActive: false,
                 mode: 'OnDemand'
@@ -288,7 +289,7 @@ export class TouchModeService {
             this.eventSource.close();
         }
 
-        console.log('[TouchModeService] Conectando a eventos SSE...');
+        logger.info('[TouchModeService] Conectando a eventos SSE...');
 
         this.eventSource = new EventSource(`${BIOMETRIC_SERVER}/events`);
 
@@ -298,25 +299,25 @@ export class TouchModeService {
 
                 // Resetear contador de errores en eventos exitosos
                 if (this.consecutiveErrors > 0) {
-                    console.log('[TouchModeService] Conexión SSE restaurada - Reseteando contador de errores');
+                    logger.info('[TouchModeService] Conexión SSE restaurada - Reseteando contador de errores');
                     this.consecutiveErrors = 0;
                 }
 
                 this.handleBiometricEvent(data);
             } catch (error) {
-                console.error('[TouchModeService] Error parsing SSE event:', error);
+                logger.error('[TouchModeService] Error parsing SSE event:', error);
             }
         };
 
         this.eventSource.onerror = (error: any) => {
-            console.error('[TouchModeService] SSE error:', error);
+            logger.error('[TouchModeService] SSE error:', error);
 
             this.consecutiveErrors++;
-            console.warn(`[TouchModeService] Errores consecutivos: ${this.consecutiveErrors}/${this.MAX_CONSECUTIVE_ERRORS}`);
+            logger.warn(`[TouchModeService] Errores consecutivos: ${this.consecutiveErrors}/${this.MAX_CONSECUTIVE_ERRORS}`);
 
             // Si superamos el límite de errores, desactivar automáticamente
             if (this.consecutiveErrors >= this.MAX_CONSECUTIVE_ERRORS) {
-                console.error('[TouchModeService] ❌ LÍMITE DE ERRORES ALCANZADO - Desactivando servicio automáticamente');
+                logger.error('[TouchModeService] ❌ LÍMITE DE ERRORES ALCANZADO - Desactivando servicio automáticamente');
                 this.handleCriticalError('Se alcanzó el límite de errores en la comunicación con el lector');
                 return;
             }
@@ -325,7 +326,7 @@ export class TouchModeService {
             if (this.state.isActive) {
                 setTimeout(() => {
                     if (this.state.isActive && this.eventSource?.readyState === 2) { // 2 = CLOSED
-                        console.log('[TouchModeService] Reconectando a eventos SSE...');
+                        logger.info('[TouchModeService] Reconectando a eventos SSE...');
                         this.connectToEvents();
                     }
                 }, 3000);
@@ -349,7 +350,7 @@ export class TouchModeService {
     private async handleBiometricEvent(data: any) {
         const eventType = data.eventType || '';
 
-        console.log('📩 [TouchModeService] Evento SSE recibido:', eventType);
+        logger.info('📩 [TouchModeService] Evento SSE recibido:', eventType);
 
         // Actualizar estado
         this.state.lastEventTime = new Date();
@@ -359,7 +360,7 @@ export class TouchModeService {
             try {
                 handler(eventType, data);
             } catch (error) {
-                console.error('[TouchModeService] Error in event handler:', error);
+                logger.error('[TouchModeService] Error in event handler:', error);
             }
         });
 
@@ -367,21 +368,21 @@ export class TouchModeService {
         switch (eventType) {
             case 'FINGER_TOUCHED':
                 this.state.totalTouches++;
-                console.log(`👆 [TouchModeService] DEDO DETECTADO en el lector (total: ${this.state.totalTouches})`);
-                console.log(`[TouchModeService] Capturando huella...`);
+                logger.info(`👆 [TouchModeService] DEDO DETECTADO en el lector (total: ${this.state.totalTouches})`);
+                logger.info(`[TouchModeService] Capturando huella...`);
                 break;
 
             case 'FINGERPRINT_READY':
                 this.state.totalFingerprints++;
-                console.log(`✅ [TouchModeService] HUELLA CAPTURADA Y LISTA (total: ${this.state.totalFingerprints})`);
-                console.log(`[TouchModeService] Iniciando identificación 1:N contra base de datos...`);
+                logger.info(`✅ [TouchModeService] HUELLA CAPTURADA Y LISTA (total: ${this.state.totalFingerprints})`);
+                logger.info(`[TouchModeService] Iniciando identificación 1:N contra base de datos...`);
 
                 // Identificar empleado automáticamente
                 await this.autoIdentifyAndRegister();
                 break;
 
             case 'CAPTURE_READY':
-                console.log('🔄 [TouchModeService] Lector rearmado - Listo para nueva captura');
+                logger.info('🔄 [TouchModeService] Lector rearmado - Listo para nueva captura');
                 break;
         }
     }
@@ -391,10 +392,10 @@ export class TouchModeService {
      */
     private async autoIdentifyAndRegister() {
         try {
-            console.log('🔍 [TouchModeService] ==================== INICIANDO IDENTIFICACIÓN ====================');
+            logger.info('🔍 [TouchModeService] ==================== INICIANDO IDENTIFICACIÓN ====================');
 
             // En modo touch, usar el endpoint especializado para identificar con la última huella capturada
-            console.log('[TouchModeService] Llamando al backend para identificar con última huella capturada...');
+            logger.info('[TouchModeService] Llamando al backend para identificar con última huella capturada...');
 
             const response = await fetch(`${BIOMETRIC_SERVER}/api/touch/identify-last`, {
                 method: 'POST',
@@ -405,7 +406,7 @@ export class TouchModeService {
             });
 
             if (!response.ok) {
-                console.error('[TouchModeService] Error HTTP en identify:', response.status);
+                logger.error('[TouchModeService] Error HTTP en identify:', response.status);
                 this.emitEvent('IDENTIFICATION_FAILED', {
                     message: `Error HTTP: ${response.status}`
                 });
@@ -421,8 +422,8 @@ export class TouchModeService {
             };
 
             if (!identifyResult.ok || !identifyResult.matched || !identifyResult.userId) {
-                console.log('❌ [TouchModeService] NO SE PUDO IDENTIFICAR AL EMPLEADO');
-                console.log(`[TouchModeService] Respuesta del backend:`, identifyResult);
+                logger.info('❌ [TouchModeService] NO SE PUDO IDENTIFICAR AL EMPLEADO');
+                logger.info(`[TouchModeService] Respuesta del backend:`, identifyResult);
                 this.emitEvent('IDENTIFICATION_FAILED', {
                     message: identifyResult.error || 'No se encontró coincidencia'
                 });
@@ -437,7 +438,7 @@ export class TouchModeService {
             } else if (/^\d+$/.test(identifyResult.userId)) {
                 employeeId = parseInt(identifyResult.userId);
             } else {
-                console.error('[TouchModeService] Formato de userId inválido:', identifyResult.userId);
+                logger.error('[TouchModeService] Formato de userId inválido:', identifyResult.userId);
                 this.emitEvent('IDENTIFICATION_FAILED', {
                     message: 'Formato de userId inválido'
                 });
@@ -446,9 +447,9 @@ export class TouchModeService {
 
             const score = identifyResult.score || 0;
 
-            console.log(`✅ [TouchModeService] EMPLEADO IDENTIFICADO EXITOSAMENTE`);
-            console.log(`[TouchModeService] - ID: ${employeeId}`);
-            console.log(`[TouchModeService] - Score de coincidencia: ${score}`);
+            logger.info(`✅ [TouchModeService] EMPLEADO IDENTIFICADO EXITOSAMENTE`);
+            logger.info(`[TouchModeService] - ID: ${employeeId}`);
+            logger.info(`[TouchModeService] - Score de coincidencia: ${score}`);
 
             // Obtener información del empleado
             const db = getDatabaseManager();
@@ -458,8 +459,8 @@ export class TouchModeService {
             );
 
             if (employee) {
-                console.log(`[TouchModeService] - Nombre: ${employee.first_name} ${employee.last_name}`);
-                console.log(`[TouchModeService] - Código: ${employee.employee_code}`);
+                logger.info(`[TouchModeService] - Nombre: ${employee.first_name} ${employee.last_name}`);
+                logger.info(`[TouchModeService] - Código: ${employee.employee_code}`);
             }
 
             this.emitEvent('EMPLOYEE_IDENTIFIED', {
@@ -469,7 +470,7 @@ export class TouchModeService {
 
             // Determinar si es entrada o salida
             const today = new Date().toISOString().split('T')[0];
-            console.log(`[TouchModeService] Verificando registros del día: ${today}`);
+            logger.info(`[TouchModeService] Verificando registros del día: ${today}`);
 
             const todayRecord = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
 
@@ -478,9 +479,9 @@ export class TouchModeService {
 
             if (!hasCheckedIn) {
                 // Registrar entrada
-                console.log(`📥 [TouchModeService] REGISTRANDO ENTRADA`);
-                console.log(`[TouchModeService] - Empleado: ${employeeId}`);
-                console.log(`[TouchModeService] - Fecha: ${today}`);
+                logger.info(`📥 [TouchModeService] REGISTRANDO ENTRADA`);
+                logger.info(`[TouchModeService] - Empleado: ${employeeId}`);
+                logger.info(`[TouchModeService] - Fecha: ${today}`);
 
                 const record = this.attendanceModel.checkIn(employeeId, true);
 
@@ -491,11 +492,11 @@ export class TouchModeService {
                     score: identifyResult.score
                 });
 
-                console.log(`✅ [TouchModeService] ENTRADA REGISTRADA EXITOSAMENTE`);
-                console.log(`[TouchModeService] - Hora: ${record.check_in_time}`);
-                console.log(`[TouchModeService] - Estado: ${record.status}`);
+                logger.info(`✅ [TouchModeService] ENTRADA REGISTRADA EXITOSAMENTE`);
+                logger.info(`[TouchModeService] - Hora: ${record.check_in_time}`);
+                logger.info(`[TouchModeService] - Estado: ${record.status}`);
                 if (employee) {
-                    console.log(`[TouchModeService] - Empleado: ${employee.first_name} ${employee.last_name}`);
+                    logger.info(`[TouchModeService] - Empleado: ${employee.first_name} ${employee.last_name}`);
                 }
 
             } else if (!hasCheckedOut) {
@@ -505,8 +506,8 @@ export class TouchModeService {
                 const diffMinutes = (now.getTime() - checkInDateTime.getTime()) / (1000 * 60);
 
                 if (diffMinutes < 1) {
-                    console.log(`⏱️ [TouchModeService] CHECK-OUT MUY RÁPIDO - Debe esperar al menos 1 minuto desde el check-in`);
-                    console.log(`[TouchModeService] - Tiempo transcurrido: ${Math.floor(diffMinutes * 60)} segundos`);
+                    logger.info(`⏱️ [TouchModeService] CHECK-OUT MUY RÁPIDO - Debe esperar al menos 1 minuto desde el check-in`);
+                    logger.info(`[TouchModeService] - Tiempo transcurrido: ${Math.floor(diffMinutes * 60)} segundos`);
                     this.emitEvent('CHECK_OUT_TOO_SOON', {
                         employeeId,
                         secondsElapsed: Math.floor(diffMinutes * 60),
@@ -516,9 +517,9 @@ export class TouchModeService {
                 }
 
                 // Registrar salida
-                console.log(`📤 [TouchModeService] REGISTRANDO SALIDA`);
-                console.log(`[TouchModeService] - Empleado: ${employeeId}`);
-                console.log(`[TouchModeService] - Entrada fue a las: ${todayRecord.check_in_time}`);
+                logger.info(`📤 [TouchModeService] REGISTRANDO SALIDA`);
+                logger.info(`[TouchModeService] - Empleado: ${employeeId}`);
+                logger.info(`[TouchModeService] - Entrada fue a las: ${todayRecord.check_in_time}`);
 
                 const record = this.attendanceModel.checkOut(employeeId);
 
@@ -529,24 +530,24 @@ export class TouchModeService {
                     score: identifyResult.score
                 });
 
-                console.log(`✅ [TouchModeService] SALIDA REGISTRADA EXITOSAMENTE`);
-                console.log(`[TouchModeService] - Hora: ${record.check_out_time}`);
+                logger.info(`✅ [TouchModeService] SALIDA REGISTRADA EXITOSAMENTE`);
+                logger.info(`[TouchModeService] - Hora: ${record.check_out_time}`);
                 if (employee) {
-                    console.log(`[TouchModeService] - Empleado: ${employee.first_name} ${employee.last_name}`);
+                    logger.info(`[TouchModeService] - Empleado: ${employee.first_name} ${employee.last_name}`);
                 }
 
             } else {
-                console.log(`ℹ️ [TouchModeService] EMPLEADO YA COMPLETÓ SU ASISTENCIA HOY`);
-                console.log(`[TouchModeService] - Entrada: ${todayRecord.check_in_time}`);
-                console.log(`[TouchModeService] - Salida: ${todayRecord.check_out_time}`);
+                logger.info(`ℹ️ [TouchModeService] EMPLEADO YA COMPLETÓ SU ASISTENCIA HOY`);
+                logger.info(`[TouchModeService] - Entrada: ${todayRecord.check_in_time}`);
+                logger.info(`[TouchModeService] - Salida: ${todayRecord.check_out_time}`);
                 this.emitEvent('ALREADY_REGISTERED', { employeeId });
             }
 
-            console.log('🔍 [TouchModeService] ==================== FIN IDENTIFICACIÓN ====================');
+            logger.info('🔍 [TouchModeService] ==================== FIN IDENTIFICACIÓN ====================');
 
         } catch (error: any) {
-            console.error('❌ [TouchModeService] ERROR EN AUTO-IDENTIFICACIÓN:', error);
-            console.error('[TouchModeService] Stack:', error.stack);
+            logger.error('❌ [TouchModeService] ERROR EN AUTO-IDENTIFICACIÓN:', error);
+            logger.error('[TouchModeService] Stack:', error.stack);
             this.emitEvent('AUTO_REGISTER_ERROR', {
                 error: error.message
             });
@@ -563,9 +564,9 @@ export class TouchModeService {
 
         this.errorDeactivationInProgress = true;
 
-        console.error('❌❌❌ [TouchModeService] ERROR CRÍTICO DETECTADO ❌❌❌');
-        console.error(`[TouchModeService] Mensaje: ${message}`);
-        console.error('[TouchModeService] Desactivando modo automático por seguridad...');
+        logger.error('❌❌❌ [TouchModeService] ERROR CRÍTICO DETECTADO ❌❌❌');
+        logger.error(`[TouchModeService] Mensaje: ${message}`);
+        logger.error('[TouchModeService] Desactivando modo automático por seguridad...');
 
         try {
             // Emitir evento de error crítico antes de desactivar
@@ -577,9 +578,9 @@ export class TouchModeService {
             // Desactivar el servicio
             await this.stop();
 
-            console.log('[TouchModeService] ✅ Servicio desactivado correctamente por error crítico');
+            logger.info('[TouchModeService] ✅ Servicio desactivado correctamente por error crítico');
         } catch (error: any) {
-            console.error('[TouchModeService] Error al desactivar servicio:', error);
+            logger.error('[TouchModeService] Error al desactivar servicio:', error);
         } finally {
             this.errorDeactivationInProgress = false;
         }
@@ -593,7 +594,7 @@ export class TouchModeService {
             try {
                 handler(eventType, data);
             } catch (error) {
-                console.error('[TouchModeService] Error in event handler:', error);
+                logger.error('[TouchModeService] Error in event handler:', error);
             }
         });
     }

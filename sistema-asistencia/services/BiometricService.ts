@@ -7,6 +7,7 @@ import { getDatabaseManager } from '../database/init.js';
 import { FingerprintModel } from '../models/index.js';
 import { FingerPosition } from '../types/index.js';
 import { BIOMETRIC_SERVER } from '../shared/biometric-config.js';
+import { logger } from '../shared/logger.js';
 
 export class BiometricService {
     private db = getDatabaseManager();
@@ -46,7 +47,7 @@ export class BiometricService {
 
             if (data.ok) {
                 this.readerInitialized = true;
-                console.log('✅ Lector de huellas inicializado');
+                logger.info('✅ Lector de huellas inicializado');
             }
 
             return data;
@@ -64,7 +65,7 @@ export class BiometricService {
         isMatch: boolean;
         score?: number;
     }> {
-        console.warn('⚠️ compareTemplates está deprecated - el backend no soporta comparación directa');
+        logger.warn('⚠️ compareTemplates está deprecated - el backend no soporta comparación directa');
         return { isMatch: false };
     }
 
@@ -148,7 +149,7 @@ export class BiometricService {
 
             // Crear un tag único para esta huella
             const tag = `employee_${employeeId}_${fingerPosition}`;
-            console.log(`[BiometricService] Iniciando enrollment para: ${tag}`);
+            logger.info(`[BiometricService] Iniciando enrollment para: ${tag}`);
 
             // Llamar al endpoint de enrollment (el servidor captura múltiples muestras automáticamente)
             const response = await fetch(`${BIOMETRIC_SERVER}/api/enroll`, {
@@ -199,7 +200,7 @@ export class BiometricService {
                 quality_score: data.quality || 0
             });
 
-            console.log(`✅ Huella enrollada exitosamente para: ${tag}`);
+            logger.info(`✅ Huella enrollada exitosamente para: ${tag}`);
 
             return {
                 success: true,
