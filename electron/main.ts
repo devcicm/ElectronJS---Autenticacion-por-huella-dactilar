@@ -210,6 +210,41 @@ function initIpcHandlers() {
     });
   };
 
+  // Observabilidad: wrapper que loguea cada IPC (canal, args, tiempo, resultado/error)
+  const withTrace = (channel: string, fn: (...args: any[]) => Promise<any> | any) => {
+    return safeHandle(channel, async (event, ...args) => {
+        const t0 = Date.now();
+        try {
+            const r = await fn(event, ...args);
+            logger.info(`[IPC ${channel}] +${Date.now() - t0}ms ok`);
+            return r;
+        } catch (e) {
+            logger.error(`[IPC ${channel}] +${Date.now() - t0}ms FAIL:`, e?.message || e);
+            throw e;
+        }
+    });
+  };
+
+  // Observabilidad: handler que recibe el trace buffer del renderer y lo persiste
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  safeHandle('trace:dump', (_event: any, json: string) => {
+      try {
+          const dir = path.join(os.tmpdir(), 'electron-fingerprint-traces');
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          const file = path.join(dir, `trace-electron-${ts}.json`);
+          fs.writeFileSync(file, json);
+          const events = JSON.parse(json)?.events?.length || 0;
+          logger.info(`[trace] dump OK → ${file} (${events} events)`);
+          return { ok: true, path: file, events };
+      } catch (e: any) {
+          logger.error('[trace] dump FAIL:', e?.message || e);
+          return { ok: false, error: e?.message || String(e) };
+      }
+  });
+
   // Servidor biométrico
   ipcMain.handle('biometric:start', async () => {
     return await startBiometricServer();

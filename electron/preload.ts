@@ -133,3 +133,8 @@ contextBridge.exposeInMainWorld('touchMode', {
     return () => ipcRenderer.removeListener('touchMode:attendanceRegistered', listener);
   }
 });
+
+// Observabilidad: dump del trace buffer del renderer al main process (archivo JSON)
+contextBridge.exposeInMainWorld('electronBridge', {
+  dumpTrace: (json: string) => ipcRenderer.invoke('trace:dump', json),
+});

@@ -7,10 +7,38 @@ import { logger } from './logger.js';
 import { escapeHtml } from './js/escape-html.js';
 import { sanitizeText, sanitizePhone, sanitizeEmail } from './js/sanitize.js';
 
+// ==================== OBSERVABILIDAD: TRAZADO ====================
+// Buffer global accesible vía CDP. No interfiere con el flujo normal; solo observa.
+window.__trace = [];
+window.__traceStart = Date.now();
+function T(type, label, data = {}) {
+    const e = { t: Date.now() - window.__traceStart, type, label, data, rs: document.readyState, url: location.href };
+    window.__trace.push(e);
+    if (window.__trace.length > 1000) window.__trace.shift();
+    try { console.log('[trace]', type, label, data); } catch {}
+}
+window.__dumpTrace = function () {
+    try {
+        const json = JSON.stringify({ metadata: { url: location.href, ua: navigator.userAgent, ts: Date.now() }, events: window.__trace });
+        if (window.electronBridge?.dumpTrace) {
+            window.electronBridge.dumpTrace(json).catch(() => {});
+        }
+        if (window.labBridge?.dumpTrace) {
+            window.labBridge.dumpTrace(json).catch(() => {});
+        }
+    } catch {}
+};
+T('module-load', 'start');
+
 // Instancia única (antes: singleton global creado por su propio script tag)
 window.FingerprintEnroller = new FingerprintEnroller();
+T('module-load', 'FingerprintEnroller created');
 // B4: liberar EventSource al cerrar la ventana (recurso del engine)
-window.addEventListener('beforeunload', () => window.FingerprintEnroller.disconnect());
+window.addEventListener('beforeunload', () => {
+    T('shutdown', 'beforeunload fired');
+    window.__dumpTrace();
+    window.FingerprintEnroller.disconnect();
+});
 
 // ==================== ESTADO GLOBAL ====================
 let currentSection = 'dashboard';
@@ -40,10 +68,17 @@ const withTimeout = (promise, ms, label) => Promise.race([
 });
 
 // B.3: capturar errores async no atrapados (incluye promesas en renderer que escapan)
-window.addEventListener('unhandledrejection', e => logger.error('Unhandled:', e.reason));
-window.addEventListener('error', e => logger.error('Error global:', e.message, e.filename, e.lineno));
+window.addEventListener('unhandledrejection', e => {
+    T('error', 'unhandledrejection', { msg: String(e?.reason?.message || e?.reason) });
+    logger.error('Unhandled:', e.reason);
+});
+window.addEventListener('error', e => {
+    T('error', 'global', { msg: e?.message, file: e?.filename, line: e?.lineno });
+    logger.error('Error global:', e.message, e.filename, e.lineno);
+});
 
 document.addEventListener('DOMContentLoaded', async () => {
+    T('dom', 'DOMContentLoaded fired');
     logger.info('🚀 Sistema de Asistencia - Iniciando...');
 
     // Configurar navegación
@@ -54,10 +89,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(updateClock, 1000);
 
     // Cargar datos iniciales (con timeout 10s — engine puede tardar, no debe bloquear dashboard)
+    T('data', 'loadInitialData start');
     await withTimeout(loadInitialData(), 10_000, 'loadInitialData');
+    T('data', 'loadInitialData done', {
+        employees: typeof employees !== 'undefined' ? employees.length : null,
+        departments: typeof departments !== 'undefined' ? departments.length : null,
+        shifts: typeof shifts !== 'undefined' ? shifts.length : null,
+    });
 
     // Inicializar modo touch (con timeout 10s — si el engine falla, dashboard sigue)
+    T('touch', 'initializeTouchMode start');
     await withTimeout(initializeTouchMode(), 10_000, 'initializeTouchMode');
+    T('touch', 'initializeTouchMode done');
 
     // Mostrar dashboard por defecto
     showSection('dashboard');
@@ -68,23 +111,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ==================== NAVEGACIÓN ====================
 function setupNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
+    T('setup-nav', 'start', { navCount: navItems.length });
 
-    navItems.forEach(item => {
+    navItems.forEach((item, i) => {
         item.addEventListener('click', () => {
+            T('nav-click', 'handler invoked', { section: item.dataset.section, idx: i });
             try {
                 const section = item.dataset.section;
                 navItems.forEach(nav => nav.classList.remove('active'));
                 item.classList.add('active');
+                T('nav-click', 'active class added', { section });
                 showSection(section);
             } catch (e) {
+                T('nav-click', 'error', { msg: e.message });
                 logger.error('Nav click failed:', e);
                 showNotification('Error al cambiar de sección', 'error');
             }
         });
+        T('setup-nav', 'listener attached', { idx: i, section: item.dataset.section });
     });
+
+    T('setup-nav', 'end', { attached: navItems.length });
 }
 
 function showSection(sectionName) {
+    T('show-section', 'start', { section: sectionName, currentBefore: typeof currentSection !== 'undefined' ? currentSection : null });
     try {
         currentSection = sectionName;
 
@@ -95,8 +146,10 @@ function showSection(sectionName) {
 
         // Mostrar sección seleccionada
         const targetSection = document.getElementById(`${sectionName}-section`);
+        T('show-section', 'target lookup', { section: sectionName, found: !!targetSection });
         if (targetSection) {
             targetSection.classList.add('active');
+            T('show-section', 'activated', { section: sectionName });
         }
 
         // Actualizar título
@@ -142,6 +195,7 @@ function showSection(sectionName) {
                 break;
         }
     } catch (e) {
+        T('show-section', 'error', { msg: e.message });
         logger.error(`showSection(${sectionName}) failed:`, e);
         showNotification('Error al cambiar de sección', 'error');
     }
