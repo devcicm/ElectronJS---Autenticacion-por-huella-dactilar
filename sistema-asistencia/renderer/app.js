@@ -607,7 +607,7 @@ function filterEmployees(searchText) {
                     ${enrollmentText}
                 </span>
             </td>
-            <td><span class="badge badge-${emp.status === 'active' ? 'success' : 'danger'}">${escapeHtml(emp.status)}</span></td>
+            <td><span class="badge badge-${emp.status === 'active' ? 'success' : emp.status === 'suspended' ? 'warning' : 'danger'}">${escapeHtml(emp.status === 'active' ? 'Activo' : emp.status === 'suspended' ? 'Suspendido' : 'Inactivo')}</span></td>
             <td>
                 <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #3B82F6; color: white;" title="Ver detalles">👁️</button>
                 <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #10B981; color: white;" title="Editar">✏️</button>
@@ -669,9 +669,16 @@ function showAddEmployeeModal() {
                                     ${shifts.map(shift => `<option value="${shift.id}">${escapeHtml(shift.name)}</option>`).join('')}
                                 </select>
                             </div>
-                            <div class="form-group" style="grid-column: 1 / -1;">
+                            <div class="form-group">
                                 <label>Puesto *</label>
                                 <input type="text" id="emp-position" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Modo de Captura de Huella</label>
+                                <select id="emp-enrollment-mode" class="form-control">
+                                    <option value="simple" selected>Simple (1 huella recomendada)</option>
+                                    <option value="advanced">Avanzado (10 huellas)</option>
+                                </select>
                             </div>
                         </div>
                     </form>
@@ -737,7 +744,8 @@ async function saveNewEmployee() {
         shift_id: parseInt(document.getElementById('emp-shift').value),
         position: sanitizeText(document.getElementById('emp-position').value, 100),
         hire_date: document.getElementById('emp-hire-date').value,
-        status: 'active'
+        status: 'active',
+        enrollment_mode: document.getElementById('emp-enrollment-mode')?.value || 'simple'
     };
 
     const submitBtn = document.querySelector('.modal.active .btn-primary');
@@ -834,6 +842,14 @@ function showEditEmployeeModal(employeeId) {
                                 <select id="edit-emp-status" class="form-control" required>
                                     <option value="active" ${employee.status === 'active' ? 'selected' : ''}>Activo</option>
                                     <option value="inactive" ${employee.status === 'inactive' ? 'selected' : ''}>Inactivo</option>
+                                    <option value="suspended" ${employee.status === 'suspended' ? 'selected' : ''}>Suspendido</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="grid-column: 1 / -1;">
+                                <label>Modo de Captura de Huella</label>
+                                <select id="edit-emp-enrollment-mode" class="form-control">
+                                    <option value="simple" ${employee.enrollment_mode === 'simple' ? 'selected' : ''}>Simple (1 huella recomendada)</option>
+                                    <option value="advanced" ${employee.enrollment_mode === 'advanced' ? 'selected' : ''}>Avanzado (10 huellas)</option>
                                 </select>
                             </div>
                         </div>
@@ -903,7 +919,8 @@ async function updateEmployee(employeeId) {
         shift_id: parseInt(document.getElementById('edit-emp-shift').value),
         position: sanitizeText(document.getElementById('edit-emp-position').value, 100),
         hire_date: document.getElementById('edit-emp-hire-date').value,
-        status: document.getElementById('edit-emp-status').value
+        status: document.getElementById('edit-emp-status').value,
+        enrollment_mode: document.getElementById('edit-emp-enrollment-mode')?.value || 'simple'
     };
 
     try {
@@ -1607,6 +1624,11 @@ function loadDepartmentsSection() {
                             <h4 style="margin: 0; color: #1F2937;">${escapeHtml(dept.name)}</h4>
                             <p style="margin: 5px 0 0; color: #6B7280; font-size: 13px;">
                                 ${employees.filter(e => e.department_id === dept.id).length} empleados
+                                ${(() => {
+                                    if (!dept.manager_id) return '';
+                                    const mgr = employees.find(e => e.id === dept.manager_id);
+                                    return mgr ? ` • 👤 ${escapeHtml(mgr.first_name + ' ' + mgr.last_name)}` : '';
+                                })()}
                             </p>
                         </div>
                     </div>
@@ -1638,6 +1660,13 @@ function showAddDepartmentModal() {
                             <label>Descripción</label>
                             <textarea id="dept-description" class="form-control" rows="3" placeholder="Descripción opcional del departamento"></textarea>
                         </div>
+                        <div class="form-group">
+                            <label>Responsable / Gerente (Opcional)</label>
+                            <select id="dept-manager" class="form-control">
+                                <option value="">Sin asignar</option>
+                                ${employees.map(emp => `<option value="${emp.id}">${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>`).join('')}
+                            </select>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -1657,6 +1686,8 @@ async function saveDepartment() {
 
     const name = sanitizeText(document.getElementById('dept-name').value, 100);
     const description = sanitizeText(document.getElementById('dept-description').value, 500);
+    const managerRaw = parseInt(document.getElementById('dept-manager')?.value, 10);
+    const manager_id = Number.isFinite(managerRaw) && managerRaw > 0 ? managerRaw : null;
 
     if (!name) {
         showNotification('El nombre del departamento es requerido', 'warning');
@@ -1670,7 +1701,7 @@ async function saveDepartment() {
     }
 
     try {
-        const result = await window.attendance.createDepartment({ name, description });
+        const result = await window.attendance.createDepartment({ name, description, manager_id });
 
         if (result) {
             showNotification('Departamento creado exitosamente', 'success');
@@ -1719,6 +1750,13 @@ function showEditDepartmentModal(deptId) {
                             <label>Descripción</label>
                             <textarea id="edit-dept-description" class="form-control" rows="3">${dept.description ? escapeHtml(dept.description) : ''}</textarea>
                         </div>
+                        <div class="form-group">
+                            <label>Responsable / Gerente (Opcional)</label>
+                            <select id="edit-dept-manager" class="form-control">
+                                <option value="">Sin asignar</option>
+                                ${employees.map(emp => `<option value="${emp.id}" ${dept.manager_id === emp.id ? 'selected' : ''}>${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>`).join('')}
+                            </select>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -1738,6 +1776,8 @@ async function updateDepartment(deptId) {
 
     const name = sanitizeText(document.getElementById('edit-dept-name').value, 100);
     const description = sanitizeText(document.getElementById('edit-dept-description').value, 500);
+    const managerRaw = parseInt(document.getElementById('edit-dept-manager')?.value, 10);
+    const manager_id = Number.isFinite(managerRaw) && managerRaw > 0 ? managerRaw : null;
 
     if (!name) {
         showNotification('El nombre del departamento es requerido', 'warning');
@@ -1754,7 +1794,8 @@ async function updateDepartment(deptId) {
         const result = await window.attendance.updateDepartment({
             id: deptId,
             name,
-            description
+            description,
+            manager_id
         });
 
         if (result) {

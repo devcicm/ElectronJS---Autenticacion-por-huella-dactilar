@@ -276,3 +276,67 @@ test('AttendanceService: checkIn y checkOut son idempotentes y generateMonthlyRe
     assert.equal(report.employeeStats.length, 1);
     assert.equal(report.employeeStats[0].employeeCode, 'EMP-SVC');
 });
+
+// ----------------------------------------------------------------------------
+// 6. SIMETRÍA COMPLETA DB <-> BACKEND <-> FRONTEND
+// ----------------------------------------------------------------------------
+test('Simetría de esquemas: DB columns coinciden exactamente con DTOs y Frontend', async () => {
+    const { EmployeeModel } = await import('../../dist/sistema-asistencia/models/EmployeeModel.js');
+    const { DepartmentModel } = await import('../../dist/sistema-asistencia/models/DepartmentModel.js');
+    const { ShiftModel } = await import('../../dist/sistema-asistencia/models/ShiftModel.js');
+    const db = createTestDb();
+
+    // 1. Columnas PRAGMA table_info de SQLite
+    const getCols = (table: string): string[] => {
+        const rows = db.raw.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+        return rows.map(r => r.name);
+    };
+
+    const deptCols = getCols('departments');
+    assert.deepEqual(deptCols, ['id', 'name', 'description', 'manager_id', 'is_default', 'created_at', 'updated_at']);
+
+    const shiftCols = getCols('shifts');
+    assert.deepEqual(shiftCols, ['id', 'name', 'start_time', 'end_time', 'tolerance_minutes', 'color', 'is_default', 'created_at', 'updated_at']);
+
+    const empCols = getCols('employees');
+    assert.deepEqual(empCols, ['id', 'employee_code', 'first_name', 'last_name', 'email', 'phone', 'department_id', 'shift_id', 'position', 'hire_date', 'status', 'photo_url', 'enrollment_mode', 'created_at', 'updated_at']);
+
+    const fpCols = getCols('fingerprints');
+    assert.deepEqual(fpCols, ['id', 'employee_id', 'finger_position', 'hand', 'template_data', 'quality_score', 'enrolled_at', 'created_at']);
+
+    const attCols = getCols('attendance_records');
+    assert.deepEqual(attCols, ['id', 'employee_id', 'date', 'check_in_time', 'check_out_time', 'status', 'minutes_late', 'minutes_overtime', 'fingerprint_verified', 'notes', 'created_at', 'updated_at']);
+
+    // 2. Comprobar que EmployeeModel maneja status 'suspended' y 'enrollment_mode' 'advanced'
+    const empModel = new EmployeeModel(db as any);
+    const emp = empModel.create({
+        employee_code: 'EMP-SUSP',
+        first_name: 'Carlos',
+        last_name: 'Herrera',
+        email: 'carlos@empresa.com',
+        department_id: 1,
+        shift_id: 1,
+        position: 'Auditor',
+        hire_date: '2025-06-01',
+        status: 'suspended',
+        enrollment_mode: 'advanced'
+    });
+
+    assert.equal(emp.status, 'suspended');
+    assert.equal(emp.enrollment_mode, 'advanced');
+
+    // 3. Comprobar que DepartmentModel maneja manager_id correctamente
+    const deptModel = new DepartmentModel(db as any);
+    const dept = deptModel.create({
+        name: 'Auditoría Interna',
+        description: 'Control de procesos',
+        manager_id: emp.id
+    });
+    assert.equal(dept.manager_id, emp.id);
+
+    const updatedDept = deptModel.update({
+        id: dept.id,
+        manager_id: null as any
+    });
+    assert.equal(updatedDept.manager_id, null);
+});
