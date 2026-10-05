@@ -5,6 +5,9 @@
 # Claude Code session data
 .claude/
 
+# Lab de observabilidad (lab-http-host.mjs): compila C# → DLL temporal
+lab-bridge.dll
+
 # Python cache
 __pycache__/
 *.pyc
