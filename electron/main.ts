@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
 import { BIOMETRIC_PORT } from '../sistema-asistencia/shared/biometric-config.js';
@@ -226,9 +228,6 @@ function initIpcHandlers() {
   };
 
   // Observabilidad: handler que recibe el trace buffer del renderer y lo persiste
-  const fs = require('node:fs');
-  const os = require('node:os');
-  const path = require('node:path');
   safeHandle('trace:dump', (_event: any, json: string) => {
       try {
           const dir = path.join(os.tmpdir(), 'electron-fingerprint-traces');
