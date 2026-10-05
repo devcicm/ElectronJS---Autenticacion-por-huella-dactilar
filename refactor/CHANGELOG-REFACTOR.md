@@ -60,6 +60,27 @@ Convención de Paridad: ✅ idéntica · ⚠️ diferencias esperadas documentad
 
 **Total: 29 tests, cero deps (node:test nativo Node 24). Script: `npm test`.**
 
+## Fase 6 — Estabilización runtime (post-hardening)
+
+Arranque real en Electron (`npm start`): la UI no navegaba (aside muerto) aunque el lab sí. Cadena de
+tres fallos de carga acumulados. Detalle completo: **`refactor/RUNTIME-Y-DIAGNOSTICO.md`**.
+
+| Paso | Causa | Qué cambió | Commit | Paridad |
+|---|---|---|---|---|
+| R0 | infra CDP | `npm debug` con `remote-debugging-port` + `cdp-debug.mjs` (estado DOM, timing IPC, carga módulos); `showSection`/`loadXxxSection` con try/catch + `withTimeout` | `d8ab028` | ✅ |
+| R1 | DB migración | `runMigrations` **antes** de `executeSchema` (`is_default`); tolera `no such table` en DB fresca. Raíz de un "UI hang" previo | `bc93f8c` | ✅ |
+| R2 | UI hang (defensivo) | Tier A+B+C: `fetchJson`+`AbortSignal.timeout` (15 endpoints), `safeHandle` (11 handlers), `withTimeout(10s)` renderer, forwarder de consola, `render-process-gone`; gm5 regen | `9308d0b` | ⚠️ gm5 (test script) |
+| R3 (F1) | `require()` en proyecto `type:module` | `main.ts`: `require('node:fs'/'node:os')` → imports ESM; `initIpcHandlers()` ya corre | `1d6c28f` | ✅ |
+| R4 (F2) | preload excluido de compilación | compilar `electron/preload.ts` a `dist/preload.js` (APIs `contextBridge` expuestas); eliminar duplicado | `b51cee5` | ✅ |
+| R5 (F3) | renderer ES modules bajo `file://` | **revertir a scripts clásicos** (IIFE `window.*` + `<script src>` en orden); A.7a revertido; tests adaptados (`load-classic.mjs`); gm2/gm4 regen | `e2ee258` | ⚠️ gm2 (stale) + gm4 (scriptLoadOrder) |
+
+**Naturaleza del fix**: `loadFile()` ⇒ origen `file://` (opaco). Los module scripts van en modo CORS y
+Chromium bloquea sus imports → `app.js` no se evaluaba → `setupNavigation()` nunca corría. Los scripts
+clásicos no usan CORS y sí cargan. Con F1+F2+F3 corregidos: `setup-nav` ata 8 listeners,
+`loadInitialData` carga datos reales y el engine (`:8080`, lector DP4500) queda operativo.
+
+**Verificación**: gm-verify 5/5 · `npm test` 45/45 · smoke Electron sin CORS/ReferenceError.
+
 ## Hallazgos no ejecutados (referenciados)
 
 | Criterio | Estado | Notas |

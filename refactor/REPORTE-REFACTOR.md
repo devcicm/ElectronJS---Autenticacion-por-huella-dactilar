@@ -20,7 +20,7 @@
 | FE-15 estáticas puras | 19 | (no era smell) |
 | FE-15 user-data en `innerHTML`/`insertAdjacentHTML` | 8 sitios | 0 (escapeHtml) |
 | FE-15 user-data en modales (`value="..."`, `<option>`) | 8+ sitios | 0 (escapeHtml en pasada adicional B3') |
-| FE-01 scripts sin módulos en renderer sistema | 2 scripts clásicos | 1 module con imports |
+| FE-01 scripts sin módulos en renderer sistema | 2 scripts clásicos | **2 scripts clásicos (A.7a revertido en R5)** — ES modules incompatibles con `file://` (CORS); ver `RUNTIME-Y-DIAGNOSTICO.md` |
 | BE-19 `String(e)` filtrado al cliente | 21 handlers | 0 (helper `respondInternal`) |
 | Exposición 0.0.0.0 sin auth | sí | no (default loopback + guard de token) |
 | RES-05 reconnect timer sin `clear` | 1 | 0 (timer con cleanup) |
@@ -89,6 +89,48 @@ Regeneraciones explícitas justificadas (Regla 5, `paridad.md`): A.7a y B2.
 - **El problema de raíz (edge-js ABI) se resolvió con upgrade de dep** (commit `7605869`, submodule `4b50bfa`): `edge-js ^20.3.0` → `26.1.0` (línea roja #7 — changeset aparte). v26 trae prebuilts para Node 22/24 incluyendo system Node 24.14 del usuario. Smoke test: `GET http://localhost:8080/api/store-stats` → 200 OK con body válido. gm1-4 intactos; gm5 regenerada explícitamente (solo cambia el campo `edge-js` de `"^20.3.0"` a `"26.1.0"`).
 - **Audit warnings restantes** (transitivas de `express 4.22.x`): `path-to-regexp` high (ReDoS), `qs` moderate (DoS), `body-parser` moderate. **No se arreglaron aquí** — son changeset aparte si se priorizan (recomendado: `npm audit fix` en `biometric-engine/node/` y root).
 - **Verificación runtime importa**: unit tests + gm-verify cubren contrato y código, pero no detectan fallos de carga nativa. El `npm start` inmediato post-refactor habría detectado B5 antes de cerrar cambios. Para futuras pasadas de hardening: agregar un smoke test `npm start` (30s timeout) al pipeline / manual antes de cerrar cambios.
+
+## Fase de estabilización runtime (post-hardening)
+
+Documento dedicado: **`refactor/RUNTIME-Y-DIAGNOSTICO.md`** (naturaleza del fallo, evidencia del
+trace, instrumentación lab/CDP y checklist de smoke).
+
+**Naturaleza del fallo**: en Electron la UI se carga con `loadFile()` ⇒ origen `file://` (opaco). El
+paso A.7a convirtió el renderer a **ES modules**; los module scripts se piden en modo CORS y Chromium
+**bloquea** sus imports desde `file://` ⇒ `app.js` no se evaluaba ⇒ `setupNavigation()` nunca corría ⇒
+el *aside* no navegaba. Los **scripts clásicos** (`<script src>`) no usan CORS y sí cargan. Dos fallos
+de carga adicionales se acumulaban: `require()` en proyecto `"type":"module"` (main) y el preload
+excluido de compilación (APIs `window.*` indefinidas).
+
+**Correcciones a este reporte**:
+
+- Fila **FE-01** (tabla "Ocurrencias por criterio"): el renderer **vuelve a scripts clásicos**; la
+  conversión a ES modules es inviable bajo `file://`.
+- Tabla de paridad: los hashes **finales** son gm1 `dbe5375ba092`, gm2 `a5376b50ca2c` (baseline estaba
+  stale: faltaban `electronBridge`/`trace:dump`), gm3 `63b730ac6006`, gm4 `5040bc09bc67`
+  (scriptLoadOrder clásico), gm5 `4b7d3bb0f329`.
+- **Tests**: 45 (no 40/29) — se sumaron 5 de `fetchJson` (Tier A+B+C).
+
+**Parches (antes → después)**:
+
+| Fallo | Antes | Commit | Después |
+|---|---|---|---|
+| F1 `require` en ESM | `main.ts` `require('node:fs'/'node:os')`; `initIpcHandlers()` muerto | `1d6c28f` | imports ESM; handlers registrados |
+| F2 preload sin compilar | `electron/preload.ts` en `exclude`; `window.*` undefined | `b51cee5`+`e2ee258` | `dist/preload.js` compilado; APIs expuestas |
+| F3 renderer ES modules | `type="module"` + `import`; `app.js` no evalúa; aside muerto | `e2ee258` | scripts clásicos en orden; `setup-nav` ×8 |
+
+### Lecciones aprendidas (estabilización runtime)
+
+- **`file://` ≠ `http://`**: los ES modules y `fetch`/XHR están sujetos a CORS; bajo `file://` el
+  origen es opaco. Scripts clásicos sí cargan. Convertir el renderer a ES modules es una **regresión
+  de runtime** aunque gm-verify y los tests pasen.
+- **gm + unit tests no detectan fallos de carga**: capturan contratos/DOM estático, no ejecutan el
+  grafo del renderer ni el arranque de Electron. **Smoke `npm start` obligatorio** antes de cerrar
+  changesets que toquen renderer/preload/main/tsconfig (extiende la lección de B5).
+- **`"type":"module"` es global**: `require` solo es válido en subpaquetes CommonJS
+  (`biometric-engine/node`) o donde el tsconfig compila a CommonJS (el preload).
+- **Diagnóstico in-app + lab + CDP**: `window.__trace`/`trace:dump` y el lab standalone
+  (`lab-http-host.mjs`, `:9090`) aislaron si el problema era de Electron o de los servicios.
 
 ## Verificación final
 

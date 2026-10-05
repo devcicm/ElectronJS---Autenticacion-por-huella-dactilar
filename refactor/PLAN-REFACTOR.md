@@ -29,6 +29,11 @@
 | 8 | P3 | D-03 | PURE_REFACTOR | `EnrollmentControl.js` → fuente única servida por engine (`express.static` apunta al archivo compartido; sistema carga ese mismo archivo) | 7a, 7b | diff byte a byte del comportamiento + smoke de ambos |
 | 9 | P3 | N-02 | PURE_REFACTOR | `21474`→`DEFAULT_TARGET_FARN`, timeouts→constantes nombradas (server.ts + services + controles) | 1 (dueño del conocimiento) | gm1 exact |
 
+> **Nota (estabilización runtime):** el paso **7a (FE-01 sistema → ES modules) fue REVERTIDO** en
+> `e2ee258`. Bajo Electron, `loadFile()` ⇒ `file://` (origen opaco): Chromium bloquea los *module
+> imports* por CORS ⇒ `app.js` no se evalúa ⇒ el aside no navega. El renderer usa **scripts clásicos**.
+> Detalle: **`refactor/RUNTIME-Y-DIAGNOSTICO.md`**.
+
 **Gate aplicado:** todos los pasos son `CONFIRMED ∧ PURE_REFACTOR`. Ante duda en ejecución (p. ej. una ocurrencia FE-15 que resulte interpolar dato de usuario) el paso se detiene y la ocurrencia se reclasifica — nunca se fuerza.
 
 ## Pasos P4 (documentados, fuera de esta pasada)

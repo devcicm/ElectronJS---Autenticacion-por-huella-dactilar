@@ -31,6 +31,12 @@
 | 8 | FE-15 | 74 ocurrencias innerHTML (app.js ×23, engine public ×51) | smell mecánico confirmado; **por ocurrencia**: templates estáticos → refactor; interpolación de datos de usuario (app.js:192, 484; controles con nombres/tags) → FIX (ver BUGS #2) | CONFIRMED | PURE_REFACTOR (solo ocurrencias estáticas) | 🔴 smell / 🟡 por-ocurrencia | 🟡 | P2 |
 | 9 | FE-01 | ambos index.html | `<script src>` clásicos sin `type="module"`; estado/funciones por globals (window.*) | CONFIRMED | PURE_REFACTOR | 🟠 | 🟡 | P3 (requiere FE-04-verify) |
 
+**RESOLUCIÓN (estabilización runtime, R5):** el renderer de sistema **permanece con scripts clásicos**.
+El paso A.7a lo convirtió a ES modules y eso resultó una **regresión de runtime**: Electron carga la UI
+con `loadFile()` (`file://`, origen opaco) y Chromium bloquea los *module imports* por CORS ⇒ `app.js`
+no se evaluaba ⇒ `setupNavigation()` no corría ⇒ el aside no navegaba. Revertido en `e2ee258`. Detalle:
+**`refactor/RUNTIME-Y-DIAGNOSTICO.md`**.
+
 ## Posibles (no confirmados)
 
 | # | Criterio | Ubicación | Estado | Duda / evidencia faltante |
