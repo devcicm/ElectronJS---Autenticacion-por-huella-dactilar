@@ -1,6 +1,54 @@
 /**
  * Tipos TypeScript para el Sistema de Asistencia
+ * Dominio: Administrativo, Recursos Humanos y Control de Gestión de Personal
  */
+
+// ============================================================================
+// CONSTANTES Y ENUMS DE DOMINIO (HR / ADMINISTRACIÓN / CONTROL PERSONAL)
+// ============================================================================
+
+export const EmployeeStatus = {
+    ACTIVE: 'active',
+    INACTIVE: 'inactive',
+    SUSPENDED: 'suspended'
+} as const;
+export type EmployeeStatus = typeof EmployeeStatus[keyof typeof EmployeeStatus];
+
+export const EnrollmentMode = {
+    SIMPLE: 'simple',
+    ADVANCED: 'advanced'
+} as const;
+export type EnrollmentMode = typeof EnrollmentMode[keyof typeof EnrollmentMode];
+
+export const Hand = {
+    LEFT: 'LEFT',
+    RIGHT: 'RIGHT'
+} as const;
+export type Hand = typeof Hand[keyof typeof Hand];
+
+export const FingerPosition = {
+    THUMB: 'THUMB',
+    INDEX: 'INDEX',
+    MIDDLE: 'MIDDLE',
+    RING: 'RING',
+    PINKY: 'PINKY'
+} as const;
+export type FingerPosition = typeof FingerPosition[keyof typeof FingerPosition];
+
+/**
+ * Tag biométrico compuesto para identificación y comunicación con el lector (ej. "LEFT_INDEX", "RIGHT_THUMB")
+ */
+export type BiometricTag = `${Hand}_${FingerPosition}`;
+
+export const AttendanceStatus = {
+    PRESENT: 'present',
+    LATE: 'late',
+    ABSENT: 'absent',
+    EXCUSED: 'excused',
+    HALF_DAY: 'half_day',
+    ON_LEAVE: 'on_leave'
+} as const;
+export type AttendanceStatus = typeof AttendanceStatus[keyof typeof AttendanceStatus];
 
 // ============================================================================
 // EMPLEADOS
@@ -8,7 +56,7 @@
 
 export interface Employee {
     id: number;
-    employee_code: string;      // Código único del empleado
+    employee_code: string;      // Código único del empleado (DNI/RFC/ID)
     first_name: string;
     last_name: string;
     email: string;
@@ -16,10 +64,10 @@ export interface Employee {
     department_id: number;
     shift_id: number;
     position: string;           // Puesto/Cargo
-    hire_date: string;          // ISO date string
-    status: 'active' | 'inactive' | 'suspended';
+    hire_date: string;          // ISO date string (YYYY-MM-DD)
+    status: EmployeeStatus;
     photo_url?: string;
-    enrollment_mode?: 'simple' | 'advanced';  // Modo de captura de huellas
+    enrollment_mode?: EnrollmentMode;  // Modo de captura de huellas
     created_at: string;
     updated_at: string;
 }
@@ -34,9 +82,9 @@ export interface EmployeeCreate {
     shift_id: number;
     position: string;
     hire_date: string;
-    status?: 'active' | 'inactive' | 'suspended';
+    status?: EmployeeStatus;
     photo_url?: string;
-    enrollment_mode?: 'simple' | 'advanced';
+    enrollment_mode?: EnrollmentMode;
 }
 
 export interface EmployeeUpdate {
@@ -50,9 +98,9 @@ export interface EmployeeUpdate {
     shift_id?: number;
     position?: string;
     hire_date?: string;
-    status?: 'active' | 'inactive' | 'suspended';
+    status?: EmployeeStatus;
     photo_url?: string;
-    enrollment_mode?: 'simple' | 'advanced';
+    enrollment_mode?: EnrollmentMode;
 }
 
 // ============================================================================
@@ -64,6 +112,7 @@ export interface Department {
     name: string;
     description?: string;
     manager_id?: number;        // ID del empleado que es gerente
+    is_default?: number;        // 1 para registros base protegidos contra reset
     created_at: string;
     updated_at: string;
 }
@@ -72,7 +121,6 @@ export interface DepartmentCreate {
     name: string;
     description?: string;
     manager_id?: number;
-    color?: string;
 }
 
 export interface DepartmentUpdate {
@@ -80,7 +128,6 @@ export interface DepartmentUpdate {
     name?: string;
     description?: string;
     manager_id?: number;
-    color?: string;
 }
 
 // ============================================================================
@@ -94,6 +141,7 @@ export interface Shift {
     end_time: string;           // HH:MM formato 24h
     tolerance_minutes: number;  // Minutos de tolerancia para llegada tarde
     color?: string;             // Color para UI (hex)
+    is_default?: number;        // 1 para registros base protegidos contra reset
     created_at: string;
     updated_at: string;
 }
@@ -123,7 +171,7 @@ export interface Fingerprint {
     id: number;
     employee_id: number;
     finger_position: FingerPosition;
-    hand: 'LEFT' | 'RIGHT';
+    hand: Hand;
     template_data: string;      // Template biométrico (base64)
     quality_score: number;      // 0-100
     enrolled_at: string;
@@ -133,7 +181,7 @@ export interface Fingerprint {
 export interface FingerprintCreate {
     employee_id: number;
     finger_position: FingerPosition;
-    hand: 'LEFT' | 'RIGHT';
+    hand: Hand;
     template_data: string;
     quality_score?: number;
 }
@@ -144,10 +192,6 @@ export interface FingerprintUpdate {
     quality_score?: number;
 }
 
-export type FingerPosition =
-    | 'right_thumb' | 'right_index' | 'right_middle' | 'right_ring' | 'right_pinky'
-    | 'left_thumb' | 'left_index' | 'left_middle' | 'left_ring' | 'left_pinky';
-
 // ============================================================================
 // REGISTROS DE ASISTENCIA
 // ============================================================================
@@ -155,7 +199,7 @@ export type FingerPosition =
 export interface AttendanceRecord {
     id: number;
     employee_id: number;
-    date: string;               // ISO date string (solo fecha)
+    date: string;               // ISO date string (YYYY-MM-DD)
     check_in_time?: string;     // HH:MM:SS
     check_out_time?: string;    // HH:MM:SS
     status: AttendanceStatus;
@@ -179,13 +223,16 @@ export interface AttendanceRecordCreate {
     notes?: string;
 }
 
-export type AttendanceStatus =
-    | 'present'         // Presente
-    | 'late'           // Llegada tarde
-    | 'absent'         // Ausente
-    | 'excused'        // Falta justificada
-    | 'half_day'       // Medio día
-    | 'on_leave';      // En permiso
+export interface AttendanceUpdate {
+    id: number;
+    check_in_time?: string;
+    check_out_time?: string;
+    status?: AttendanceStatus;
+    minutes_late?: number;
+    minutes_overtime?: number;
+    fingerprint_verified?: boolean;
+    notes?: string;
+}
 
 // ============================================================================
 // VISTAS Y REPORTES
@@ -204,6 +251,8 @@ export interface AttendanceWithDetails extends AttendanceRecord {
     employee_name: string;
     department_name: string;
     shift_name: string;
+    shift_start_time?: string;
+    shift_end_time?: string;
 }
 
 export interface DailyAttendanceSummary {
@@ -234,6 +283,36 @@ export interface EmployeeAttendanceSummary {
     attendance_rate: number;
 }
 
+export interface MonthlyEmployeeStat {
+    employeeId: number;
+    employeeName: string;
+    employeeCode: string;
+    totalDays: number;
+    presentDays: number;
+    lateDays: number;
+    absentDays: number;
+    totalLateMinutes: number;
+    attendanceRate: string;
+}
+
+export interface MonthlyReportDTO {
+    year: number;
+    month: number;
+    monthName: string;
+    startDate: string;
+    endDate: string;
+    workingDays: number;
+    records: AttendanceWithDetails[];
+    employeeStats: MonthlyEmployeeStat[];
+    totalStats: {
+        totalRecords: number;
+        present: number;
+        late: number;
+        absent: number;
+        verified: number;
+    };
+}
+
 // ============================================================================
 // CONFIGURACIÓN DEL SISTEMA
 // ============================================================================
@@ -247,7 +326,7 @@ export interface AttendanceConfig {
 }
 
 // ============================================================================
-// RESPUESTAS DE API
+// RESPUESTAS DE API Y OPERACIONES IDEMPOTENTES
 // ============================================================================
 
 export interface ApiResponse<T> {
@@ -266,6 +345,15 @@ export interface PaginatedResponse<T> {
     total_pages: number;
 }
 
+export interface AttendanceCheckResultDTO {
+    success: boolean;
+    message: string;
+    record?: AttendanceRecord;
+    employee?: Employee;
+    alreadyCheckedIn?: boolean;
+    alreadyCheckedOut?: boolean;
+}
+
 // ============================================================================
 // FILTROS Y BÚSQUEDA
 // ============================================================================
@@ -273,7 +361,7 @@ export interface PaginatedResponse<T> {
 export interface EmployeeFilters {
     department_id?: number;
     shift_id?: number;
-    status?: 'active' | 'inactive' | 'suspended';
+    status?: EmployeeStatus;
     search?: string;            // Búsqueda por nombre, código, email
 }
 
@@ -297,3 +385,31 @@ export type SystemEvent =
     | { type: 'attendance:checked-out'; data: AttendanceRecord }
     | { type: 'fingerprint:enrolled'; data: Fingerprint }
     | { type: 'system:error'; data: { error: string; context?: any } };
+
+// ============================================================================
+// ALIAS FORMALES DTO (Dominio Administrativo y Gestión de Personal)
+// ============================================================================
+
+export type EmployeeDTO = Employee;
+export type EmployeeCreateDTO = EmployeeCreate;
+export type EmployeeUpdateDTO = EmployeeUpdate;
+export type EmployeeWithDetailsDTO = EmployeeWithDetails;
+export type EmployeeFiltersDTO = EmployeeFilters;
+
+export type DepartmentDTO = Department;
+export type DepartmentCreateDTO = DepartmentCreate;
+export type DepartmentUpdateDTO = DepartmentUpdate;
+
+export type ShiftDTO = Shift;
+export type ShiftCreateDTO = ShiftCreate;
+export type ShiftUpdateDTO = ShiftUpdate;
+
+export type FingerprintDTO = Fingerprint;
+export type FingerprintCreateDTO = FingerprintCreate;
+export type FingerprintUpdateDTO = FingerprintUpdate;
+
+export type AttendanceRecordDTO = AttendanceRecord;
+export type AttendanceRecordCreateDTO = AttendanceRecordCreate;
+export type AttendanceWithDetailsDTO = AttendanceWithDetails;
+export type AttendanceFiltersDTO = AttendanceFilters;
+export type DailyAttendanceSummaryDTO = DailyAttendanceSummary;

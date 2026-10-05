@@ -3,7 +3,7 @@
  * Coordina la lógica de negocio entre modelos y el motor biométrico
  */
 
-import { getDatabaseManager } from '../database/init.js';
+import { DatabaseManager, getDatabaseManager } from '../database/init.js';
 import {
     EmployeeModel,
     AttendanceModel,
@@ -21,21 +21,31 @@ import {
 import { getLocalDateString, parseLocalDate } from '../shared/date-utils.js';
 
 export class AttendanceService {
-    private db = getDatabaseManager();
-    private employeeModel = new EmployeeModel(this.db);
-    private attendanceModel = new AttendanceModel(this.db);
-    private fingerprintModel = new FingerprintModel(this.db);
-    private departmentModel = new DepartmentModel(this.db);
-    private shiftModel = new ShiftModel(this.db);
+    private db: DatabaseManager;
+    private employeeModel: EmployeeModel;
+    private attendanceModel: AttendanceModel;
+    private fingerprintModel: FingerprintModel;
+    private departmentModel: DepartmentModel;
+    private shiftModel: ShiftModel;
+
+    constructor(db?: DatabaseManager) {
+        this.db = db || getDatabaseManager();
+        this.employeeModel = new EmployeeModel(this.db);
+        this.attendanceModel = new AttendanceModel(this.db);
+        this.fingerprintModel = new FingerprintModel(this.db);
+        this.departmentModel = new DepartmentModel(this.db);
+        this.shiftModel = new ShiftModel(this.db);
+    }
 
     /**
-     * Marcar entrada con verificación biométrica
+     * Marcar entrada con verificación biométrica (Idempotente)
      */
     async checkInWithFingerprint(employeeId: number, fingerprintVerified: boolean = true): Promise<{
         success: boolean;
         message: string;
         record?: AttendanceRecord;
         employee?: Employee;
+        alreadyCheckedIn?: boolean;
     }> {
         try {
             // Verificar que el empleado existe y está activo
@@ -46,6 +56,19 @@ export class AttendanceService {
 
             if (employee.status !== 'active') {
                 return { success: false, message: 'El empleado no está activo' };
+            }
+
+            // Verificación de idempotencia: Si ya registró entrada hoy, devolver éxito con el registro existente
+            const today = getLocalDateString();
+            const existing = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
+            if (existing && existing.check_in_time) {
+                return {
+                    success: true,
+                    message: 'Entrada ya registrada previamente',
+                    record: existing,
+                    employee,
+                    alreadyCheckedIn: true
+                };
             }
 
             // Marcar entrada
@@ -71,18 +94,32 @@ export class AttendanceService {
     }
 
     /**
-     * Marcar salida
+     * Marcar salida (Idempotente)
      */
     async checkOut(employeeId: number): Promise<{
         success: boolean;
         message: string;
         record?: AttendanceRecord;
         employee?: Employee;
+        alreadyCheckedOut?: boolean;
     }> {
         try {
             const employee = this.employeeModel.getById(employeeId);
             if (!employee) {
                 return { success: false, message: 'Empleado no encontrado' };
+            }
+
+            // Verificación de idempotencia: Si ya registró salida hoy, devolver éxito con el registro existente
+            const today = getLocalDateString();
+            const existing = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
+            if (existing && existing.check_out_time) {
+                return {
+                    success: true,
+                    message: 'Salida ya registrada previamente',
+                    record: existing,
+                    employee,
+                    alreadyCheckedOut: true
+                };
             }
 
             const record = this.attendanceModel.checkOut(employeeId);
@@ -341,7 +378,10 @@ export class AttendanceService {
 
         const employees = this.employeeModel.getAllWithDetails({ status: 'active' });
 
-        // Estadísticas por empleado
+        // Optimización Big O: Indexar empleados O(1) vía Map en lugar de .find O(E) dentro del loop
+        const employeeMap = new Map<number, EmployeeWithDetails>(employees.map(e => [e.id, e]));
+
+        // Estadísticas por empleado O(R)
         const byEmployee = new Map<number, AttendanceWithDetails[]>();
         records.forEach(record => {
             if (!byEmployee.has(record.employee_id)) {
@@ -351,19 +391,52 @@ export class AttendanceService {
         });
 
         const employeeStats = Array.from(byEmployee.entries()).map(([empId, empRecords]) => {
-            const emp = employees.find(e => e.id === empId);
+            const emp = employeeMap.get(empId);
+
+            let presentCount = 0;
+            let lateCount = 0;
+            let absentCount = 0;
+            let totalLateMinutes = 0;
+
+            for (let i = 0; i < empRecords.length; i++) {
+                const r = empRecords[i];
+                if (r.status === 'present') presentCount++;
+                else if (r.status === 'late') lateCount++;
+                else if (r.status === 'absent') absentCount++;
+                totalLateMinutes += (r.minutes_late || 0);
+            }
+
+            const attendedCount = presentCount + lateCount;
+            const rate = empRecords.length > 0
+                ? ((attendedCount / empRecords.length) * 100).toFixed(1)
+                : '0.0';
+
             return {
                 employeeId: empId,
                 employeeName: emp ? `${emp.first_name} ${emp.last_name}` : 'N/A',
                 employeeCode: emp?.employee_code || 'N/A',
                 totalDays: empRecords.length,
-                presentDays: empRecords.filter(r => r.status === 'present').length,
-                lateDays: empRecords.filter(r => r.status === 'late').length,
-                absentDays: empRecords.filter(r => r.status === 'absent').length,
-                totalLateMinutes: empRecords.reduce((sum, r) => sum + (r.minutes_late || 0), 0),
-                attendanceRate: ((empRecords.filter(r => r.status === 'present' || r.status === 'late').length / empRecords.length) * 100).toFixed(1)
+                presentDays: presentCount,
+                lateDays: lateCount,
+                absentDays: absentCount,
+                totalLateMinutes,
+                attendanceRate: rate
             };
         });
+
+        // Totales globales en una sola pasada O(R)
+        let totalPresent = 0;
+        let totalLate = 0;
+        let totalAbsent = 0;
+        let totalVerified = 0;
+
+        for (let i = 0; i < records.length; i++) {
+            const r = records[i];
+            if (r.status === 'present') totalPresent++;
+            else if (r.status === 'late') totalLate++;
+            else if (r.status === 'absent') totalAbsent++;
+            if (r.fingerprint_verified) totalVerified++;
+        }
 
         return {
             year: targetYear,
@@ -376,10 +449,10 @@ export class AttendanceService {
             employeeStats,
             totalStats: {
                 totalRecords: records.length,
-                present: records.filter(r => r.status === 'present').length,
-                late: records.filter(r => r.status === 'late').length,
-                absent: records.filter(r => r.status === 'absent').length,
-                verified: records.filter(r => r.fingerprint_verified).length
+                present: totalPresent,
+                late: totalLate,
+                absent: totalAbsent,
+                verified: totalVerified
             }
         };
     }

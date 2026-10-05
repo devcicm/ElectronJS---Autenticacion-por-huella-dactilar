@@ -137,8 +137,8 @@ export class EmployeeModel {
         const result = this.db.execute(
             `INSERT INTO employees (
                 employee_code, first_name, last_name, email, phone,
-                department_id, shift_id, position, hire_date, status, photo_url
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                department_id, shift_id, position, hire_date, status, photo_url, enrollment_mode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 data.employee_code,
                 data.first_name,
@@ -150,7 +150,8 @@ export class EmployeeModel {
                 data.position,
                 data.hire_date,
                 data.status || 'active',
-                data.photo_url || null
+                data.photo_url || null,
+                data.enrollment_mode || 'simple'
             ]
         );
 

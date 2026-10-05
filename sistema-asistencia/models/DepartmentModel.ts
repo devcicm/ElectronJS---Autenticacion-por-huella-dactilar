@@ -42,13 +42,12 @@ export class DepartmentModel {
      */
     create(data: DepartmentCreate): Department {
         const result = this.db.execute(
-            `INSERT INTO departments (name, description, manager_id, color)
-             VALUES (?, ?, ?, ?)`,
+            `INSERT INTO departments (name, description, manager_id)
+             VALUES (?, ?, ?)`,
             [
                 data.name,
                 data.description || null,
-                data.manager_id || null,
-                data.color || '#3B82F6'
+                data.manager_id || null
             ]
         );
 
@@ -78,10 +77,6 @@ export class DepartmentModel {
         if (data.manager_id !== undefined) {
             updates.push('manager_id = ?');
             params.push(data.manager_id);
-        }
-        if (data.color !== undefined) {
-            updates.push('color = ?');
-            params.push(data.color);
         }
 
         if (updates.length === 0) {

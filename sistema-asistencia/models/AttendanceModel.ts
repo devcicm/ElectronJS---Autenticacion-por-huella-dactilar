@@ -316,29 +316,21 @@ export class AttendanceModel {
     markAbsentees(date?: string): number {
         const targetDate = date || getLocalDateString();
 
-        // Obtener empleados activos sin registro para la fecha
-        const employeesWithoutRecord = this.db.query<{ id: number }>(
-            `SELECT e.id
+        // Operación atómica de base de datos e idempotente (evita N round-trips en JS)
+        const result = this.db.execute(
+            `INSERT INTO attendance_records (
+                employee_id, date, status, minutes_late, minutes_overtime, fingerprint_verified
+             )
+             SELECT e.id, ?, 'absent', 0, 0, 0
              FROM employees e
              WHERE e.status = 'active'
              AND NOT EXISTS (
                  SELECT 1 FROM attendance_records ar
                  WHERE ar.employee_id = e.id AND ar.date = ?
              )`,
-            [targetDate]
+            [targetDate, targetDate]
         );
 
-        let count = 0;
-        for (const emp of employeesWithoutRecord) {
-            this.create({
-                employee_id: emp.id,
-                date: targetDate,
-                status: 'absent',
-                fingerprint_verified: false
-            });
-            count++;
-        }
-
-        return count;
+        return result.changes;
     }
 }

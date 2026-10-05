@@ -184,32 +184,44 @@ export class TouchModeService {
             });
             logger.info('[TouchModeService] Store del backend limpiado');
 
-            // Cargar cada huella al store usando el nuevo endpoint
+            // Cargar templates en lotes concurrentes (chunking) para optimizar latencia I/O Big O
+            const CONCURRENCY = 5;
             let loaded = 0;
-            for (const fp of fingerprints) {
-                const userId = `employee_${fp.employee_id}`;
+            for (let i = 0; i < fingerprints.length; i += CONCURRENCY) {
+                const chunk = fingerprints.slice(i, i + CONCURRENCY);
+                const results = await Promise.allSettled(
+                    chunk.map(async (fp) => {
+                        const userId = `employee_${fp.employee_id}`;
+                        try {
+                            const result = await fetchJson(`${BIOMETRIC_SERVER}/api/load-template`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    userId: userId,
+                                    templateBase64: fp.template_data,
+                                    hand: fp.hand,
+                                    finger: fp.finger_position
+                                })
+                            }) as { ok: boolean; message?: string; tag?: string };
 
-                try {
-                    // Cargar template al backend usando el nuevo endpoint
-                    const result = await fetchJson(`${BIOMETRIC_SERVER}/api/load-template`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: userId,
-                            templateBase64: fp.template_data,
-                            hand: fp.hand,
-                            finger: fp.finger_position
-                        })
-                    }) as { ok: boolean; message?: string; tag?: string };
+                            if (result.ok) {
+                                logger.info(`[TouchModeService] ✅ Huella cargada: ${result.tag}`);
+                                return true;
+                            } else {
+                                logger.warn(`[TouchModeService] ⚠️ Error cargando huella ${userId}:`, result.message);
+                                return false;
+                            }
+                        } catch (error) {
+                            logger.warn(`[TouchModeService] ❌ No se pudo cargar huella ${userId}:`, error);
+                            return false;
+                        }
+                    })
+                );
 
-                    if (result.ok) {
-                        logger.info(`[TouchModeService] ✅ Huella cargada: ${result.tag}`);
+                for (const res of results) {
+                    if (res.status === 'fulfilled' && res.value) {
                         loaded++;
-                    } else {
-                        logger.warn(`[TouchModeService] ⚠️ Error cargando huella ${userId}:`, result.message);
                     }
-                } catch (error) {
-                    logger.warn(`[TouchModeService] ❌ No se pudo cargar huella ${userId}:`, error);
                 }
             }
 
