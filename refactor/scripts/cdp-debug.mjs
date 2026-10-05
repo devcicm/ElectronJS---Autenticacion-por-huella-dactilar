@@ -30,7 +30,6 @@ class CDPClient {
         this.events = [];
         this.ws = new WebSocket(wsUrl);
         this.ws.addEventListener('message', e => this.onMessage(JSON.parse(e.data)));
-        this.ws.addEventListener('open', () => this.onOpen());
         this._open = new Promise(r => this.ws.addEventListener('open', r, { once: true }));
         this._close = new Promise(r => this.ws.addEventListener('close', r, { once: true }));
     }
@@ -70,9 +69,11 @@ async function evalInPage(client, expr, timeoutMs = 5000) {
             }),
             new Promise((_, rej) => setTimeout(() => rej(new Error(`eval timeout (>${timeoutMs}ms)`)), timeoutMs + 500)),
         ]);
-        if (r.exceptionDetails) {
+        if (r && r.exceptionDetails) {
             return { __eval_error: r.exceptionDetails.exception?.description || JSON.stringify(r.exceptionDetails) };
         }
+        if (r === undefined) return { __eval_error: 'r undefined (timeout?)' };
+        if (r.result === undefined) return { __eval_error: 'r.result undefined', raw: JSON.stringify(r).substring(0, 200) };
         return r.result?.value;
     } catch (e) {
         return { __eval_threw: e.message };
@@ -96,53 +97,42 @@ async function main() {
 
     // 1. DOM state
     const sections = await evalInPage(client, `
-        Array.from(document.querySelectorAll('.content-section')).map(s => ({
+        JSON.stringify(Array.from(document.querySelectorAll('.content-section')).map(s => ({
             id: s.id,
             active: s.classList.contains('active'),
             display: getComputedStyle(s).display,
-            height: s.getBoundingClientRect().height,
-        }))
+        })))
     `);
 
     // 2. App globals (pueden no estar definidos si el module fallo)
     const state = await evalInPage(client, `
-        ({
-            currentSection: typeof currentSection !== 'undefined' ? currentSection : '(no definido)',
-            employeesCount: typeof employees !== 'undefined' ? employees.length : '(no definido)',
-            departmentsCount: typeof departments !== 'undefined' ? departments.length : '(no definido)',
-            shiftsCount: typeof shifts !== 'undefined' ? shifts.length : '(no definido)',
-            todayRecordsCount: typeof todayRecords !== 'undefined' ? todayRecords.length : '(no definido)',
+        JSON.stringify({
+            currentSection: typeof currentSection !== 'undefined' ? currentSection : null,
+            employeesCount: typeof employees !== 'undefined' ? employees.length : null,
+            departmentsCount: typeof departments !== 'undefined' ? departments.length : null,
+            shiftsCount: typeof shifts !== 'undefined' ? shifts.length : null,
+            todayRecordsCount: typeof todayRecords !== 'undefined' ? todayRecords.length : null,
             fingerprintEnrollerExists: typeof window.FingerprintEnroller !== 'undefined',
             attendanceApiExists: typeof window.attendance !== 'undefined',
             attendanceApiKeys: typeof window.attendance !== 'undefined' ? Object.keys(window.attendance) : [],
             biometricApiExists: typeof window.biometric !== 'undefined',
             touchModeApiExists: typeof window.touchMode !== 'undefined',
-            pageTitleText: document.getElementById('page-title')?.textContent ?? null,
+            pageTitleText: document.getElementById('page-title') ? document.getElementById('page-title').textContent : null,
         })
     `);
 
     // 3. IPC timing tests
     const ipcTests = {};
     const channels = [
-        ['getEmployees',    () => window.attendance?.getEmployees({})],
+        ['getEmployees',    () => window.attendance?.getEmployees?.({})],
         ['getDepartments',  () => window.attendance?.getDepartments?.()],
         ['getShifts',       () => window.attendance?.getShifts?.()],
         ['getDashboardSummary', () => window.attendance?.getDashboardSummary?.()],
         ['isServerAvailable', () => window.biometric?.isServerAvailable?.()],
     ];
     for (const [name, fn] of channels) {
-        const start = Date.now();
-        const result = await evalInPage(client, `
-            (async () => {
-                try {
-                    if (!${JSON.stringify(fn.toString())}.call) return { skipped: true };
-                    const r = await (${fn.toString()})();
-                    return { ok: true, ms: ${Date.now()} - ${start}, type: typeof r };
-                } catch (e) {
-                    return { ok: false, ms: ${Date.now()} - ${start}, error: String(e?.message || e) };
-                }
-            })()
-        `, 5000);
+        const fnSrc = fn.toString();
+        const result = await evalInPage(client, `(async () => { try { const r = await (${fnSrc})(); return JSON.stringify(r); } catch(e) { return JSON.stringify({__error: String(e?.message||e)}); } })()`, 5000);
         ipcTests[name] = result;
     }
 
@@ -182,11 +172,14 @@ async function main() {
 
     // Analisis automatico
     console.log('\n=== DIAGNOSIS ===');
+    const sectionsArr = JSON.parse(sections);
+    const stateObj = JSON.parse(state);
     const issues = [];
-    if (sections.find(s => s.id === 'dashboard-section')?.display === 'none') {
+    const dashboardSec = sectionsArr.find(s => s.id === 'dashboard-section');
+    if (dashboardSec && dashboardSec.display === 'none') {
         issues.push('dashboard-section display=none (no visible)');
     } else {
-        log('dashboard-section display=' + sections.find(s => s.id === 'dashboard-section')?.display);
+        log(`dashboard-section display=${dashboardSec?.display}`);
     }
     for (const [name, r] of Object.entries(ipcTests)) {
         if (r.skipped) continue;
@@ -195,8 +188,8 @@ async function main() {
         if (r.error) issues.push(`${name} ERROR: ${r.error}`);
     }
     if (!moduleTest.ok) issues.push(`module load FAIL: ${moduleTest.error}`);
-    if (!state.attendanceApiExists) issues.push('window.attendance NO EXISTE — preload no se cargo?');
-    if (state.employeesCount === '(no definido)') issues.push('employees[] no inicializado — DOMContentLoaded no llego al final?');
+    if (!stateObj.attendanceApiExists) issues.push('window.attendance NO EXISTE — preload no se cargo?');
+    if (stateObj.employeesCount === null) issues.push('employees[] no inicializado — DOMContentLoaded no llego al final?');
 
     if (issues.length === 0) {
         log('sin issues detectados en CDP scan');

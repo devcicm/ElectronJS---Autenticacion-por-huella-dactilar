@@ -38,11 +38,16 @@ export class DatabaseManager {
 
             console.log('✅ Base de datos conectada');
 
-            // Ejecutar el esquema (con foreign keys desactivadas temporalmente para evitar problemas de dependencias circulares)
+            // Ejecutar el esquema con foreign keys desactivadas temporalmente.
+            // IMPORTANTE: runMigrations ANTES de executeSchema. En una DB pre-existente
+            // sin columnas de N1, los INSERT del schema fallarian con "no such column".
+            // Las migraciones añaden las columnas via ALTER TABLE primero.
+            // En DB fresca, las migraciones toleran "no such table" (tryMigrateIsDefault)
+            // porque las CREATE TABLE vienen justo después.
             this.db.pragma('foreign_keys = OFF');
-            this.executeSchema();
             this.runMigrations();
-            this.db.pragma('foreign_keys = ON');  // Activar foreign keys después de crear el esquema
+            this.executeSchema();
+            this.db.pragma('foreign_keys = ON');
 
             console.log('✅ Esquema de base de datos creado/verificado');
         } catch (error) {
@@ -153,8 +158,9 @@ export class DatabaseManager {
             }
 
             // N1: columna is_default en departments y shifts (para reset seguro)
-            this.migrateIsDefault('departments', 5);
-            this.migrateIsDefault('shifts', 4);
+            // Toleramos "no such table" — las CREATE TABLE se aplican ANTES en initialize().
+            this.tryMigrateIsDefault('departments', 5);
+            this.tryMigrateIsDefault('shifts', 4);
 
         } catch (error: any) {
             console.error('❌ Error ejecutando migraciones:', error.message);
@@ -165,29 +171,36 @@ export class DatabaseManager {
     }
 
     /**
-     * N1: agrega columna `is_default` a una tabla si no existe y marca las filas base
-     * (id <= baseCount) como is_default=1 para que resetDatabase sea seguro ante
-     * extension del seed.
+     * N1: helper seguro — corre ALTER TABLE solo si la tabla existe.
+     * Si la tabla no existe (DB fresca), las CREATE TABLE del schema la crearán
+     * con is_default incluido. La migración es no-op en ese caso.
      */
-    private migrateIsDefault(table: 'departments' | 'shifts', baseCount: number): void {
-        const cols = this.db!.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-        if (!cols.some(c => c.name === 'is_default')) {
-            console.log(`  📝 Agregando columna is_default a tabla ${table}...`);
-            this.db!.prepare(`ALTER TABLE ${table} ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0`).run();
-            console.log(`  ✅ Columna is_default agregada a ${table}`);
-        }
+    private tryMigrateIsDefault(table: 'departments' | 'shifts', baseCount: number): void {
+        try {
+            const cols = this.db!.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+            if (!cols.some(c => c.name === 'is_default')) {
+                console.log(`  📝 Agregando columna is_default a tabla ${table}...`);
+                this.db!.prepare(`ALTER TABLE ${table} ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0`).run();
+                console.log(`  ✅ Columna is_default agregada a ${table}`);
+            } else {
+                console.log(`  ✅ Columna is_default ya existe en ${table}`);
+            }
 
-        // Marcar las primeras baseCount filas como base solo si:
-        //   (a) la columna es nueva (recién agregada en este arranque), O
-        //   (b) el conteo total de filas coincide con `baseCount` (DB fresca tras seed).
-        // Evita pisar datos de usuario en DBs existentes con datos.
-        const total = (this.db!.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
-        const isJustAdded = !cols.some(c => c.name === 'is_default');
-        if (isJustAdded && total <= baseCount) {
-            const result = this.db!.prepare(`UPDATE ${table} SET is_default = 1 WHERE id <= ?`).run(baseCount);
-            console.log(`  ✅ Marcadas ${result.changes} filas de ${table} como base`);
-        } else {
-            console.log(`  ⏭️  No se marcan filas de ${table} (total=${total}, columna era nueva=${isJustAdded})`);
+            const total = (this.db!.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+            const isJustAdded = !cols.some(c => c.name === 'is_default');
+            if (isJustAdded && total <= baseCount) {
+                const result = this.db!.prepare(`UPDATE ${table} SET is_default = 1 WHERE id <= ?`).run(baseCount);
+                console.log(`  ✅ Marcadas ${result.changes} filas de ${table} como base`);
+            } else {
+                console.log(`  ⏭️  No se marcan filas de ${table} (total=${total}, columna era nueva=${isJustAdded})`);
+            }
+        } catch (e: any) {
+            // DB fresca sin la tabla aún — el schema CREATE TABLE se encarga
+            if (/no such table/i.test(e?.message || '')) {
+                console.log(`  ⏭️  ${table} migration skipped (table no existe aún)`);
+            } else {
+                throw e;
+            }
         }
     }
 
