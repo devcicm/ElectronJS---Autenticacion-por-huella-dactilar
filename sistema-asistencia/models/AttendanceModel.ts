@@ -11,6 +11,7 @@ import {
     DailyAttendanceSummary,
     AttendanceStatus
 } from '../types/index.js';
+import { getLocalDateString, getLocalTimeString } from '../shared/date-utils.js';
 
 export class AttendanceModel {
     constructor(private db: DatabaseManager) {}
@@ -108,7 +109,7 @@ export class AttendanceModel {
      * Obtener registros de hoy
      */
     getToday(): AttendanceWithDetails[] {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         return this.getAllWithDetails({ start_date: today, end_date: today });
     }
 
@@ -147,8 +148,8 @@ export class AttendanceModel {
      */
     checkIn(employeeId: number, fingerprintVerified: boolean = false): AttendanceRecord {
         const now = new Date();
-        const date = now.toISOString().split('T')[0];
-        const time = now.toTimeString().split(' ')[0]; // HH:MM:SS
+        const date = getLocalDateString(now);
+        const time = getLocalTimeString(now);
 
         // Verificar si ya existe registro para hoy
         const existing = this.getByEmployeeAndDate(employeeId, date);
@@ -193,8 +194,8 @@ export class AttendanceModel {
      */
     checkOut(employeeId: number): AttendanceRecord {
         const now = new Date();
-        const date = now.toISOString().split('T')[0];
-        const time = now.toTimeString().split(' ')[0];
+        const date = getLocalDateString(now);
+        const time = getLocalTimeString(now);
 
         // Buscar registro del día
         const record = this.getByEmployeeAndDate(employeeId, date);
@@ -269,7 +270,7 @@ export class AttendanceModel {
      * Obtener resumen de asistencia diaria
      */
     getDailySummary(date?: string): DailyAttendanceSummary | undefined {
-        const targetDate = date || new Date().toISOString().split('T')[0];
+        const targetDate = date || getLocalDateString();
 
         return this.db.queryOne<DailyAttendanceSummary>(
             'SELECT * FROM daily_attendance_summary WHERE date = ?',
@@ -287,7 +288,7 @@ export class AttendanceModel {
         absent: number;
         present_percentage: number;
     } {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         const summary = this.getDailySummary(today);
 
         if (!summary) {
@@ -313,7 +314,7 @@ export class AttendanceModel {
      * Marcar ausentes automáticamente
      */
     markAbsentees(date?: string): number {
-        const targetDate = date || new Date().toISOString().split('T')[0];
+        const targetDate = date || getLocalDateString();
 
         // Obtener empleados activos sin registro para la fecha
         const employeesWithoutRecord = this.db.query<{ id: number }>(

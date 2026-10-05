@@ -561,44 +561,7 @@ function initIpcHandlers() {
     return service.generateEmployeeReport(employeeId, startDate, endDate);
   });
 
-  // === BIOMETRIC SERVICE HANDLERS ===
-
-  safeHandle('biometric:isServerAvailable', async () => {
-    const service = await getBiometricService();
-    return await service.isServerAvailable();
-  });
-
-  safeHandle('biometric:captureFingerprint', async () => {
-    const service = await getBiometricService();
-    return await service.captureFingerprint();
-  });
-
-  safeHandle('biometric:enrollFingerprint', async (_event, employeeId: number, fingerPosition: string) => {
-    const service = await getBiometricService();
-    return await service.enrollFingerprint(employeeId, fingerPosition as any);
-  });
-
-  safeHandle('biometric:verifyFingerprint', async (_event, employeeId: number) => {
-    const service = await getBiometricService();
-    return await service.verifyFingerprint(employeeId);
-  });
-
-  safeHandle('biometric:identifyEmployee', async () => {
-    const service = await getBiometricService();
-    return await service.identifyEmployee();
-  });
-
-  safeHandle('biometric:getReaderStats', async () => {
-    const service = await getBiometricService();
-    return await service.getReaderStats();
-  });
-
-  safeHandle('biometric:getDeviceInfo', async () => {
-    const service = await getBiometricService();
-    return await service.getDeviceInfo();
-  });
-
-  // === TOUCH MODE SERVICE HANDLERS ===
+  // === TOUCH MODE SERVICE & BIOMETRIC HARDWARE COORDINATION ===
 
   // Singleton instance de TouchModeService
   let touchModeServiceInstance: any = null;
@@ -639,6 +602,81 @@ function initIpcHandlers() {
     }
     return touchModeServiceInstance;
   };
+
+  const pauseTouchModeIfActive = async (): Promise<boolean> => {
+    if (touchModeServiceInstance && touchModeServiceInstance.getLocalState().isActive) {
+      logger.info('[Main] Pausando TouchMode para operación biométrica');
+      await touchModeServiceInstance.stop();
+      return true;
+    }
+    return false;
+  };
+
+  const resumeTouchModeIfWasActive = async (wasActive: boolean) => {
+    if (wasActive && touchModeServiceInstance) {
+      logger.info('[Main] Reanudando TouchMode tras operación biométrica');
+      await touchModeServiceInstance.start();
+    }
+  };
+
+  // === BIOMETRIC SERVICE HANDLERS ===
+
+  safeHandle('biometric:isServerAvailable', async () => {
+    const service = await getBiometricService();
+    return await service.isServerAvailable();
+  });
+
+  safeHandle('biometric:captureFingerprint', async () => {
+    const wasActive = await pauseTouchModeIfActive();
+    try {
+      const service = await getBiometricService();
+      return await service.captureFingerprint();
+    } finally {
+      await resumeTouchModeIfWasActive(wasActive);
+    }
+  });
+
+  safeHandle('biometric:enrollFingerprint', async (_event, employeeId: number, fingerPosition: string) => {
+    const wasActive = await pauseTouchModeIfActive();
+    try {
+      const service = await getBiometricService();
+      return await service.enrollFingerprint(employeeId, fingerPosition as any);
+    } finally {
+      await resumeTouchModeIfWasActive(wasActive);
+    }
+  });
+
+  safeHandle('biometric:verifyFingerprint', async (_event, employeeId: number) => {
+    const wasActive = await pauseTouchModeIfActive();
+    try {
+      const service = await getBiometricService();
+      return await service.verifyFingerprint(employeeId);
+    } finally {
+      await resumeTouchModeIfWasActive(wasActive);
+    }
+  });
+
+  safeHandle('biometric:identifyEmployee', async () => {
+    const wasActive = await pauseTouchModeIfActive();
+    try {
+      const service = await getBiometricService();
+      return await service.identifyEmployee();
+    } finally {
+      await resumeTouchModeIfWasActive(wasActive);
+    }
+  });
+
+  safeHandle('biometric:getReaderStats', async () => {
+    const service = await getBiometricService();
+    return await service.getReaderStats();
+  });
+
+  safeHandle('biometric:getDeviceInfo', async () => {
+    const service = await getBiometricService();
+    return await service.getDeviceInfo();
+  });
+
+  // === TOUCH MODE SERVICE HANDLERS ===
 
   safeHandle('touchMode:start', async () => {
     const service = await getTouchModeService();

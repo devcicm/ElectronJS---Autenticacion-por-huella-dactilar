@@ -438,10 +438,130 @@
             font-size: 24px;
             cursor: pointer;
             color: #6B7280;
+            min-width: 40px;
+            min-height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .close-btn:hover {
             color: var(--dark);
+        }
+
+        /* ===== RESPONSIVE & MOBILE / TABLET FRIENDLY ===== */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 220px;
+            }
+
+            .main-content {
+                padding: 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+                height: 100vh;
+            }
+
+            .sidebar {
+                width: 100%;
+                flex-direction: column;
+                max-height: 130px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+
+            .sidebar-header {
+                padding: 10px 16px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .sidebar-header h1 {
+                font-size: 15px;
+                margin-bottom: 0;
+            }
+
+            .sidebar-header p {
+                display: none;
+            }
+
+            .sidebar-nav {
+                display: flex;
+                flex-direction: row;
+                overflow-x: auto;
+                padding: 4px 8px;
+                gap: 4px;
+            }
+
+            .nav-item {
+                padding: 8px 12px;
+                white-space: nowrap;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+                font-size: 13px;
+                gap: 6px;
+            }
+
+            .nav-item.active {
+                border-left: none;
+                border-bottom-color: var(--primary);
+                background: var(--light);
+            }
+
+            .main-content {
+                padding: 14px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+
+            .time-display {
+                text-align: left;
+            }
+
+            .modal-content {
+                width: 95%;
+                max-height: 94vh;
+                margin: 8px;
+            }
+
+            .modal-body {
+                padding: 15px;
+            }
+
+            .modal-footer {
+                padding: 12px 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table-container table {
+                min-width: 500px;
+            }
+
+            .notification {
+                left: 12px !important;
+                right: 12px !important;
+                top: 12px !important;
+                max-width: calc(100% - 24px) !important;
+            }
         }
     </style>
 </head>

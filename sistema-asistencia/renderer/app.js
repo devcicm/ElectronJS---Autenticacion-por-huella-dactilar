@@ -33,11 +33,15 @@ T('module-load', 'start');
 
 // window.FingerprintEnroller lo crea js/controls/FingerprintEnroller.js (script clásico previo)
 T('module-load', 'FingerprintEnroller disponible: ' + (typeof window.FingerprintEnroller !== 'undefined'));
-// B4: liberar EventSource al cerrar la ventana (recurso del engine)
+// B4: liberar EventSource y polling al cerrar la ventana (recurso del engine)
 window.addEventListener('beforeunload', () => {
     T('shutdown', 'beforeunload fired');
     window.__dumpTrace();
-    window.FingerprintEnroller.disconnect();
+    if (typeof touchModePollingInterval !== 'undefined' && touchModePollingInterval) {
+        clearInterval(touchModePollingInterval);
+        touchModePollingInterval = null;
+    }
+    window.FingerprintEnroller?.disconnect();
 });
 
 // ==================== ESTADO GLOBAL ====================
@@ -450,7 +454,11 @@ async function performCheckIn() {
         if (result.success) {
             showNotification(result.message, 'success');
             closeModal();
-            loadDashboard();
+            if (currentSection === 'dashboard') {
+                loadDashboard();
+            } else if (currentSection === 'check-in') {
+                loadCheckInSection();
+            }
         } else {
             showNotification(result.message, 'error');
         }
@@ -469,7 +477,11 @@ async function performCheckOut() {
         if (result.success) {
             showNotification(result.message, 'success');
             closeModal();
-            loadDashboard();
+            if (currentSection === 'dashboard') {
+                loadDashboard();
+            } else if (currentSection === 'check-in') {
+                loadCheckInSection();
+            }
         } else {
             showNotification(result.message, 'error');
         }
@@ -480,6 +492,9 @@ async function performCheckOut() {
 }
 
 function closeModal() {
+    if (window.FingerprintEnroller?.isEnrolling) {
+        window.FingerprintEnroller.disconnect();
+    }
     document.querySelectorAll('.modal').forEach(modal => modal.remove());
     selectedEmployeeId = null;
 }
@@ -677,6 +692,11 @@ function showAddEmployeeModal() {
 
 // Guardar nuevo empleado
 async function saveNewEmployee() {
+    const form = document.getElementById('add-employee-form');
+    if (form && !form.reportValidity()) {
+        return;
+    }
+
     // Validar que todos los campos requeridos están llenos
     const requiredFields = [
         { id: 'emp-code', name: 'Código de empleado' },
@@ -720,6 +740,12 @@ async function saveNewEmployee() {
         status: 'active'
     };
 
+    const submitBtn = document.querySelector('.modal.active .btn-primary');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Guardando...';
+    }
+
     try {
         const result = await window.attendance.createEmployee(data);
 
@@ -730,10 +756,18 @@ async function saveNewEmployee() {
             loadEmployeesSection();
         } else {
             showNotification(result.message || 'Error al crear empleado', 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Guardar Empleado';
+            }
         }
     } catch (error) {
         logger.error('Error creando empleado:', error);
         showNotification(error.message || 'Error al crear empleado', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar Empleado';
+        }
     }
 }
 
@@ -777,7 +811,7 @@ function showEditEmployeeModal(employeeId) {
                             </div>
                             <div class="form-group">
                                 <label>Teléfono</label>
-                                <input type="tel" id="edit-emp-phone" class="form-control" value="${escapeHtml(employee.phone)}">
+                                <input type="tel" id="edit-emp-phone" class="form-control" value="${employee.phone ? escapeHtml(employee.phone) : ''}">
                             </div>
                             <div class="form-group">
                                 <label>Departamento *</label>
@@ -818,6 +852,11 @@ function showEditEmployeeModal(employeeId) {
 
 // Actualizar empleado
 async function updateEmployee(employeeId) {
+    const form = document.getElementById('edit-employee-form');
+    if (form && !form.reportValidity()) {
+        return;
+    }
+
     const requiredFields = [
         { id: 'edit-emp-code', name: 'Código de empleado' },
         { id: 'edit-emp-firstname', name: 'Nombre' },
@@ -847,9 +886,15 @@ async function updateEmployee(employeeId) {
         return;
     }
 
+    const submitBtn = document.querySelector('.modal.active .btn-primary');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Actualizando...';
+    }
+
     const data = {
         id: employeeId,
-        employee_code: document.getElementById('edit-emp-code').value.trim(),
+        employee_code: sanitizeText(document.getElementById('edit-emp-code').value, 50),
         first_name: sanitizeText(document.getElementById('edit-emp-firstname').value, 100),
         last_name: sanitizeText(document.getElementById('edit-emp-lastname').value, 100),
         email: sanitizeEmail(email),
@@ -871,10 +916,18 @@ async function updateEmployee(employeeId) {
             loadEmployeesSection();
         } else {
             showNotification(result.message || 'Error al actualizar empleado', 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Actualizar Empleado';
+            }
         }
     } catch (error) {
         logger.error('Error actualizando empleado:', error);
         showNotification(error.message || 'Error al actualizar empleado', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Actualizar Empleado';
+        }
     }
 }
 
@@ -1351,14 +1404,22 @@ async function enrollAllFingerprints(employeeId) {
     let completedCount = 0;
 
     for (let i = 0; i < fingers.length; i++) {
+        // Verificar si el modal fue cerrado o el proceso cancelado
+        if (!document.getElementById('enroll-status') || !window.FingerprintEnroller?.isEnrolling) {
+            logger.info('Proceso de enrolamiento cancelado por cierre del modal.');
+            return;
+        }
+
         const finger = fingers[i];
         const progressId = `progress-${finger.hand}-${finger.position}`;
         const progressDiv = document.getElementById(progressId);
 
         // Actualizar estado a "en progreso"
-        progressDiv.style.color = '#F59E0B';
-        progressDiv.style.fontWeight = '600';
-        progressDiv.innerHTML = `⏳ ${finger.label}`;
+        if (progressDiv) {
+            progressDiv.style.color = '#F59E0B';
+            progressDiv.style.fontWeight = '600';
+            progressDiv.innerHTML = `⏳ ${finger.label}`;
+        }
 
         // Iniciar el enroller con UI completa de progreso
         statusDiv.innerHTML = `
@@ -1378,17 +1439,25 @@ async function enrollAllFingerprints(employeeId) {
             const fingerPositionStr = `${finger.hand}_${finger.position}`;
             const result = await window.biometric.enrollFingerprint(employeeId, fingerPositionStr);
 
+            if (!document.getElementById('enroll-status') || !window.FingerprintEnroller?.isEnrolling) {
+                return;
+            }
+
             if (result.success) {
-                progressDiv.style.color = '#10B981';
-                progressDiv.innerHTML = `✅ ${finger.label}`;
+                if (progressDiv) {
+                    progressDiv.style.color = '#10B981';
+                    progressDiv.innerHTML = `✅ ${finger.label}`;
+                }
                 completedCount++;
                 enroller.finishEnrollment(true, `${finger.label} registrado exitosamente`);
 
                 // Pausa para mostrar el éxito
                 await new Promise(resolve => setTimeout(resolve, 1500));
             } else {
-                progressDiv.style.color = '#EF4444';
-                progressDiv.innerHTML = `❌ ${finger.label}`;
+                if (progressDiv) {
+                    progressDiv.style.color = '#EF4444';
+                    progressDiv.innerHTML = `❌ ${finger.label}`;
+                }
                 enroller.finishEnrollment(false, result.message || 'Error al registrar');
                 showNotification(`Error capturando ${finger.label}: ${result.message}`, 'warning', 3000);
 
@@ -1396,16 +1465,27 @@ async function enrollAllFingerprints(employeeId) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         } catch (error) {
+            if (!document.getElementById('enroll-status') || !window.FingerprintEnroller?.isEnrolling) {
+                return;
+            }
             logger.error(`Error enrolling ${finger.label}:`, error);
-            progressDiv.style.color = '#EF4444';
-            progressDiv.innerHTML = `❌ ${finger.label}`;
+            if (progressDiv) {
+                progressDiv.style.color = '#EF4444';
+                progressDiv.innerHTML = `❌ ${finger.label}`;
+            }
             enroller.finishEnrollment(false, 'Error de conexión');
             showNotification(`Error de conexión capturando ${finger.label}`, 'warning', 3000);
 
             // Pausa antes de continuar
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
+
+        if (!document.getElementById('enroll-status') || !window.FingerprintEnroller?.isEnrolling) {
+            return;
+        }
     }
+
+    if (!document.getElementById('enroll-status')) return;
 
     // Mostrar resumen final
     const successRate = Math.round((completedCount / 10) * 100);
@@ -1572,12 +1652,21 @@ function showAddDepartmentModal() {
 
 // Guardar departamento
 async function saveDepartment() {
+    const form = document.getElementById('add-department-form');
+    if (form && !form.reportValidity()) return;
+
     const name = sanitizeText(document.getElementById('dept-name').value, 100);
     const description = sanitizeText(document.getElementById('dept-description').value, 500);
 
     if (!name) {
         showNotification('El nombre del departamento es requerido', 'warning');
         return;
+    }
+
+    const submitBtn = document.querySelector('.modal.active .btn-primary');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Guardando...';
     }
 
     try {
@@ -1590,10 +1679,18 @@ async function saveDepartment() {
             loadDepartmentsSection();
         } else {
             showNotification('Error al crear departamento', 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Guardar';
+            }
         }
     } catch (error) {
         logger.error('Error creando departamento:', error);
         showNotification(error.message || 'Error al crear departamento', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar';
+        }
     }
 }
 
@@ -1620,7 +1717,7 @@ function showEditDepartmentModal(deptId) {
                         </div>
                         <div class="form-group">
                             <label>Descripción</label>
-                            <textarea id="edit-dept-description" class="form-control" rows="3">${dept.description || ''}</textarea>
+                            <textarea id="edit-dept-description" class="form-control" rows="3">${dept.description ? escapeHtml(dept.description) : ''}</textarea>
                         </div>
                     </form>
                 </div>
@@ -1636,12 +1733,21 @@ function showEditDepartmentModal(deptId) {
 
 // Actualizar departamento
 async function updateDepartment(deptId) {
+    const form = document.getElementById('edit-department-form');
+    if (form && !form.reportValidity()) return;
+
     const name = sanitizeText(document.getElementById('edit-dept-name').value, 100);
     const description = sanitizeText(document.getElementById('edit-dept-description').value, 500);
 
     if (!name) {
         showNotification('El nombre del departamento es requerido', 'warning');
         return;
+    }
+
+    const submitBtn = document.querySelector('.modal.active .btn-primary');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Actualizando...';
     }
 
     try {
@@ -1658,10 +1764,18 @@ async function updateDepartment(deptId) {
             loadDepartmentsSection();
         } else {
             showNotification('Error al actualizar departamento', 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Actualizar';
+            }
         }
     } catch (error) {
         logger.error('Error actualizando departamento:', error);
         showNotification(error.message || 'Error al actualizar departamento', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Actualizar';
+        }
     }
 }
 
@@ -1810,15 +1924,25 @@ function showAddShiftModal() {
 
 // Guardar turno
 async function saveShift() {
+    const form = document.getElementById('add-shift-form');
+    if (form && !form.reportValidity()) return;
+
     const name = sanitizeText(document.getElementById('shift-name').value, 100);
     const startTime = document.getElementById('shift-start-time').value;
     const endTime = document.getElementById('shift-end-time').value;
-    const tolerance = parseInt(document.getElementById('shift-tolerance').value);
+    const toleranceRaw = parseInt(document.getElementById('shift-tolerance').value, 10);
+    const tolerance = Number.isFinite(toleranceRaw) && toleranceRaw >= 0 ? toleranceRaw : 10;
     const color = document.getElementById('shift-color').value;
 
     if (!name || !startTime || !endTime) {
         showNotification('Todos los campos son requeridos', 'warning');
         return;
+    }
+
+    const submitBtn = document.querySelector('.modal.active .btn-primary');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Guardando...';
     }
 
     try {
@@ -1837,10 +1961,18 @@ async function saveShift() {
             loadShiftsSection();
         } else {
             showNotification('Error al crear turno', 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Guardar';
+            }
         }
     } catch (error) {
         logger.error('Error creando turno:', error);
         showNotification(error.message || 'Error al crear turno', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar';
+        }
     }
 }
 
@@ -1895,15 +2027,25 @@ function showEditShiftModal(shiftId) {
 
 // Actualizar turno
 async function updateShift(shiftId) {
+    const form = document.getElementById('edit-shift-form');
+    if (form && !form.reportValidity()) return;
+
     const name = sanitizeText(document.getElementById('edit-shift-name').value, 100);
     const startTime = document.getElementById('edit-shift-start-time').value;
     const endTime = document.getElementById('edit-shift-end-time').value;
-    const tolerance = parseInt(document.getElementById('edit-shift-tolerance').value);
+    const toleranceRaw = parseInt(document.getElementById('edit-shift-tolerance').value, 10);
+    const tolerance = Number.isFinite(toleranceRaw) && toleranceRaw >= 0 ? toleranceRaw : 0;
     const color = document.getElementById('edit-shift-color').value;
 
     if (!name || !startTime || !endTime) {
         showNotification('Todos los campos son requeridos', 'warning');
         return;
+    }
+
+    const submitBtn = document.querySelector('.modal.active .btn-primary');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Actualizando...';
     }
 
     try {
@@ -1923,10 +2065,18 @@ async function updateShift(shiftId) {
             loadShiftsSection();
         } else {
             showNotification('Error al actualizar turno', 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Actualizar';
+            }
         }
     } catch (error) {
         logger.error('Error actualizando turno:', error);
         showNotification(error.message || 'Error al actualizar turno', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Actualizar';
+        }
     }
 }
 
@@ -2662,20 +2812,20 @@ async function saveSettings() {
         localStorage.setItem('attendance_settings', JSON.stringify(newSettings));
 
         // Si cambió la configuración de auto-start, aplicar cambio inmediatamente
-        if (oldSettings.autoStartListening !== newSettings.autoStartListening) {
-            const state = await window.autoAttendance.getState();
+        if (oldSettings.autoStartListening !== newSettings.autoStartListening && window.touchMode) {
+            const state = await window.touchMode.getLocalState();
 
-            if (newSettings.autoStartListening && !state.isListening) {
+            if (newSettings.autoStartListening && !state.isActive) {
                 // Iniciar modo automático
-                const result = await window.autoAttendance.start();
+                const result = await window.touchMode.start();
                 if (result.success) {
                     showNotification('Configuración guardada y modo automático iniciado', 'success');
                 } else {
                     showNotification(`Configuración guardada. ${result.message}`, 'warning');
                 }
-            } else if (!newSettings.autoStartListening && state.isListening) {
+            } else if (!newSettings.autoStartListening && state.isActive) {
                 // Detener modo automático
-                const result = await window.autoAttendance.stop();
+                const result = await window.touchMode.stop();
                 if (result.success) {
                     showNotification('Configuración guardada y modo automático detenido', 'success');
                 } else {
@@ -2914,32 +3064,30 @@ async function initializeTouchMode() {
 
                 const { type, data } = eventData;
 
-                // Mostrar notificación solo si el score es exactamente 0 (coincidencia perfecta)
-                if (data.score === 0) {
-                    if (type === 'CHECK_IN_REGISTERED') {
-                        showNotification(
-                            `✅ Huella capturada e identificada - Entrada registrada a las ${data.record.check_in_time}`,
-                            data.record.status === 'late' ? 'warning' : 'success'
-                        );
-                    } else if (type === 'CHECK_OUT_REGISTERED') {
-                        showNotification(
-                            `✅ Huella capturada e identificada - Salida registrada a las ${data.record.check_out_time}`,
-                            'success'
-                        );
-                    }
-                } else {
-                    logger.info(`ℹ️ [UI] Asistencia registrada pero score no es perfecto (score: ${data.score})`);
+                // Mostrar notificación al registrar asistencia
+                if (type === 'CHECK_IN_REGISTERED') {
+                    showNotification(
+                        `✅ Huella capturada e identificada - Entrada registrada a las ${data.record.check_in_time}`,
+                        data.record.status === 'late' ? 'warning' : 'success'
+                    );
+                } else if (type === 'CHECK_OUT_REGISTERED') {
+                    showNotification(
+                        `✅ Huella capturada e identificada - Salida registrada a las ${data.record.check_out_time}`,
+                        'success'
+                    );
                 }
 
-                // Recargar la vista actual si estamos en dashboard o records
+                // Recargar la vista actual según la sección activa
                 logger.info('[UI] Recargando datos de asistencia...');
                 setTimeout(async () => {
                     await loadInitialData();
 
                     if (currentSection === 'dashboard') {
                         loadDashboard();
-                    } else if (currentSection === 'records') {
-                        loadRecordsSection();
+                    } else if (currentSection === 'records' || currentSection === 'attendance') {
+                        loadAttendanceSection();
+                    } else if (currentSection === 'check-in') {
+                        loadCheckInSection();
                     }
                 }, 500);
             });
@@ -3171,17 +3319,26 @@ async function handleAutoAttendanceRegistration(data) {
         );
     }
 
-    // Recargar registros del día si estamos en dashboard o records
-    if (currentSection === 'dashboard' || currentSection === 'records') {
+    // Recargar registros del día según la sección activa
+    if (currentSection === 'dashboard' || currentSection === 'records' || currentSection === 'attendance' || currentSection === 'check-in') {
         setTimeout(async () => {
             await loadInitialData();
             if (currentSection === 'dashboard') {
                 loadDashboard();
-            } else if (currentSection === 'records') {
-                loadRecordsSection();
+            } else if (currentSection === 'records' || currentSection === 'attendance') {
+                loadAttendanceSection();
+            } else if (currentSection === 'check-in') {
+                loadCheckInSection();
             }
         }, 1000);
     }
+}
+
+/**
+ * Cargar sección de registros (alias para loadAttendanceSection)
+ */
+function loadRecordsSection() {
+    return loadAttendanceSection();
 }
 
 /**
@@ -3223,23 +3380,25 @@ function playNotificationSound(type) {
  */
 async function validateBeforeEnrollment(employeeId) {
     try {
-        const canEnroll = await window.autoAttendance.canStartEnrollment();
+        if (!window.touchMode) return true;
+        const state = await window.touchMode.getLocalState();
 
-        if (!canEnroll.can) {
+        if (state && state.isActive) {
             // Mostrar modal de confirmación
             const confirmPause = confirm(
-                `⚠️ El lector está en modo automático\n\n` +
-                `${canEnroll.reason}\n\n` +
-                `¿Desea pausarlo temporalmente para registrar la huella?`
+                '⚠️ El lector está en modo automático continuo.\n\n' +
+                '¿Desea pausarlo temporalmente para registrar la huella?'
             );
 
             if (confirmPause) {
-                const result = await window.autoAttendance.pauseForEnrollment();
+                const result = await window.touchMode.stop();
                 if (result.success) {
+                    touchModeState.isActive = false;
+                    updateTouchModeUI();
                     showNotification('Modo automático pausado temporalmente', 'info');
                     return true;
                 } else {
-                    showNotification('No se pudo pausar el modo automático', 'error');
+                    showNotification('No se pudo pausar el modo automático: ' + (result.message || ''), 'error');
                     return false;
                 }
             }
@@ -3248,8 +3407,8 @@ async function validateBeforeEnrollment(employeeId) {
 
         return true;
     } catch (error) {
-        logger.error('Error validando enrollment:', error);
-        return true; // Permitir continuar si hay error
+        logger.error('Error validando enrollment con TouchMode:', error);
+        return true;
     }
 }
 
@@ -3354,4 +3513,5 @@ Object.assign(window, {
     updateEmployee,
     updateShift,
     toggleAutoAttendance,
+    loadRecordsSection,
 });

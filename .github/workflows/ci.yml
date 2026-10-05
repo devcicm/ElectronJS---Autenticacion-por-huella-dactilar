@@ -1,0 +1,47 @@
+name: CI - Build, Test & Parity Verification
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'task/**'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build & Verify (Node ${{ matrix.node-version }})
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x, 24.x]
+
+    steps:
+      - name: Checkout Code with Submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Root Dependencies
+        run: npm install
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Verify Golden Master Contracts
+        run: node refactor/scripts/gm-verify.mjs

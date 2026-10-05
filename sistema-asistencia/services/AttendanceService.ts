@@ -18,6 +18,7 @@ import {
     EmployeeWithDetails,
     AttendanceFilters
 } from '../types/index.js';
+import { getLocalDateString, parseLocalDate } from '../shared/date-utils.js';
 
 export class AttendanceService {
     private db = getDatabaseManager();
@@ -156,7 +157,7 @@ export class AttendanceService {
         fingerprints: number;
     } {
         const employee = this.employeeModel.getByIdWithDetails(employeeId);
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         const todayAttendance = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
         const fingerprints = this.fingerprintModel.countByEmployee(employeeId);
 
@@ -184,7 +185,7 @@ export class AttendanceService {
             return { can: false, reason: 'Empleado no activo' };
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         const existing = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
 
         if (existing) {
@@ -207,7 +208,7 @@ export class AttendanceService {
             return { can: false, reason: 'Empleado no encontrado' };
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         const existing = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
 
         if (!existing) {
@@ -244,7 +245,7 @@ export class AttendanceService {
      * Generar reporte diario
      */
     generateDailyReport(date?: string) {
-        const targetDate = date || new Date().toISOString().split('T')[0];
+        const targetDate = date || getLocalDateString();
         const records = this.attendanceModel.getAllWithDetails({
             start_date: targetDate,
             end_date: targetDate
@@ -277,12 +278,12 @@ export class AttendanceService {
      * Generar reporte semanal
      */
     generateWeeklyReport(endDate?: string) {
-        const end = endDate ? new Date(endDate) : new Date();
+        const end = endDate ? parseLocalDate(endDate) : new Date();
         const start = new Date(end);
         start.setDate(start.getDate() - 6); // 7 días atrás
 
-        const startStr = start.toISOString().split('T')[0];
-        const endStr = end.toISOString().split('T')[0];
+        const startStr = getLocalDateString(start);
+        const endStr = getLocalDateString(end);
 
         const records = this.attendanceModel.getAllWithDetails({
             start_date: startStr,
@@ -330,8 +331,8 @@ export class AttendanceService {
         const startDate = new Date(targetYear, targetMonth - 1, 1);
         const endDate = new Date(targetYear, targetMonth, 0);
 
-        const startStr = startDate.toISOString().split('T')[0];
-        const endStr = endDate.toISOString().split('T')[0];
+        const startStr = getLocalDateString(startDate);
+        const endStr = getLocalDateString(endDate);
 
         const records = this.attendanceModel.getAllWithDetails({
             start_date: startStr,
@@ -393,11 +394,11 @@ export class AttendanceService {
         }
 
         // Por defecto: último mes
-        const end = endDate ? new Date(endDate) : new Date();
-        const start = startDate ? new Date(startDate) : new Date(end.getFullYear(), end.getMonth(), 1);
+        const end = endDate ? parseLocalDate(endDate) : new Date();
+        const start = startDate ? parseLocalDate(startDate) : new Date(end.getFullYear(), end.getMonth(), 1);
 
-        const startStr = start.toISOString().split('T')[0];
-        const endStr = end.toISOString().split('T')[0];
+        const startStr = getLocalDateString(start);
+        const endStr = getLocalDateString(end);
 
         const records = this.attendanceModel.getAllWithDetails({
             employee_id: employeeId,

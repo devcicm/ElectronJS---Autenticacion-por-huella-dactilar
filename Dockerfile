@@ -50,8 +50,13 @@ RUN npm install
 # Copiar el resto del código
 COPY . .
 
-# Compilar TypeScript
-RUN npm run build || npx tsc || true
+# Compilar TypeScript y copiar archivos del renderer y esquema (compatible con Linux)
+RUN npx tsc -p tsconfig.json && \
+    npx tsc -p tsconfig.preload.json && \
+    npx tsc -p tsconfig.asistencia.json && \
+    mkdir -p dist/sistema-asistencia/renderer dist/sistema-asistencia/database && \
+    cp -r sistema-asistencia/renderer/* dist/sistema-asistencia/renderer/ && \
+    cp sistema-asistencia/database/schema.sql dist/sistema-asistencia/database/
 
 # Crear directorio para base de datos
 RUN mkdir -p /app/sistema-asistencia/database

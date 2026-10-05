@@ -11,6 +11,7 @@ import { getDatabaseManager } from '../database/init.js';
 import { AttendanceModel } from '../models/index.js';
 import { BIOMETRIC_SERVER, fetchJson } from '../shared/biometric-config.js';
 import { logger } from '../shared/logger.js';
+import { getLocalDateString } from '../shared/date-utils.js';
 
 export interface TouchModeState {
     isActive: boolean;
@@ -36,6 +37,7 @@ export class TouchModeService {
     private consecutiveErrors: number = 0;
     private readonly MAX_CONSECUTIVE_ERRORS = 5;
     private errorDeactivationInProgress = false;
+    private isStarting = false;
 
     constructor() {
         const db = getDatabaseManager();
@@ -47,6 +49,23 @@ export class TouchModeService {
      * Iniciar modo de captura continua
      */
     async start(): Promise<{ success: boolean; message: string }> {
+        if (this.state.isActive) {
+            logger.info('[TouchModeService] Modo touch ya se encuentra activo.');
+            return {
+                success: true,
+                message: 'Modo de captura continua ya está activo'
+            };
+        }
+
+        if (this.isStarting) {
+            logger.info('[TouchModeService] Inicialización de modo touch ya en progreso.');
+            return {
+                success: false,
+                message: 'Inicialización de modo touch en progreso'
+            };
+        }
+
+        this.isStarting = true;
         try {
             logger.info('=== INICIANDO MODO TOUCH CONTINUO ===');
 
@@ -136,6 +155,8 @@ export class TouchModeService {
                 success: false,
                 message: error.message || 'Error al iniciar modo touch'
             };
+        } finally {
+            this.isStarting = false;
         }
     }
 
@@ -211,11 +232,6 @@ export class TouchModeService {
                 headers: { 'Content-Type': 'application/json' }
             }) as { ok: boolean; message?: string };
 
-            // Desconectar eventos SSE
-            this.disconnectFromEvents();
-
-            this.state.isActive = false;
-
             logger.info('[TouchModeService] Modo touch detenido correctamente');
 
             return {
@@ -228,6 +244,10 @@ export class TouchModeService {
                 success: false,
                 message: error.message || 'Error al detener modo touch'
             };
+        } finally {
+            // Siempre desconectar eventos SSE y resetear estado activo local
+            this.disconnectFromEvents();
+            this.state.isActive = false;
         }
     }
 
@@ -442,22 +462,36 @@ export class TouchModeService {
             // Obtener información del empleado
             const db = getDatabaseManager();
             const employee = db.queryOne<any>(
-                'SELECT first_name, last_name, employee_code FROM employees WHERE id = ?',
+                'SELECT first_name, last_name, employee_code, status FROM employees WHERE id = ?',
                 [employeeId]
             );
 
-            if (employee) {
-                logger.info(`[TouchModeService] - Nombre: ${employee.first_name} ${employee.last_name}`);
-                logger.info(`[TouchModeService] - Código: ${employee.employee_code}`);
+            if (!employee) {
+                logger.warn(`⚠️ [TouchModeService] Huella detectada pertenece a un empleado inexistente o eliminado (ID: ${employeeId})`);
+                this.emitEvent('IDENTIFICATION_FAILED', {
+                    message: `Empleado con ID ${employeeId} no encontrado en el sistema`
+                });
+                return;
             }
+
+            if (employee.status !== 'active') {
+                logger.warn(`⚠️ [TouchModeService] Empleado ${employee.first_name} ${employee.last_name} está inactivo.`);
+                this.emitEvent('IDENTIFICATION_FAILED', {
+                    message: `El empleado ${employee.first_name} ${employee.last_name} está inactivo`
+                });
+                return;
+            }
+
+            logger.info(`[TouchModeService] - Nombre: ${employee.first_name} ${employee.last_name}`);
+            logger.info(`[TouchModeService] - Código: ${employee.employee_code}`);
 
             this.emitEvent('EMPLOYEE_IDENTIFIED', {
                 employeeId,
                 score: identifyResult.score
             });
 
-            // Determinar si es entrada o salida
-            const today = new Date().toISOString().split('T')[0];
+            // Determinar si es entrada o salida usando fecha local
+            const today = getLocalDateString();
             logger.info(`[TouchModeService] Verificando registros del día: ${today}`);
 
             const todayRecord = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
