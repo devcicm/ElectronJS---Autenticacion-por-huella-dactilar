@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.preload.json && tsc -p tsconfig.asistencia.json && xcopy /Y /I /E sistema-asistencia\\renderer dist\\sistema-asistencia\\renderer\\ && xcopy /Y /I sistema-asistencia\\database\\schema.sql dist\\sistema-asistencia\\database\\",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron . --dev",
+    "debug": "electron . --remote-debugging-port=9222",
     "test": "npm run build && node --experimental-strip-types --test tests/refactor/*.test.mjs tests/refactor/*.test.ts"
   },
   "devDependencies": {

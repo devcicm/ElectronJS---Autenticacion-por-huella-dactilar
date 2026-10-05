@@ -71,67 +71,79 @@ function setupNavigation() {
 
     navItems.forEach(item => {
         item.addEventListener('click', () => {
-            const section = item.dataset.section;
-            navItems.forEach(nav => nav.classList.remove('active'));
-            item.classList.add('active');
-            showSection(section);
+            try {
+                const section = item.dataset.section;
+                navItems.forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+                showSection(section);
+            } catch (e) {
+                logger.error('Nav click failed:', e);
+                showNotification('Error al cambiar de sección', 'error');
+            }
         });
     });
 }
 
 function showSection(sectionName) {
-    currentSection = sectionName;
+    try {
+        currentSection = sectionName;
 
-    // Ocultar todas las secciones
-    document.querySelectorAll('.content-section').forEach(section => {
-        section.classList.remove('active');
-    });
+        // Ocultar todas las secciones
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.remove('active');
+        });
 
-    // Mostrar sección seleccionada
-    const targetSection = document.getElementById(`${sectionName}-section`);
-    if (targetSection) {
-        targetSection.classList.add('active');
-    }
+        // Mostrar sección seleccionada
+        const targetSection = document.getElementById(`${sectionName}-section`);
+        if (targetSection) {
+            targetSection.classList.add('active');
+        }
 
-    // Actualizar título
-    const titles = {
-        'dashboard': 'Dashboard',
-        'check-in': 'Marcar Asistencia',
-        'employees': 'Empleados',
-        'attendance': 'Registros de Asistencia',
-        'departments': 'Departamentos',
-        'shifts': 'Turnos',
-        'reports': 'Reportes',
-        'settings': 'Configuración'
-    };
-    document.getElementById('page-title').textContent = titles[sectionName] || 'Sistema';
+        // Actualizar título
+        const titles = {
+            'dashboard': 'Dashboard',
+            'check-in': 'Marcar Asistencia',
+            'employees': 'Empleados',
+            'attendance': 'Registros de Asistencia',
+            'departments': 'Departamentos',
+            'shifts': 'Turnos',
+            'reports': 'Reportes',
+            'settings': 'Configuración'
+        };
+        const titleEl = document.getElementById('page-title');
+        if (titleEl) titleEl.textContent = titles[sectionName] || 'Sistema';
 
-    // Cargar datos según la sección
-    switch (sectionName) {
-        case 'dashboard':
-            loadDashboard();
-            break;
-        case 'check-in':
-            loadCheckInSection();
-            break;
-        case 'employees':
-            loadEmployeesSection();
-            break;
-        case 'attendance':
-            loadAttendanceSection();
-            break;
-        case 'departments':
-            loadDepartmentsSection();
-            break;
-        case 'shifts':
-            loadShiftsSection();
-            break;
-        case 'reports':
-            loadReportsSection();
-            break;
-        case 'settings':
-            loadSettingsSection();
-            break;
+        // B.2: wrap loaders con withTimeout — si cuelgan >5s, no bloquean el switch
+        const LOAD_TIMEOUT = 5000;
+        switch (sectionName) {
+            case 'dashboard':
+                withTimeout(loadDashboard(), LOAD_TIMEOUT, 'loadDashboard');
+                break;
+            case 'check-in':
+                withTimeout(loadCheckInSection(), LOAD_TIMEOUT, 'loadCheckInSection');
+                break;
+            case 'employees':
+                withTimeout(loadEmployeesSection(), LOAD_TIMEOUT, 'loadEmployeesSection');
+                break;
+            case 'attendance':
+                withTimeout(loadAttendanceSection(), LOAD_TIMEOUT, 'loadAttendanceSection');
+                break;
+            case 'departments':
+                withTimeout(loadDepartmentsSection(), LOAD_TIMEOUT, 'loadDepartmentsSection');
+                break;
+            case 'shifts':
+                withTimeout(loadShiftsSection(), LOAD_TIMEOUT, 'loadShiftsSection');
+                break;
+            case 'reports':
+                withTimeout(loadReportsSection(), LOAD_TIMEOUT, 'loadReportsSection');
+                break;
+            case 'settings':
+                withTimeout(loadSettingsSection(), LOAD_TIMEOUT, 'loadSettingsSection');
+                break;
+        }
+    } catch (e) {
+        logger.error(`showSection(${sectionName}) failed:`, e);
+        showNotification('Error al cambiar de sección', 'error');
     }
 }
 
