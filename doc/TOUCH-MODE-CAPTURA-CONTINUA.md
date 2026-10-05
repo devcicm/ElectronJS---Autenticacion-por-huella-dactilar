@@ -201,72 +201,43 @@ private void EmitEvent(string eventType, string message, string severity, object
 
 ```javascript
 app.post('/api/touch/identify-last', async (req, res) => {
-    try {
-        const { targetFarn = 5000 } = req.body;
-
-        // Llamar al bridge C#
-        const result = await edge_identifyLastCaptured({
-            targetFarn: targetFarn
-        });
-
-        if (result.matched) {
-            emitSSE('TOUCH_IDENTIFICATION_MATCH', {
-                userId: result.userId,
-                score: result.score,
-                gallerySize: result.gallerySize
-            });
-        } else {
-            emitSSE('TOUCH_IDENTIFICATION_NO_MATCH', {
-                score: result.score,
-                gallerySize: result.gallerySize
-            });
-        }
-
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ ok: false, error: error.message });
-    }
+  try {
+    const targetFarn = req.body?.targetFarn ?? 21474;
+    const result = await call({ op: 'identifyLastCapture', targetFarn });
+    res.json(result);
+  } catch (e) {
+    respondInternal(res, e);
+  }
 });
 ```
+
+> Los eventos `TOUCH_IDENTIFICATION_MATCH` / `TOUCH_IDENTIFICATION_NO_MATCH` **no** los emite este
+> handler HTTP: los genera el bridge C# con `SendEvent(...)` dentro de `identifyLastCapture`
+> (`EdgeUruBridge.cs:593-637`) y llegan por SSE (ver abajo).
 
 #### Server-Sent Events (SSE)
 
 El backend mantiene conexiones SSE abiertas para enviar eventos en tiempo real:
 
 ```javascript
-let sseClients = [];
-
-app.get('/api/events', (req, res) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
-
-    const clientId = Date.now();
-    const newClient = { id: clientId, res };
-
-    sseClients.push(newClient);
-    console.log(`[SSE] client connected (#${sseClients.length})`);
-
-    req.on('close', () => {
-        sseClients = sseClients.filter(c => c.id !== clientId);
-        console.log(`[SSE] client disconnected`);
-    });
+// Un único endpoint SSE. El fan-out lo realiza la clase SseBridge (Map de clientes + flush).
+app.get('/events', (req, res) => {
+  const detach = sseBridge.attachClient(res);
+  req.on('close', detach);
+  req.on('error', detach);
 });
 
-function emitSSE(eventType, data) {
-    const event = {
-        event: eventType,
-        data: JSON.stringify(data),
-        timestamp: new Date().toISOString()
-    };
-
-    sseClients.forEach(client => {
-        client.res.write(`event: ${eventType}\n`);
-        client.res.write(`data: ${JSON.stringify(data)}\n\n`);
-    });
-}
+// El bridge C# empuja cada evento por el callback registrado una sola vez:
+await call({
+  op: 'registerCallback',
+  callback: async (eventData) => { sseBridge.emit(eventData); return null; }
+});
 ```
+
+> **Contrato completo**: catálogo de eventos, envelope (`evt/eventType/message/severity/origin/timestamp/data`)
+> y hook edge-js (mono-suscriptor) en
+> **[CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md](./CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md)**.
+> Formato de wire: `data: <json>\n\n` (sin `event:`), endpoint **`GET /events`** (no `/api/events`).
 
 ---
 
@@ -313,7 +284,7 @@ async start(): Promise<TouchModeResult> {
 
 ```typescript
 private connectToSSE(): void {
-    this.eventSource = new EventSource(`${BIOMETRIC_SERVER}/api/events`);
+    this.eventSource = new EventSource(`${BIOMETRIC_SERVER}/events`);
 
     // Evento: Dedo detectado
     this.eventSource.addEventListener('FINGER_TOUCHED', (e) => {
@@ -668,7 +639,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 ```javascript
 // Conexión SSE
-const eventSource = new EventSource('http://localhost:8080/api/events');
+const eventSource = new EventSource('http://localhost:8080/events');
 
 // Escuchar eventos específicos
 eventSource.addEventListener('FINGER_TOUCHED', (e) => {
@@ -771,7 +742,7 @@ this.eventSource.onerror = (error) => {
    - Endpoints clave:
      - `/api/touch/start`: Iniciar modo touch
      - `/api/touch/identify-last`: Identificar última huella
-     - `/api/events`: Stream SSE
+     - `/events`: Stream SSE
 
 ### Frontend
 
@@ -959,7 +930,7 @@ Servidor: → [Envía otro evento cuando ocurre]
    │   │   - Cargar FMDs en RAM del backend
    │   │
    │   └─→ connectToSSE()
-   │       EventSource('http://localhost:8080/api/events')
+   │       EventSource('http://localhost:8080/events')
    │       - Listener: FINGER_TOUCHED
    │       - Listener: FINGERPRINT_READY
    │       - Listener: errores

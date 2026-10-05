@@ -23,6 +23,12 @@ Esta carpeta contiene toda la documentación técnica del Sistema de Asistencia 
    - Diagrama de hilos (threading)
    - Flujo de manejo de errores
 
+3. **[CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md](./CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md)**
+   - Hook de captura y validación (3 capas: .NET → edge-js → SSE)
+   - Catálogo completo de eventos (~60 tipos) con `data` y severidad
+   - Contrato de suscripción de consumidores (`GET /events`)
+   - Envelope/wire format y notas de diseño
+
 ---
 
 ## 🏗️ Estructura del Proyecto
@@ -336,7 +342,7 @@ private async identifyAndRegister() {
 ```typescript
 // TouchModeService.ts
 private connectToSSE() {
-    this.eventSource = new EventSource(`${SERVER}/api/events`);
+    this.eventSource = new EventSource(`${SERVER}/events`);
 
     this.eventSource.addEventListener('FINGERPRINT_READY', (e) => {
         this.state.totalFingerprints++;

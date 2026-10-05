@@ -1,5 +1,7 @@
 # Diagramas de Flujo - Sistema de Captura Continua
 
+> Contrato de eventos (hook edge-js + SSE `GET /events`): **[CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md](./CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md)**.
+
 ## Diagrama de Secuencia Completo
 
 ```
@@ -194,7 +196,7 @@
 │  │    │   - Cargar FMDs en RAM                               │ │
 │  │    │                                                       │ │
 │  │    └─► connectToSSE()                                     │ │
-│  │        EventSource('http://localhost:8080/api/events')    │ │
+│  │        EventSource('http://localhost:8080/events')        │ │
 │  │        - Listener: FINGER_TOUCHED                         │ │
 │  │        - Listener: FINGERPRINT_READY                      │ │
 │  │        - Listener: errors                                 │ │

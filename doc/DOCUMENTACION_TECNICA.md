@@ -314,6 +314,10 @@ BiometricAdapter.on('VERIFICATION_SUCCESS', (data) => {
 - `ENROLLMENT_COMPLETED` - Enrolamiento completado
 - `VERIFICATION_SUCCESS` - Verificación exitosa
 - `VERIFICATION_FAILED` - Verificación fallida
+
+> **Catálogo completo y contrato** (envelope `evt/eventType/message/severity/origin/timestamp/data`,
+> hook mono-suscriptor edge-js, suscripción SSE `GET /events`):
+> **[CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md](./CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md)**.
 - `IDENTIFICATION_MATCH` - Identificación exitosa
 
 #### Métodos API

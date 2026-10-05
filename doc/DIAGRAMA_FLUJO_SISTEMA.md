@@ -188,7 +188,7 @@ USUARIO PRESIONA "Enrolar"
     │   │
     │   ├─► Para cada muestra (1/4, 2/4, 3/4, 4/4):
     │   │
-    │   ├─► [6.1] SendEvent("SAMPLE_REQUEST", "Coloca el dedo...")
+    │   ├─► [6.1] SendEvent("CAPTURE_STARTED", "Coloque su dedo...")
     │   │   • Emisión de evento SSE al frontend
     │   │
     │   ├─► [6.2] Reader.CaptureFingerprint()
@@ -275,7 +275,7 @@ USUARIO PRESIONA "Enrolar"
 [11] EVENTOS EN TIEMPO REAL (Paralelo al flujo principal)
     │
     ├─► Durante el proceso, el C# emite eventos:
-    │   • SendEvent("SAMPLE_REQUEST", ...)
+    │   • SendEvent("CAPTURE_STARTED", ...)
     │   • SendEvent("SAMPLE_COLLECTED", ...)
     │   • SendEvent("IMAGE_CAPTURED", ...)
     │
@@ -455,20 +455,20 @@ C# (Dp4500Service.cs)
     ▼
 EdgeUruBridge.cs
     │
-    ├─► callback(new { type = "ENROLLMENT_STARTED", payload = ... })
+    ├─► callback({ evt:"ENROLLMENT_STARTED", eventType, message, severity, origin, timestamp, data })
     │
     ▼
 Node.js (server.ts)
     │
     ├─► Edge.js callback recibe el evento
-    ├─► SseBridge.broadcast(event)
+    ├─► SseBridge.emit(event)
     │
     ▼
 SSE Stream (/events)
     │
     ├─► Envía a todos los clientes conectados
     │   Content-Type: text/event-stream
-    │   data: {"type":"ENROLLMENT_STARTED","payload":{...}}
+    │   data: {"evt":"ENROLLMENT_STARTED","eventType":"ENROLLMENT_STARTED","message":"...","severity":"INFO","origin":"dp4500","timestamp":"...","data":{...},"serverTimestamp":"..."}
     │
     ▼
 BiometricAdapter.js (Frontend)
@@ -490,7 +490,7 @@ Frontend Components
 |--------|-------------|--------|---------|
 | `READER_READY` | Lector inicializado | C# Bridge | Frontend |
 | `READER_DISPOSED` | Lector apagado | C# Bridge | Frontend |
-| `SAMPLE_REQUEST` | Solicitando colocar dedo | Dp4500Service | Frontend |
+| `CAPTURE_STARTED` | Solicita colocar el dedo | Dp4500Service | Frontend |
 | `SAMPLE_COLLECTED` | Muestra capturada (1/4, 2/4...) | Dp4500Service | Frontend |
 | `IMAGE_CAPTURED` | Imagen de huella disponible | Dp4500Service | Frontend |
 | `ENROLLMENT_STARTED` | Inicio de enrolamiento | Dp4500Service | Frontend |
@@ -499,6 +499,9 @@ Frontend Components
 | `VERIFICATION_FAILED` | Verificación fallida | Dp4500Service | Frontend |
 | `IDENTIFICATION_MATCH` | Usuario identificado | Dp4500Service | Frontend |
 | `IDENTIFICATION_NO_MATCH` | No se encontró coincidencia | Dp4500Service | Frontend |
+
+> **Contrato completo de eventos** (catálogo de ~60 eventos, hook edge-js mono-suscriptor y suscripción SSE):
+> ver **[CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md](./CONTRATO-EVENTOS-MOTOR-BIOMETRICO.md)**.
 
 ---
 
@@ -584,7 +587,7 @@ POST /api/enroll
 C# Bridge: Enroll3()
     ↓
 BUCLE 4 veces:
-    ├─► Evento: SAMPLE_REQUEST
+    ├─► Evento: CAPTURE_STARTED
     ├─► Capturar imagen
     ├─► Validar calidad
     ├─► Convertir a FMD
