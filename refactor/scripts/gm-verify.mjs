@@ -41,7 +41,10 @@ function gm2_ipc() {
   const namespaces = [...preload.matchAll(/exposeInMainWorld\('([^']+)'/g)].map(m => m[1]).sort();
   const invoked = [...new Set([...preload.matchAll(/ipcRenderer\.invoke\('([^']+)'/g)].map(m => m[1]))].sort();
   const events = [...new Set([...preload.matchAll(/ipcRenderer\.on\('([^']+)'/g)].map(m => m[1]))].sort();
-  const handled = [...new Set([...main.matchAll(/ipcMain\.handle\('([^']+)'/g)].map(m => m[1]))].sort();
+  const handled = [...new Set([
+        ...main.matchAll(/ipcMain\.handle\('([^']+)'/g).map(m => m[1]),
+        ...main.matchAll(/safeHandle\('([^']+)'/g).map(m => m[1]),
+    ])].sort();
   const sent = [...new Set([...main.matchAll(/webContents\.send\('([^']+)'/g)].map(m => m[1]))].sort();
   const missingHandlers = invoked.filter(c => !handled.includes(c));
   const orphanHandlers = handled.filter(c => !invoked.includes(c));

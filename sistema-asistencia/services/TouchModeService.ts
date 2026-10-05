@@ -9,7 +9,7 @@ import { EventSource } from 'eventsource';
 import { BiometricService } from './BiometricService.js';
 import { getDatabaseManager } from '../database/init.js';
 import { AttendanceModel } from '../models/index.js';
-import { BIOMETRIC_SERVER } from '../shared/biometric-config.js';
+import { BIOMETRIC_SERVER, fetchJson } from '../shared/biometric-config.js';
 import { logger } from '../shared/logger.js';
 
 export interface TouchModeState {
@@ -78,12 +78,10 @@ export class TouchModeService {
 
             // Inicializar el lector si no está inicializado
             logger.info('[TouchModeService] 🔧 Inicializando lector biométrico...');
-            const initResponse = await fetch(`${BIOMETRIC_SERVER}/api/init`, {
+            const initResult = await fetchJson(`${BIOMETRIC_SERVER}/api/init`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
-            });
-
-            const initResult = await initResponse.json() as { ok: boolean; message?: string };
+            }) as { ok: boolean; message?: string };
             if (!initResult.ok) {
                 logger.warn('[TouchModeService] ⚠️ Advertencia al inicializar lector:', initResult.message);
                 // Continuar de todos modos, puede que ya esté inicializado
@@ -93,12 +91,10 @@ export class TouchModeService {
 
             // Iniciar modo touch en el backend
             logger.info('[TouchModeService] 🚀 Activando modo de captura continua en backend...');
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/touch/start`, {
+            const result = await fetchJson(`${BIOMETRIC_SERVER}/api/touch/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
-            });
-
-            const result = await response.json() as { ok: boolean; message?: string; mode?: string };
+            }) as { ok: boolean; message?: string; mode?: string };
 
             if (!result.ok) {
                 logger.error('[TouchModeService] ❌ Error al iniciar modo touch:', result.message);
@@ -162,7 +158,7 @@ export class TouchModeService {
             logger.info(`[TouchModeService] Encontradas ${fingerprints.length} huellas en BD`);
 
             // Primero, limpiar el store del backend
-            await fetch(`${BIOMETRIC_SERVER}/api/store`, {
+            await fetchJson(`${BIOMETRIC_SERVER}/api/store`, {
                 method: 'DELETE'
             });
             logger.info('[TouchModeService] Store del backend limpiado');
@@ -174,7 +170,7 @@ export class TouchModeService {
 
                 try {
                     // Cargar template al backend usando el nuevo endpoint
-                    const response = await fetch(`${BIOMETRIC_SERVER}/api/load-template`, {
+                    const result = await fetchJson(`${BIOMETRIC_SERVER}/api/load-template`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -183,9 +179,7 @@ export class TouchModeService {
                             hand: fp.hand,
                             finger: fp.finger_position
                         })
-                    });
-
-                    const result = await response.json() as { ok: boolean; message?: string; tag?: string };
+                    }) as { ok: boolean; message?: string; tag?: string };
 
                     if (result.ok) {
                         logger.info(`[TouchModeService] ✅ Huella cargada: ${result.tag}`);
@@ -212,12 +206,10 @@ export class TouchModeService {
     async stop(): Promise<{ success: boolean; message: string }> {
         try {
             // Detener modo touch en el backend
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/touch/stop`, {
+            const result = await fetchJson(`${BIOMETRIC_SERVER}/api/touch/stop`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
-            });
-
-            const result = await response.json() as { ok: boolean; message?: string };
+            }) as { ok: boolean; message?: string };
 
             // Desconectar eventos SSE
             this.disconnectFromEvents();
@@ -244,8 +236,7 @@ export class TouchModeService {
      */
     async getStatus(): Promise<{ isActive: boolean; mode: string }> {
         try {
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/touch/status`);
-            const result = await response.json() as { ok: boolean; isActive: boolean; mode: string };
+            const result = await fetchJson(`${BIOMETRIC_SERVER}/api/touch/status`) as { ok: boolean; isActive: boolean; mode: string };
 
             return {
                 isActive: result.isActive || false,
@@ -404,23 +395,13 @@ export class TouchModeService {
             // En modo touch, usar el endpoint especializado para identificar con la última huella capturada
             logger.info('[TouchModeService] Llamando al backend para identificar con última huella capturada...');
 
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/touch/identify-last`, {
+            const identifyResult = await fetchJson(`${BIOMETRIC_SERVER}/api/touch/identify-last`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     targetFarn: 5000 // Umbral de coincidencia más estricto (menor valor = mayor precisión)
                 })
-            });
-
-            if (!response.ok) {
-                logger.error('[TouchModeService] Error HTTP en identify:', response.status);
-                this.emitEvent('IDENTIFICATION_FAILED', {
-                    message: `Error HTTP: ${response.status}`
-                });
-                return;
-            }
-
-            const identifyResult = await response.json() as {
+            }) as {
                 ok: boolean;
                 matched: boolean;
                 userId?: string;

@@ -37,6 +37,18 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
+  // A.1: forwarder de console del renderer → logger main (visible en stdout/terminal)
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    const fns = ['debug', 'info', 'warn', 'error'] as const;
+    const fn = fns[level] || 'info';
+    (logger as any)[fn](`[Renderer] ${message}`);
+  });
+
+  // Crash detection: si el renderer muere, log + intentar notificar
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    logger.error('❌ Renderer process gone:', details.reason);
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -184,6 +196,20 @@ function stopBiometricServer(): { success: boolean; message: string } {
 
 // Manejadores IPC para comunicación con el renderer
 function initIpcHandlers() {
+  // C: wrapper defensivo. Si un handler tira una excepción no atrapada, el IPC
+  // reject silenciosamente y el renderer no recibe feedback. Lo logueamos + retornamos
+  // error estructurado.
+  const safeHandle = (channel: string, fn: (...args: any[]) => Promise<any> | any) => {
+    ipcMain.handle(channel, async (event, ...args) => {
+        try {
+            return await fn(event, ...args);
+        } catch (error: any) {
+            logger.error(`[IPC ${channel}] failed:`, error);
+            return { success: false, error: error.message || String(error) };
+        }
+    });
+  };
+
   // Servidor biométrico
   ipcMain.handle('biometric:start', async () => {
     return await startBiometricServer();
@@ -260,13 +286,13 @@ function initIpcHandlers() {
     return service.getTodayRecords();
   });
 
-  // Check-in / Check-out
-  ipcMain.handle('attendance:checkIn', async (_event, employeeId: number, fingerprintVerified: boolean) => {
+  // Check-in / Check-out (C: safeHandle)
+  safeHandle('attendance:checkIn', async (_event, employeeId: number, fingerprintVerified: boolean) => {
     const service = await getAttendanceService();
     return await service.checkInWithFingerprint(employeeId, fingerprintVerified);
   });
 
-  ipcMain.handle('attendance:checkOut', async (_event, employeeId: number) => {
+  safeHandle('attendance:checkOut', async (_event, employeeId: number) => {
     const service = await getAttendanceService();
     return await service.checkOut(employeeId);
   });
@@ -503,37 +529,37 @@ function initIpcHandlers() {
 
   // === BIOMETRIC SERVICE HANDLERS ===
 
-  ipcMain.handle('biometric:isServerAvailable', async () => {
+  safeHandle('biometric:isServerAvailable', async () => {
     const service = await getBiometricService();
     return await service.isServerAvailable();
   });
 
-  ipcMain.handle('biometric:captureFingerprint', async () => {
+  safeHandle('biometric:captureFingerprint', async () => {
     const service = await getBiometricService();
     return await service.captureFingerprint();
   });
 
-  ipcMain.handle('biometric:enrollFingerprint', async (_event, employeeId: number, fingerPosition: string) => {
+  safeHandle('biometric:enrollFingerprint', async (_event, employeeId: number, fingerPosition: string) => {
     const service = await getBiometricService();
     return await service.enrollFingerprint(employeeId, fingerPosition as any);
   });
 
-  ipcMain.handle('biometric:verifyFingerprint', async (_event, employeeId: number) => {
+  safeHandle('biometric:verifyFingerprint', async (_event, employeeId: number) => {
     const service = await getBiometricService();
     return await service.verifyFingerprint(employeeId);
   });
 
-  ipcMain.handle('biometric:identifyEmployee', async () => {
+  safeHandle('biometric:identifyEmployee', async () => {
     const service = await getBiometricService();
     return await service.identifyEmployee();
   });
 
-  ipcMain.handle('biometric:getReaderStats', async () => {
+  safeHandle('biometric:getReaderStats', async () => {
     const service = await getBiometricService();
     return await service.getReaderStats();
   });
 
-  ipcMain.handle('biometric:getDeviceInfo', async () => {
+  safeHandle('biometric:getDeviceInfo', async () => {
     const service = await getBiometricService();
     return await service.getDeviceInfo();
   });
@@ -580,12 +606,12 @@ function initIpcHandlers() {
     return touchModeServiceInstance;
   };
 
-  ipcMain.handle('touchMode:start', async () => {
+  safeHandle('touchMode:start', async () => {
     const service = await getTouchModeService();
     return await service.start();
   });
 
-  ipcMain.handle('touchMode:stop', async () => {
+  safeHandle('touchMode:stop', async () => {
     const service = await getTouchModeService();
     return await service.stop();
   });

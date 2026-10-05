@@ -29,6 +29,20 @@ let autoAttendanceState = {
 };
 
 // ==================== INICIALIZACIÓN ====================
+// B.2: wrap defensivo contra cuelgues en IPC/servicios externos — la UI no se queda
+// en "Inicializando..." si un servicio tarda demasiado.
+const withTimeout = (promise, ms, label) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout (>${ms}ms)`)), ms)),
+]).catch(err => {
+    logger.warn(`${label} skipped:`, err.message);
+    return null;
+});
+
+// B.3: capturar errores async no atrapados (incluye promesas en renderer que escapan)
+window.addEventListener('unhandledrejection', e => logger.error('Unhandled:', e.reason));
+window.addEventListener('error', e => logger.error('Error global:', e.message, e.filename, e.lineno));
+
 document.addEventListener('DOMContentLoaded', async () => {
     logger.info('🚀 Sistema de Asistencia - Iniciando...');
 
@@ -39,11 +53,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateClock();
     setInterval(updateClock, 1000);
 
-    // Cargar datos iniciales
-    await loadInitialData();
+    // Cargar datos iniciales (con timeout 10s — engine puede tardar, no debe bloquear dashboard)
+    await withTimeout(loadInitialData(), 10_000, 'loadInitialData');
 
-    // Inicializar modo touch
-    await initializeTouchMode();
+    // Inicializar modo touch (con timeout 10s — si el engine falla, dashboard sigue)
+    await withTimeout(initializeTouchMode(), 10_000, 'initializeTouchMode');
 
     // Mostrar dashboard por defecto
     showSection('dashboard');

@@ -6,7 +6,7 @@
 import { getDatabaseManager } from '../database/init.js';
 import { FingerprintModel } from '../models/index.js';
 import { FingerPosition } from '../types/index.js';
-import { BIOMETRIC_SERVER, DEFAULT_TARGET_FARN, TIMEOUT_CAPTURE_MS, TIMEOUT_ENROLL_MS, TIMEOUT_VERIFY_MS, TIMEOUT_IDENTIFY_MS } from '../shared/biometric-config.js';
+import { BIOMETRIC_SERVER, DEFAULT_TARGET_FARN, TIMEOUT_CAPTURE_MS, TIMEOUT_ENROLL_MS, TIMEOUT_VERIFY_MS, TIMEOUT_IDENTIFY_MS, fetchJson } from '../shared/biometric-config.js';
 import { logger } from '../shared/logger.js';
 
 export class BiometricService {
@@ -19,10 +19,8 @@ export class BiometricService {
      */
     async isServerAvailable(): Promise<boolean> {
         try {
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/store-stats`, {
-                signal: AbortSignal.timeout(3000)
-            });
-            return response.ok;
+            const data = await fetchJson(`${BIOMETRIC_SERVER}/api/store-stats`) as { ok?: boolean };
+            return data?.ok === true;
         } catch {
             return false;
         }
@@ -38,12 +36,10 @@ export class BiometricService {
 
         try {
             // Inicializar el lector
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/init`, {
+            const data = await fetchJson(`${BIOMETRIC_SERVER}/api/init`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
-            });
-
-            const data = await response.json() as { ok: boolean; error?: string };
+            }) as { ok: boolean; error?: string };
 
             if (data.ok) {
                 this.readerInitialized = true;
@@ -89,21 +85,11 @@ export class BiometricService {
                 };
             }
 
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/single`, {
+            const data = await fetchJson(`${BIOMETRIC_SERVER}/api/single`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ timeoutMs: TIMEOUT_CAPTURE_MS })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({})) as { error?: string };
-                return {
-                    success: false,
-                    message: errorData.error || 'Error al capturar huella'
-                };
-            }
-
-            const data = await response.json() as { ok: boolean; template?: string; quality?: number; error?: string };
+            }) as { ok: boolean; template?: string; quality?: number; error?: string };
 
             if (!data.ok || !data.template) {
                 return {
@@ -152,7 +138,7 @@ export class BiometricService {
             logger.info(`[BiometricService] Iniciando enrollment para: ${tag}`);
 
             // Llamar al endpoint de enrollment (el servidor captura múltiples muestras automáticamente)
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/enroll`, {
+            const data = await fetchJson(`${BIOMETRIC_SERVER}/api/enroll`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -162,17 +148,7 @@ export class BiometricService {
                     maxRetriesPerSample: 3,
                     maxSamples: 4
                 })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({})) as { error?: string };
-                return {
-                    success: false,
-                    message: errorData.error || 'Error en el enrollment'
-                };
-            }
-
-            const data = await response.json() as {
+            }) as {
                 ok: boolean;
                 templateBase64?: string;
                 quality?: number;
@@ -247,7 +223,7 @@ export class BiometricService {
 
             // Llamar al endpoint de verificación múltiple
             // Este endpoint captura del lector y compara contra los templates
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/external/verify-multiple`, {
+            const data = await fetchJson(`${BIOMETRIC_SERVER}/api/external/verify-multiple`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -255,17 +231,7 @@ export class BiometricService {
                     timeoutMs: TIMEOUT_VERIFY_MS,
                     targetFarn: DEFAULT_TARGET_FARN
                 })
-            });
-
-            if (!response.ok) {
-                return {
-                    success: false,
-                    verified: false,
-                    message: 'Error en la comunicación con el servidor biométrico'
-                };
-            }
-
-            const data = await response.json() as {
+            }) as {
                 ok: boolean;
                 matched: boolean;
                 userId?: string;
@@ -341,7 +307,7 @@ export class BiometricService {
 
             // Llamar al endpoint de verificación múltiple
             // Este endpoint captura del lector y compara contra todos los templates
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/external/verify-multiple`, {
+            const data = await fetchJson(`${BIOMETRIC_SERVER}/api/external/verify-multiple`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -349,16 +315,7 @@ export class BiometricService {
                     timeoutMs: TIMEOUT_IDENTIFY_MS,
                     targetFarn: DEFAULT_TARGET_FARN
                 })
-            });
-
-            if (!response.ok) {
-                return {
-                    success: false,
-                    message: 'Error en la comunicación con el servidor biométrico'
-                };
-            }
-
-            const data = await response.json() as {
+            }) as {
                 ok: boolean;
                 matched: boolean;
                 userId?: string;
@@ -392,11 +349,7 @@ export class BiometricService {
      */
     async getReaderStats() {
         try {
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/store-stats`);
-            if (response.ok) {
-                return await response.json();
-            }
-            return null;
+            return await fetchJson(`${BIOMETRIC_SERVER}/api/store-stats`);
         } catch {
             return null;
         }
@@ -407,11 +360,7 @@ export class BiometricService {
      */
     async getDeviceInfo() {
         try {
-            const response = await fetch(`${BIOMETRIC_SERVER}/api/device-info`);
-            if (response.ok) {
-                return await response.json();
-            }
-            return null;
+            return await fetchJson(`${BIOMETRIC_SERVER}/api/device-info`);
         } catch {
             return null;
         }

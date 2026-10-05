@@ -15,3 +15,22 @@ export const TIMEOUT_CAPTURE_MS   = 10_000;
 export const TIMEOUT_ENROLL_MS    = 30_000;
 export const TIMEOUT_VERIFY_MS    = 15_000;
 export const TIMEOUT_IDENTIFY_MS  = 15_000;
+
+/** Timeout por defecto para llamadas HTTP al engine (cubre start/stop/status/init/etc). */
+export const HTTP_DEFAULT_TIMEOUT_MS = 5_000;
+
+/**
+ * Helper `fetch` con timeout (AbortSignal) — evita cuelgues indefinidos si el engine
+ * tarda o falla. Lanza `AbortError` tras `timeoutMs`. Retorna la respuesta JSON parseada
+ * o tira el error original del fetch.
+ */
+export async function fetchJson(url: string, init: RequestInit = {}, timeoutMs: number = HTTP_DEFAULT_TIMEOUT_MS): Promise<any> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, { ...init, signal: controller.signal });
+        return await response.json();
+    } finally {
+        clearTimeout(timer);
+    }
+}
