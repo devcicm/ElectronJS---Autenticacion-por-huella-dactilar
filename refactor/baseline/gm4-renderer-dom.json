@@ -26,6 +26,10 @@
     "settings-section"
   ],
   "scriptLoadOrder": [
+    "js/logger.js",
+    "js/escape-html.js",
+    "js/sanitize.js",
+    "js/controls/FingerprintEnroller.js",
     "app.js"
   ],
   "stylesheets": [],

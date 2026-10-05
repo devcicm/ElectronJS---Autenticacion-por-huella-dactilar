@@ -1,11 +1,12 @@
 /**
  * Sistema de Asistencia - Renderer Application
  * Conecta la interfaz con el backend a través de la API expuesta por preload
+ *
+ * Script clásico (NO ES module): bajo Electron file:// los imports de módulos
+ * fallan por CORS. Depende de los globales cargados por los <script> previos:
+ *   window.logger, window.escapeHtml, window.sanitizeText/Phone/Email,
+ *   window.FingerprintEnroller
  */
-import { FingerprintEnroller } from './js/controls/FingerprintEnroller.js';
-import { logger } from './logger.js';
-import { escapeHtml } from './js/escape-html.js';
-import { sanitizeText, sanitizePhone, sanitizeEmail } from './js/sanitize.js';
 
 // ==================== OBSERVABILIDAD: TRAZADO ====================
 // Buffer global accesible vía CDP. No interfiere con el flujo normal; solo observa.
@@ -30,9 +31,8 @@ window.__dumpTrace = function () {
 };
 T('module-load', 'start');
 
-// Instancia única (antes: singleton global creado por su propio script tag)
-window.FingerprintEnroller = new FingerprintEnroller();
-T('module-load', 'FingerprintEnroller created');
+// window.FingerprintEnroller lo crea js/controls/FingerprintEnroller.js (script clásico previo)
+T('module-load', 'FingerprintEnroller disponible: ' + (typeof window.FingerprintEnroller !== 'undefined'));
 // B4: liberar EventSource al cerrar la ventana (recurso del engine)
 window.addEventListener('beforeunload', () => {
     T('shutdown', 'beforeunload fired');

@@ -22,7 +22,9 @@ function resetLog() { delete globalThis.__logCalls; }
 function getCalls() { return globalThis.__logCalls || []; }
 
 // Import DESPUES de mockear console para que la captura esté activa
-const { logger } = await import('../../sistema-asistencia/renderer/js/logger.js');
+import { loadClassic } from './load-classic.mjs';
+loadClassic('../../sistema-asistencia/renderer/js/logger.js');
+const logger = globalThis.logger;
 
 test('logger: default info -> debug suprimido, info+ emitidos', () => {
     resetLog();

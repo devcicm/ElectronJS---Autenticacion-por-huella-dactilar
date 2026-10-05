@@ -48,8 +48,8 @@ test('engine escapeHtml: compatible con sistema (mismo comportamiento que render
         path.resolve('sistema-asistencia/renderer/js/escape-html.js'),
         'utf-8'
     );
-    // Extraer solo el cuerpo del return (lineas de la funcion)
-    const extractBody = (src) => src.split('\n').filter(l => /return String|^\s+\.|^\s+}\)/.test(l)).join('\n');
+    // Extraer solo el cuerpo del return (lineas de la funcion), normalizando indentación
+    const extractBody = (src) => src.split('\n').filter(l => /return String|^\s+\.|^\s+}\)/.test(l)).map(l => l.trim()).join('\n');
     const sysBody = extractBody(SYS);
     const engBody = extractBody(SRC);
     assert.equal(engBody, sysBody, 'cuerpos divergentes entre sistema y engine');

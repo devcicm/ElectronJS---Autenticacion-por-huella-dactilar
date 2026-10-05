@@ -2,11 +2,10 @@
 // Cubre: trim, control chars, HTML peligrosos, cap de longitud, phone, email.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    sanitizeText,
-    sanitizePhone,
-    sanitizeEmail,
-} from '../../sistema-asistencia/renderer/js/sanitize.js';
+import { loadClassic } from './load-classic.mjs';
+
+loadClassic('../../sistema-asistencia/renderer/js/sanitize.js');
+const { sanitizeText, sanitizePhone, sanitizeEmail } = globalThis;
 
 test('sanitizeText: vacíos y nulos', () => {
     assert.equal(sanitizeText(null), '');

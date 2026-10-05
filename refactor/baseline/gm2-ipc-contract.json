@@ -5,6 +5,7 @@
     "biometric",
     "biometricServer",
     "config",
+    "electronBridge",
     "reports",
     "touchMode"
   ],
@@ -53,7 +54,8 @@
     "touchMode:getLocalState",
     "touchMode:getStatus",
     "touchMode:start",
-    "touchMode:stop"
+    "touchMode:stop",
+    "trace:dump"
   ],
   "handledChannels": [
     "attendance:canCheckIn",
@@ -100,7 +102,8 @@
     "touchMode:getLocalState",
     "touchMode:getStatus",
     "touchMode:start",
-    "touchMode:stop"
+    "touchMode:stop",
+    "trace:dump"
   ],
   "eventChannelsRenderer": [
     "touchMode:attendanceRegistered",

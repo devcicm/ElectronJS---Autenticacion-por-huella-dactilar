@@ -1,9 +1,9 @@
-import { logger } from './logger.js';
 /**
  * FingerprintEnroller - Manejo de progreso en tiempo real para enrollment
  * Basado en EnrollmentControl.js del biometric-engine
+ * Script clásico: usa window.logger (cargado antes) y expone window.FingerprintEnroller.
  */
-export class FingerprintEnroller {
+class FingerprintEnroller {
     constructor() {
         this.eventSource = null;
         this.isEnrolling = false;
@@ -358,3 +358,6 @@ export class FingerprintEnroller {
         }
     }
 }
+
+// Instancia global (script clásico — antes: export class consumida por import)
+window.FingerprintEnroller = new FingerprintEnroller();

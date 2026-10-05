@@ -37,6 +37,7 @@
     "node_modules",
     "biometric-engine",
     "dist",
+    "electron/preload.ts",
     "sistema-asistencia/renderer"
   ]
 }

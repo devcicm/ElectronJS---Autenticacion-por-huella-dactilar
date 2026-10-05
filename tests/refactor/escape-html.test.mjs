@@ -2,7 +2,10 @@
 // Cubre: passthrough, vacíos, XSS-driven, 5 entidades, atributos vs texto.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml } from '../../sistema-asistencia/renderer/js/escape-html.js';
+import { loadClassic } from './load-classic.mjs';
+
+loadClassic('../../sistema-asistencia/renderer/js/escape-html.js');
+const escapeHtml = globalThis.escapeHtml;
 
 test('escapeHtml: vacíos y nulos', () => {
     assert.equal(escapeHtml(''), '');
