@@ -303,12 +303,12 @@ function updateTodayRecordsTable(records) {
 
     tbody.innerHTML = records.map(record => `
         <tr>
-            <td>${escapeHtml(record.employee_code) || '-'}</td>
-            <td>${escapeHtml(record.employee_name) || '-'}</td>
+            <td style="white-space: nowrap;">${escapeHtml(record.employee_code) || '-'}</td>
+            <td style="white-space: nowrap; font-weight: 500;">${escapeHtml(record.employee_name) || '-'}</td>
             <td>${escapeHtml(record.department_name) || '-'}</td>
-            <td>${escapeHtml(record.check_in_time) || '-'}</td>
-            <td>${escapeHtml(record.check_out_time) || '-'}</td>
-            <td><span class="badge badge-${getStatusBadgeClass(record.status)}">${getStatusLabel(record.status)}</span></td>
+            <td style="white-space: nowrap;">${escapeHtml(record.check_in_time) || '-'}</td>
+            <td style="white-space: nowrap;">${escapeHtml(record.check_out_time) || '-'}</td>
+            <td style="text-align: center; white-space: nowrap;"><span class="badge badge-${getStatusBadgeClass(record.status)}">${escapeHtml(getStatusLabel(record.status))}</span></td>
         </tr>
     `).join('');
 }
@@ -338,8 +338,8 @@ function getStatusBadgeClass(status) {
 }
 
 // ==================== CHECK-IN SECTION ====================
+// ==================== CHECK-IN SECTION ====================
 async function loadCheckInSection() {
-    // Cargar empleados activos
     const employeesList = document.getElementById('employees-list');
     if (!employeesList) return;
 
@@ -349,32 +349,65 @@ async function loadCheckInSection() {
     }
 
     employeesList.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
-            ${employees.map(emp => `
-                <div style="border: 2px solid #E5E7EB; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s; background: white;"
-                     onmouseover="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.2)'"
-                     onmouseout="this.style.borderColor='#E5E7EB'; this.style.boxShadow='none'"
-                     onclick="selectEmployeeForCheckIn(${emp.id})">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: 600;">
-                            ${escapeHtml(getInitials(emp.first_name, emp.last_name))}
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="checkin-search-input" placeholder="🔍 Buscar empleado por nómina, nombre o departamento..."
+                   style="padding: 10px 14px; border: 1px solid #E5E7EB; border-radius: 8px; width: 100%; max-width: 420px; font-size: 14px;"
+                   onkeyup="filterCheckInEmployees(this.value)">
+        </div>
+        <div id="checkin-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+            ${renderCheckInCards(employees)}
+        </div>
+    `;
+}
+
+function renderCheckInCards(empList) {
+    return (empList || []).map(emp => {
+        const avatar = emp.photo_url
+            ? `<img src="${escapeHtml(emp.photo_url)}" alt="Foto" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #3B82F6; flex-shrink: 0;">`
+            : `<div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: 600; flex-shrink: 0;">
+                   ${escapeHtml(getInitials(emp.first_name, emp.last_name))}
+               </div>`;
+
+        return `
+            <div style="border: 2px solid #E5E7EB; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s; background: white;"
+                 onmouseover="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.15)'"
+                 onmouseout="this.style.borderColor='#E5E7EB'; this.style.boxShadow='none'"
+                 onclick="selectEmployeeForCheckIn(${emp.id})">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    ${avatar}
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 600; font-size: 16px; color: #1F2937; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)}
                         </div>
-                        <div style="flex: 1;">
-                            <div style="font-weight: 600; font-size: 16px; color: #1F2937; margin-bottom: 4px;">
-                                ${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)}
-                            </div>
-                            <div style="font-size: 13px; color: #6B7280;">
-                                ${escapeHtml(emp.employee_code)} • ${escapeHtml(emp.department_name)}
-                            </div>
-                            <div style="font-size: 12px; color: #9CA3AF; margin-top: 2px;">
-                                ${escapeHtml(emp.shift_name)}
-                            </div>
+                        <div style="font-size: 13px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${escapeHtml(emp.employee_code)} &bull; ${escapeHtml(emp.department_name)}
+                        </div>
+                        <div style="font-size: 12px; color: #9CA3AF; margin-top: 2px; white-space: nowrap;">
+                            ${escapeHtml(emp.shift_name)}
                         </div>
                     </div>
                 </div>
-            `).join('')}
-        </div>
-    `;
+            </div>
+        `;
+    }).join('');
+}
+
+function filterCheckInEmployees(term) {
+    const container = document.getElementById('checkin-cards-container');
+    if (!container) return;
+    const cleanTerm = (term || '').trim().toLowerCase();
+    const filtered = cleanTerm === ''
+        ? employees
+        : employees.filter(e => {
+            const first = (e.first_name || '').toLowerCase();
+            const last = (e.last_name || '').toLowerCase();
+            const code = (e.employee_code || '').toLowerCase();
+            const dept = (e.department_name || '').toLowerCase();
+            return first.includes(cleanTerm) || last.includes(cleanTerm) || code.includes(cleanTerm) || dept.includes(cleanTerm);
+        });
+    container.innerHTML = filtered.length > 0
+        ? renderCheckInCards(filtered)
+        : '<p style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: #9CA3AF;">No se encontraron empleados coincidentes</p>';
 }
 
 function getInitials(firstName, lastName) {
@@ -396,6 +429,12 @@ async function selectEmployeeForCheckIn(employeeId) {
         window.attendance.canCheckOut(employeeId)
     ]);
 
+    const modalAvatar = employee.photo_url
+        ? `<img src="${escapeHtml(employee.photo_url)}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #3B82F6; margin: 0 auto 15px; display: block; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">`
+        : `<div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: 600; margin: 0 auto 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+               ${getInitials(employee.first_name, employee.last_name)}
+           </div>`;
+
     const modalContent = `
         <div class="modal active" onclick="if(event.target === this) closeModal()">
             <div class="modal-content">
@@ -404,32 +443,30 @@ async function selectEmployeeForCheckIn(employeeId) {
                     <button class="close-btn" onclick="closeModal()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div style="text-align: center; margin-bottom: 30px;">
-                        <div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: 600; margin: 0 auto 15px;">
-                            ${getInitials(employee.first_name, employee.last_name)}
-                        </div>
+                    <div style="text-align: center; margin-bottom: 25px;">
+                        ${modalAvatar}
                         <h3 style="margin: 0 0 5px; color: #1F2937;">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
-                        <p style="color: #6B7280; margin: 0;">${escapeHtml(employee.employee_code)}</p>
-                        <p style="color: #6B7280; margin: 5px 0 0;">${escapeHtml(employee.department_name)} • ${escapeHtml(employee.shift_name)}</p>
+                        <p style="color: #6B7280; margin: 0; font-weight: 600;">Nómina: ${escapeHtml(employee.employee_code)}</p>
+                        <p style="color: #6B7280; margin: 5px 0 0; font-size: 13px;">${escapeHtml(employee.department_name)} &bull; ${escapeHtml(employee.shift_name)}</p>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         ${canCheckInResult.can ? `
-                            <button class="btn btn-success" onclick="performCheckIn()" style="width: 100%; padding: 15px; font-size: 16px;">
+                            <button class="btn btn-success" onclick="performCheckIn()" style="width: 100%; padding: 15px; font-size: 16px; font-weight: 600; border-radius: 8px;">
                                 ✓ Marcar Entrada
                             </button>
                         ` : `
-                            <div style="padding: 12px; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; color: #991B1B;">
+                            <div style="padding: 12px; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; color: #991B1B; font-size: 14px;">
                                 ⚠️ ${canCheckInResult.reason}
                             </div>
                         `}
 
                         ${canCheckOutResult.can ? `
-                            <button class="btn btn-warning" onclick="performCheckOut()" style="width: 100%; padding: 15px; font-size: 16px;">
+                            <button class="btn btn-warning" onclick="performCheckOut()" style="width: 100%; padding: 15px; font-size: 16px; font-weight: 600; border-radius: 8px;">
                                 ✓ Marcar Salida
                             </button>
                         ` : canCheckOutResult.reason ? `
-                            <div style="padding: 12px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; color: #92400E;">
+                            <div style="padding: 12px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; color: #92400E; font-size: 14px;">
                                 ℹ️ ${canCheckOutResult.reason}
                             </div>
                         ` : ''}
@@ -5222,4 +5259,6 @@ Object.assign(window, {
     openJustifyAbsenceModal,
     closeJustifyAbsenceModal,
     submitJustifyAbsence,
+    filterCheckInEmployees,
+    renderCheckInCards,
 });
