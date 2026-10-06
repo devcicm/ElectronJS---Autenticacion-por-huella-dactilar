@@ -1384,14 +1384,22 @@ async function enrollSingleFingerprint(employeeId) {
                 loadEmployeesSection();
             }, 2000);
         } else {
-            enroller.finishEnrollment(false, result.message || 'Error al registrar huella');
+            const isAborted = result.message?.includes('aborted') || result.message?.includes('inactividad');
+            const msg = isAborted
+                ? 'Tiempo de inactividad agotado (20s). Presione reintentar y coloque su dedo.'
+                : (result.message || 'Error al registrar huella');
+            enroller.finishEnrollment(false, msg);
             startBtn.disabled = false;
             startBtn.textContent = 'Reintentar';
         }
     } catch (error) {
         logger.error('[Renderer] Error enrolling fingerprint:', error);
         logger.error('[Renderer] Error stack:', error.stack);
-        enroller.finishEnrollment(false, 'Error de conexión con el lector');
+        const isAborted = error.message?.includes('aborted') || error.message?.includes('inactividad');
+        const errMsg = isAborted
+            ? 'Tiempo de inactividad agotado (20s). Presione reintentar y coloque su dedo.'
+            : (error.message || 'Error de conexión con el lector');
+        enroller.finishEnrollment(false, errMsg);
         startBtn.disabled = false;
         startBtn.textContent = 'Reintentar';
     }
@@ -1475,8 +1483,10 @@ async function enrollAllFingerprints(employeeId) {
                     progressDiv.style.color = '#EF4444';
                     progressDiv.innerHTML = `❌ ${finger.label}`;
                 }
-                enroller.finishEnrollment(false, result.message || 'Error al registrar');
-                showNotification(`Error capturando ${finger.label}: ${result.message}`, 'warning', 3000);
+                const isAborted = result.message?.includes('aborted') || result.message?.includes('inactividad');
+                const msg = isAborted ? 'Tiempo de inactividad agotado (20s)' : (result.message || 'Error al registrar');
+                enroller.finishEnrollment(false, msg);
+                showNotification(`Captura ${finger.label}: ${msg}`, 'warning', 3000);
 
                 // Pausa antes de continuar
                 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1490,8 +1500,10 @@ async function enrollAllFingerprints(employeeId) {
                 progressDiv.style.color = '#EF4444';
                 progressDiv.innerHTML = `❌ ${finger.label}`;
             }
-            enroller.finishEnrollment(false, 'Error de conexión');
-            showNotification(`Error de conexión capturando ${finger.label}`, 'warning', 3000);
+            const isAborted = error.message?.includes('aborted') || error.message?.includes('inactividad');
+            const errMsg = isAborted ? 'Tiempo de inactividad agotado (20s)' : 'Error de conexión';
+            enroller.finishEnrollment(false, errMsg);
+            showNotification(`Captura ${finger.label}: ${errMsg}`, 'warning', 3000);
 
             // Pausa antes de continuar
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -2716,6 +2728,17 @@ async function loadSettingsSection() {
                         </small>
                     </div>
 
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label><strong>Tiempo de espera por captura (inactividad)</strong></label>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                            <input type="number" id="setting-capture-timeout" class="form-control" style="width: 100px;" min="10" max="60" value="${settings.captureTimeoutSeconds || 20}">
+                            <span style="color: #4B5563;">segundos (predeterminado: 20s)</span>
+                        </div>
+                        <small style="color: #6B7280; display: block; margin-top: 4px;">
+                            Tiempo máximo que el lector esperará a que el empleado coloque el dedo antes de cancelar por inactividad.
+                        </small>
+                    </div>
+
                     <div style="padding: 15px; background: #EFF6FF; border-radius: 8px; border-left: 4px solid #3B82F6; margin-top: 15px;">
                         <div style="font-size: 13px; color: #1E40AF;">
                             <strong>ℹ️ Información:</strong> El modo automático permite que los empleados marquen su asistencia
@@ -2822,6 +2845,7 @@ function loadSavedSettings() {
         requireCheckout: true,
         allowManual: true,
         requireBiometric: false,
+        captureTimeoutSeconds: 20,
         enableNotifications: true,
         lateAlerts: true,
         biometricFailAlerts: false,
@@ -2844,6 +2868,7 @@ async function saveSettings() {
             requireCheckout: document.getElementById('setting-require-checkout').checked,
             allowManual: document.getElementById('setting-allow-manual').checked,
             requireBiometric: document.getElementById('setting-require-biometric').checked,
+            captureTimeoutSeconds: parseInt(document.getElementById('setting-capture-timeout')?.value || '20', 10),
             enableNotifications: document.getElementById('setting-notifications').checked,
             lateAlerts: document.getElementById('setting-late-alerts').checked,
             biometricFailAlerts: document.getElementById('setting-biometric-fail-alerts').checked,

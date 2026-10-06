@@ -89,7 +89,7 @@ export class BiometricService {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ timeoutMs: TIMEOUT_CAPTURE_MS })
-            }) as { ok: boolean; template?: string; quality?: number; error?: string };
+            }, TIMEOUT_CAPTURE_MS + 5_000) as { ok: boolean; template?: string; quality?: number; error?: string };
 
             if (!data.ok || !data.template) {
                 return {
@@ -105,9 +105,12 @@ export class BiometricService {
                 quality: data.quality || 0
             };
         } catch (error: any) {
+            const isAborted = error.name === 'AbortError' || error.message?.includes('aborted');
             return {
                 success: false,
-                message: error.message || 'Error de conexión con el servidor biométrico'
+                message: isAborted
+                    ? 'Tiempo de inactividad agotado (20 segundos). Coloque su dedo en el lector y reintente.'
+                    : (error.message || 'Error de conexión con el servidor biométrico')
             };
         }
     }
@@ -144,11 +147,12 @@ export class BiometricService {
                 body: JSON.stringify({
                     tag: tag,
                     timeoutMs: TIMEOUT_ENROLL_MS,
+                    timeoutPerSampleSeconds: 20,
                     targetFarn: DEFAULT_TARGET_FARN,
                     maxRetriesPerSample: 3,
                     maxSamples: 4
                 })
-            }) as {
+            }, TIMEOUT_ENROLL_MS + 5_000) as {
                 ok: boolean;
                 templateBase64?: string;
                 quality?: number;
@@ -184,9 +188,12 @@ export class BiometricService {
                 quality: data.quality
             };
         } catch (error: any) {
+            const isAborted = error.name === 'AbortError' || error.message?.includes('aborted');
             return {
                 success: false,
-                message: error.message || 'Error en enrollment'
+                message: isAborted
+                    ? 'Tiempo de inactividad agotado (20 segundos por intento). Coloque su dedo en el lector y reintente.'
+                    : (error.message || 'Error en enrollment')
             };
         }
     }
@@ -231,7 +238,7 @@ export class BiometricService {
                     timeoutMs: TIMEOUT_VERIFY_MS,
                     targetFarn: DEFAULT_TARGET_FARN
                 })
-            }) as {
+            }, TIMEOUT_VERIFY_MS + 5_000) as {
                 ok: boolean;
                 matched: boolean;
                 userId?: string;
@@ -254,10 +261,13 @@ export class BiometricService {
                 message: 'La huella no coincide'
             };
         } catch (error: any) {
+            const isAborted = error.name === 'AbortError' || error.message?.includes('aborted');
             return {
                 success: false,
                 verified: false,
-                message: error.message || 'Error en verificación'
+                message: isAborted
+                    ? 'Tiempo de inactividad agotado (20 segundos) durante la verificación.'
+                    : (error.message || 'Error en verificación')
             };
         }
     }
@@ -315,7 +325,7 @@ export class BiometricService {
                     timeoutMs: TIMEOUT_IDENTIFY_MS,
                     targetFarn: DEFAULT_TARGET_FARN
                 })
-            }) as {
+            }, TIMEOUT_IDENTIFY_MS + 5_000) as {
                 ok: boolean;
                 matched: boolean;
                 userId?: string;
@@ -337,9 +347,12 @@ export class BiometricService {
                 message: 'No se encontró coincidencia'
             };
         } catch (error: any) {
+            const isAborted = error.name === 'AbortError' || error.message?.includes('aborted');
             return {
                 success: false,
-                message: error.message || 'Error en identificación'
+                message: isAborted
+                    ? 'Tiempo de inactividad agotado (20 segundos) durante la identificación.'
+                    : (error.message || 'Error en identificación')
             };
         }
     }

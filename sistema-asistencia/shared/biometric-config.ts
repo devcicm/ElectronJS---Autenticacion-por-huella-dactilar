@@ -10,13 +10,14 @@ export const BIOMETRIC_SERVER = `http://localhost:${BIOMETRIC_PORT}`;
 /** Umbral de calidad (FARN) usado por DigitalPersona DP4500. */
 export const DEFAULT_TARGET_FARN = 21474;
 
-/** Timeouts por operación (ms). Documentados por nombre para evitar literales sueltos. */
-export const TIMEOUT_CAPTURE_MS   = 10_000;
-export const TIMEOUT_ENROLL_MS    = 30_000;
-export const TIMEOUT_VERIFY_MS    = 15_000;
-export const TIMEOUT_IDENTIFY_MS  = 15_000;
+/** Timeouts por operación (ms). Configurados a 20 segundos por intento de captura / muestra. */
+export const TIMEOUT_CAPTURE_MS   = 20_000;
+export const TIMEOUT_SAMPLE_MS    = 20_000;
+export const TIMEOUT_ENROLL_MS    = 95_000;
+export const TIMEOUT_VERIFY_MS    = 20_000;
+export const TIMEOUT_IDENTIFY_MS  = 20_000;
 
-/** Timeout por defecto para llamadas HTTP al engine (cubre start/stop/status/init/etc). */
+/** Timeout por defecto para llamadas HTTP rápidas al engine (cubre start/stop/status/init/etc). */
 export const HTTP_DEFAULT_TIMEOUT_MS = 5_000;
 
 /**
