@@ -563,6 +563,82 @@
                 max-width: calc(100% - 24px) !important;
             }
         }
+
+        /* ===== ESTILOS DE IMPRESIÓN (PRINT REPORT) ===== */
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                font-size: 12pt !important;
+            }
+
+            .sidebar,
+            .header,
+            .modal-footer,
+            .close-btn,
+            .btn,
+            button,
+            .notification,
+            #toggle-auto-attendance-btn {
+                display: none !important;
+            }
+
+            .app-container {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            .main-content {
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+
+            .modal {
+                position: static !important;
+                background: transparent !important;
+                display: block !important;
+                padding: 0 !important;
+            }
+
+            .modal-content {
+                box-shadow: none !important;
+                border: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                max-height: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+            }
+
+            .modal-header {
+                border-bottom: 2px solid #333 !important;
+                padding: 10px 0 !important;
+            }
+
+            .modal-body {
+                padding: 10px 0 !important;
+                overflow: visible !important;
+            }
+
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+
+            th, td {
+                border: 1px solid #ddd !important;
+                padding: 6px 8px !important;
+                color: black !important;
+            }
+
+            .badge {
+                border: 1px solid #999 !important;
+                color: black !important;
+                background: transparent !important;
+            }
+        }
     </style>
 </head>
 <body>

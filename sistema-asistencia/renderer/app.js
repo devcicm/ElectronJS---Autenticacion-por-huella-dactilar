@@ -33,10 +33,19 @@ T('module-load', 'start');
 
 // window.FingerprintEnroller lo crea js/controls/FingerprintEnroller.js (script clásico previo)
 T('module-load', 'FingerprintEnroller disponible: ' + (typeof window.FingerprintEnroller !== 'undefined'));
-// B4: liberar EventSource y polling al cerrar la ventana (recurso del engine)
+
+let clockIntervalId = null;
+let isInitialDataLoaded = false;
+let initialDataLoadPromise = null;
+
+// B4: liberar EventSource, intervalos y polling al cerrar la ventana (recurso del engine)
 window.addEventListener('beforeunload', () => {
     T('shutdown', 'beforeunload fired');
     window.__dumpTrace();
+    if (clockIntervalId) {
+        clearInterval(clockIntervalId);
+        clockIntervalId = null;
+    }
     if (typeof touchModePollingInterval !== 'undefined' && touchModePollingInterval) {
         clearInterval(touchModePollingInterval);
         touchModePollingInterval = null;
@@ -90,11 +99,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Configurar reloj
     updateClock();
-    setInterval(updateClock, 1000);
+    if (clockIntervalId) clearInterval(clockIntervalId);
+    clockIntervalId = setInterval(updateClock, 1000);
 
     // Cargar datos iniciales (con timeout 10s — engine puede tardar, no debe bloquear dashboard)
     T('data', 'loadInitialData start');
-    await withTimeout(loadInitialData(), 10_000, 'loadInitialData');
+    initialDataLoadPromise = withTimeout(loadInitialData(), 10_000, 'loadInitialData').then(() => {
+        isInitialDataLoaded = true;
+    });
+    await initialDataLoadPromise;
     T('data', 'loadInitialData done', {
         employees: typeof employees !== 'undefined' ? employees.length : null,
         departments: typeof departments !== 'undefined' ? departments.length : null,
@@ -118,14 +131,14 @@ function setupNavigation() {
     T('setup-nav', 'start', { navCount: navItems.length });
 
     navItems.forEach((item, i) => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', async () => {
             T('nav-click', 'handler invoked', { section: item.dataset.section, idx: i });
             try {
                 const section = item.dataset.section;
                 navItems.forEach(nav => nav.classList.remove('active'));
                 item.classList.add('active');
                 T('nav-click', 'active class added', { section });
-                showSection(section);
+                await showSection(section);
             } catch (e) {
                 T('nav-click', 'error', { msg: e.message });
                 logger.error('Nav click failed:', e);
@@ -138,9 +151,12 @@ function setupNavigation() {
     T('setup-nav', 'end', { attached: navItems.length });
 }
 
-function showSection(sectionName) {
+async function showSection(sectionName) {
     T('show-section', 'start', { section: sectionName, currentBefore: typeof currentSection !== 'undefined' ? currentSection : null });
     try {
+        if (initialDataLoadPromise && !isInitialDataLoaded) {
+            await initialDataLoadPromise;
+        }
         currentSection = sectionName;
 
         // Ocultar todas las secciones
@@ -429,6 +445,9 @@ async function selectEmployeeForCheckIn(employeeId) {
 async function performCheckIn() {
     if (!selectedEmployeeId) return;
 
+    const actionBtns = document.querySelectorAll('.modal.active button');
+    actionBtns.forEach(btn => btn.disabled = true);
+
     try {
         // Intentar identificación biométrica
         const biometricAvailable = await window.biometric.isServerAvailable();
@@ -461,15 +480,20 @@ async function performCheckIn() {
             }
         } else {
             showNotification(result.message, 'error');
+            actionBtns.forEach(btn => btn.disabled = false);
         }
     } catch (error) {
         logger.error('Error en check-in:', error);
         showNotification('Error al registrar entrada', 'error');
+        actionBtns.forEach(btn => btn.disabled = false);
     }
 }
 
 async function performCheckOut() {
     if (!selectedEmployeeId) return;
+
+    const actionBtns = document.querySelectorAll('.modal.active button');
+    actionBtns.forEach(btn => btn.disabled = true);
 
     try {
         const result = await window.attendance.checkOut(selectedEmployeeId);
@@ -484,10 +508,12 @@ async function performCheckOut() {
             }
         } else {
             showNotification(result.message, 'error');
+            actionBtns.forEach(btn => btn.disabled = false);
         }
     } catch (error) {
         logger.error('Error en check-out:', error);
         showNotification('Error al registrar salida', 'error');
+        actionBtns.forEach(btn => btn.disabled = false);
     }
 }
 
@@ -1563,14 +1589,45 @@ async function enrollAllFingerprints(employeeId) {
 }
 
 // ==================== ATTENDANCE SECTION ====================
-async function loadAttendanceSection() {
+async function loadAttendanceSection(filters = {}) {
     try {
-        const records = await window.attendance.getAttendanceRecords();
-
         const container = document.getElementById('attendance-records-container');
         if (!container) return;
 
+        const records = await window.attendance.getAttendanceRecords(filters);
+
         container.innerHTML = `
+            <div style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 10px; border: 1px solid #E5E7EB; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Desde:</label>
+                    <input type="date" id="att-filter-start" class="form-control" value="${filters.start_date || ''}" style="padding: 6px 10px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Hasta:</label>
+                    <input type="date" id="att-filter-end" class="form-control" value="${filters.end_date || ''}" style="padding: 6px 10px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Estado:</label>
+                    <select id="att-filter-status" class="form-control" style="padding: 6px 10px; font-size: 13px;">
+                        <option value="">Todos los estados</option>
+                        <option value="present" ${filters.status === 'present' ? 'selected' : ''}>Presente</option>
+                        <option value="late" ${filters.status === 'late' ? 'selected' : ''}>Retardo</option>
+                        <option value="absent" ${filters.status === 'absent' ? 'selected' : ''}>Ausente</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Departamento:</label>
+                    <select id="att-filter-dept" class="form-control" style="padding: 6px 10px; font-size: 13px;">
+                        <option value="">Todos los departamentos</option>
+                        ${departments.map(d => `<option value="${d.id}" ${filters.department_id === d.id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}
+                    </select>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-primary" onclick="applyAttendanceFilters()" style="padding: 7px 15px; font-size: 13px;">🔍 Filtrar</button>
+                    <button class="btn" onclick="clearAttendanceFilters()" style="background: #E5E7EB; color: #374151; padding: 7px 15px; font-size: 13px;">Limpiar</button>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -1586,18 +1643,22 @@ async function loadAttendanceSection() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${records.map(rec => `
+                        ${records.length > 0 ? records.map(rec => `
                             <tr>
-                                <td>${rec.date}</td>
-                                <td>${rec.employee_name}</td>
-                                <td>${rec.department_name}</td>
-                                <td>${rec.check_in_time || '-'}</td>
-                                <td>${rec.check_out_time || '-'}</td>
-                                <td><span class="badge badge-${getStatusBadgeClass(rec.status)}">${getStatusLabel(rec.status)}</span></td>
+                                <td>${escapeHtml(rec.date)}</td>
+                                <td>${escapeHtml(rec.employee_name)}</td>
+                                <td>${escapeHtml(rec.department_name)}</td>
+                                <td>${escapeHtml(rec.check_in_time || '-')}</td>
+                                <td>${escapeHtml(rec.check_out_time || '-')}</td>
+                                <td><span class="badge badge-${getStatusBadgeClass(rec.status)}">${escapeHtml(getStatusLabel(rec.status))}</span></td>
                                 <td>${rec.minutes_late ? rec.minutes_late + ' min' : '-'}</td>
                                 <td style="text-align: center;">${rec.fingerprint_verified ? '✓' : '-'}</td>
                             </tr>
-                        `).join('')}
+                        `).join('') : `
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 2rem; color: #6B7280;">No se encontraron registros con los filtros seleccionados</td>
+                            </tr>
+                        `}
                     </tbody>
                 </table>
             </div>
@@ -1605,6 +1666,26 @@ async function loadAttendanceSection() {
     } catch (error) {
         logger.error('Error cargando registros:', error);
     }
+}
+
+function applyAttendanceFilters() {
+    const startDate = document.getElementById('att-filter-start')?.value || undefined;
+    const endDate = document.getElementById('att-filter-end')?.value || undefined;
+    const status = document.getElementById('att-filter-status')?.value || undefined;
+    const deptRaw = parseInt(document.getElementById('att-filter-dept')?.value, 10);
+    const department_id = Number.isFinite(deptRaw) && deptRaw > 0 ? deptRaw : undefined;
+
+    const filters = {};
+    if (startDate) filters.start_date = startDate;
+    if (endDate) filters.end_date = endDate;
+    if (status) filters.status = status;
+    if (department_id) filters.department_id = department_id;
+
+    loadAttendanceSection(filters);
+}
+
+function clearAttendanceFilters() {
+    loadAttendanceSection({});
 }
 
 // ==================== DEPARTMENTS SECTION ====================
@@ -2197,39 +2278,74 @@ async function loadReportsSection() {
     const container = document.querySelector('#reports-section .card-body');
     if (!container) return;
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
     container.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 30px; color: white; cursor: pointer;" onclick="generateDailyReport()">
-                <div style="font-size: 48px; margin-bottom: 15px;">📊</div>
-                <h3 style="margin: 0 0 10px;">Reporte Diario</h3>
-                <p style="opacity: 0.9; margin: 0;">Resumen de asistencia del día</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+            <!-- Reporte Diario -->
+            <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 36px; margin-bottom: 10px;">📊</div>
+                    <h3 style="margin: 0 0 8px; color: #1F2937;">Reporte Diario</h3>
+                    <p style="color: #6B7280; font-size: 13px; margin: 0 0 15px;">Resumen de asistencia del día</p>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Fecha:</label>
+                    <input type="date" id="daily-report-date" class="form-control" value="${todayStr}" style="margin-bottom: 15px;">
+                </div>
+                <button class="btn btn-primary" onclick="generateDailyReport(document.getElementById('daily-report-date').value)">Generar Reporte Diario</button>
             </div>
 
-            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; padding: 30px; color: white; cursor: pointer;" onclick="generateWeeklyReport()">
-                <div style="font-size: 48px; margin-bottom: 15px;">📅</div>
-                <h3 style="margin: 0 0 10px;">Reporte Semanal</h3>
-                <p style="opacity: 0.9; margin: 0;">Asistencia de la última semana</p>
+            <!-- Reporte Semanal -->
+            <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 36px; margin-bottom: 10px;">📅</div>
+                    <h3 style="margin: 0 0 8px; color: #1F2937;">Reporte Semanal</h3>
+                    <p style="color: #6B7280; font-size: 13px; margin: 0 0 15px;">Asistencia de 7 días hasta la fecha de fin</p>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Fecha Fin:</label>
+                    <input type="date" id="weekly-report-date" class="form-control" value="${todayStr}" style="margin-bottom: 15px;">
+                </div>
+                <button class="btn btn-primary" style="background: #8B5CF6;" onclick="generateWeeklyReport(document.getElementById('weekly-report-date').value)">Generar Reporte Semanal</button>
             </div>
 
-            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 12px; padding: 30px; color: white; cursor: pointer;" onclick="generateMonthlyReport()">
-                <div style="font-size: 48px; margin-bottom: 15px;">📈</div>
-                <h3 style="margin: 0 0 10px;">Reporte Mensual</h3>
-                <p style="opacity: 0.9; margin: 0;">Estadísticas del mes actual</p>
+            <!-- Reporte Mensual -->
+            <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 36px; margin-bottom: 10px;">📈</div>
+                    <h3 style="margin: 0 0 8px; color: #1F2937;">Reporte Mensual</h3>
+                    <p style="color: #6B7280; font-size: 13px; margin: 0 0 15px;">Estadísticas del mes</p>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Mes y Año:</label>
+                    <input type="month" id="monthly-report-month" class="form-control" value="${currentMonth}" style="margin-bottom: 15px;">
+                </div>
+                <button class="btn btn-primary" style="background: #0EA5E9;" onclick="onGenerateMonthlyReportClick()">Generar Reporte Mensual</button>
             </div>
 
-            <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); border-radius: 12px; padding: 30px; color: white; cursor: pointer;" onclick="generateEmployeeReport()">
-                <div style="font-size: 48px; margin-bottom: 15px;">👤</div>
-                <h3 style="margin: 0 0 10px;">Por Empleado</h3>
-                <p style="opacity: 0.9; margin: 0;">Historial de un empleado</p>
+            <!-- Reporte Individual por Empleado -->
+            <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 36px; margin-bottom: 10px;">👤</div>
+                    <h3 style="margin: 0 0 8px; color: #1F2937;">Por Empleado</h3>
+                    <p style="color: #6B7280; font-size: 13px; margin: 0 0 15px;">Historial de un empleado con rango opcional</p>
+                </div>
+                <button class="btn btn-primary" style="background: #EC4899;" onclick="generateEmployeeReport()">Seleccionar Empleado y Fechas</button>
             </div>
         </div>
     `;
 }
 
-async function generateDailyReport() {
+function onGenerateMonthlyReportClick() {
+    const val = document.getElementById('monthly-report-month')?.value;
+    if (val && val.includes('-')) {
+        const [yearStr, monthStr] = val.split('-');
+        generateMonthlyReport(parseInt(yearStr, 10), parseInt(monthStr, 10));
+    } else {
+        generateMonthlyReport();
+    }
+}
+
+async function generateDailyReport(date) {
     try {
         showNotification('Generando reporte diario...', 'info');
-        const report = await window.reports.generateDaily();
+        const report = await window.reports.generateDaily(date || undefined);
 
         const modalHTML = `
             <div class="modal active" onclick="if(event.target === this) closeModal()">
@@ -2323,10 +2439,10 @@ async function generateDailyReport() {
     }
 }
 
-async function generateWeeklyReport() {
+async function generateWeeklyReport(endDate) {
     try {
         showNotification('Generando reporte semanal...', 'info');
-        const report = await window.reports.generateWeekly();
+        const report = await window.reports.generateWeekly(endDate || undefined);
 
         const modalHTML = `
             <div class="modal active" onclick="if(event.target === this) closeModal()">
@@ -2425,10 +2541,10 @@ async function generateWeeklyReport() {
     }
 }
 
-async function generateMonthlyReport() {
+async function generateMonthlyReport(year, month) {
     try {
         showNotification('Generando reporte mensual...', 'info');
-        const report = await window.reports.generateMonthly();
+        const report = await window.reports.generateMonthly(year || undefined, month || undefined);
 
         const modalHTML = `
             <div class="modal active" onclick="if(event.target === this) closeModal()">
@@ -2519,23 +2635,33 @@ async function generateMonthlyReport() {
 }
 
 async function generateEmployeeReport() {
-    // Mostrar selector de empleado
+    // Mostrar selector de empleado y período
     const modalHTML = `
         <div class="modal active" onclick="if(event.target === this) closeModal()">
             <div class="modal-content" style="max-width: 600px;">
                 <div class="modal-header">
-                    <h3>👤 Seleccionar Empleado</h3>
+                    <h3>👤 Seleccionar Empleado y Período</h3>
                     <button class="close-btn" onclick="closeModal()">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>Seleccione el empleado:</label>
-                        <select id="report-employee-select" class="form-control">
+                        <label>Seleccione el empleado *:</label>
+                        <select id="report-employee-select" class="form-control" required>
                             <option value="">Seleccione...</option>
                             ${employees.map(emp => `
                                 <option value="${emp.id}">${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>
                             `).join('')}
                         </select>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <div class="form-group">
+                            <label>Fecha Desde (Opcional):</label>
+                            <input type="date" id="report-emp-start" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Hasta (Opcional):</label>
+                            <input type="date" id="report-emp-end" class="form-control">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2549,16 +2675,18 @@ async function generateEmployeeReport() {
 }
 
 async function showEmployeeReportDetails() {
-    const employeeId = document.getElementById('report-employee-select').value;
+    const employeeId = document.getElementById('report-employee-select')?.value;
     if (!employeeId) {
         showNotification('Por favor seleccione un empleado', 'warning');
         return;
     }
+    const startDate = document.getElementById('report-emp-start')?.value || undefined;
+    const endDate = document.getElementById('report-emp-end')?.value || undefined;
 
     try {
         closeModal();
         showNotification('Generando reporte del empleado...', 'info');
-        const report = await window.reports.generateEmployee(safeParseInt(employeeId, 0));
+        const report = await window.reports.generateEmployee(safeParseInt(employeeId, 0), startDate, endDate);
 
         const modalHTML = `
             <div class="modal active" onclick="if(event.target === this) closeModal()">

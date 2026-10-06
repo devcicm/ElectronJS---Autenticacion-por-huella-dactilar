@@ -1,6 +1,11 @@
 # Dockerfile para Sistema de Asistencia con Huella Dactilar
-# Nota: Esta configuración es principalmente para desarrollo/testing
-# El acceso a hardware USB (lector de huellas) requiere configuración adicional
+# ==============================================================================
+# NOTA DE ARQUITECTURA DE HARDWARE BIOMÉTRICO:
+# El SDK DigitalPersona U.are.U 4500 (DPUruNet.dll, dpfpdd.dll, dpfj.dll)
+# y el bridge en C# requieren Windows nativo (x86/x64) y .NET Framework 4.7.2.
+# Este contenedor Docker está destinado a validación de CI, pruebas de la capa
+# de Node.js, Electron (modo headless/mock) y base de datos SQLite sin hardware USB.
+# ==============================================================================
 
 FROM node:18-bullseye
 

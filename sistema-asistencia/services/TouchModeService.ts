@@ -14,8 +14,17 @@ import { logger } from '../shared/logger.js';
 import { getLocalDateString } from '../shared/date-utils.js';
 import { safeParseInt } from '../shared/object-utils.js';
 
+export type BiometricHardwareState =
+    | 'IDLE'
+    | 'STARTING'
+    | 'TOUCH_CONTINUOUS'
+    | 'ENROLLING'
+    | 'IDENTIFYING'
+    | 'ERROR';
+
 export interface TouchModeState {
     isActive: boolean;
+    hardwareState: BiometricHardwareState;
     lastEventTime: Date | null;
     totalTouches: number;
     totalFingerprints: number;
@@ -30,6 +39,7 @@ export class TouchModeService {
     private reconnectTimer: NodeJS.Timeout | null = null; // B4: lifecycle
     private state: TouchModeState = {
         isActive: false,
+        hardwareState: 'IDLE',
         lastEventTime: null,
         totalTouches: 0,
         totalFingerprints: 0
@@ -40,10 +50,35 @@ export class TouchModeService {
     private errorDeactivationInProgress = false;
     private isStarting = false;
 
-    constructor() {
-        const db = getDatabaseManager();
-        this.biometricService = new BiometricService();
-        this.attendanceModel = new AttendanceModel(db);
+    /**
+     * Obtener el estado actual del hardware biométrico (FSM)
+     */
+    getHardwareState(): BiometricHardwareState {
+        return this.state.hardwareState;
+    }
+
+    /**
+     * Forzar o coordinar estado del hardware biométrico externamente
+     */
+    setHardwareState(newState: BiometricHardwareState, reason?: string): void {
+        this.transitionTo(newState, reason);
+    }
+
+    /**
+     * Transición interna formal de la FSM
+     */
+    private transitionTo(newState: BiometricHardwareState, reason?: string): void {
+        const oldState = this.state.hardwareState;
+        if (oldState === newState) return;
+        this.state.hardwareState = newState;
+        logger.info(`[TouchModeService] 🔄 FSM: ${oldState} -> ${newState}${reason ? ` (${reason})` : ''}`);
+        this.emitEvent('STATE_CHANGED', { from: oldState, to: newState, reason });
+    }
+
+    constructor(db?: any) {
+        const database = db || getDatabaseManager();
+        this.biometricService = new BiometricService(database);
+        this.attendanceModel = new AttendanceModel(database);
     }
 
     /**
@@ -67,6 +102,7 @@ export class TouchModeService {
         }
 
         this.isStarting = true;
+        this.transitionTo('STARTING', 'Iniciando captura continua');
         try {
             logger.info('=== INICIANDO MODO TOUCH CONTINUO ===');
 
@@ -74,6 +110,7 @@ export class TouchModeService {
             const serverAvailable = await this.biometricService.isServerAvailable();
             if (!serverAvailable) {
                 logger.error('[TouchModeService] ❌ Servidor biométrico no disponible');
+                this.transitionTo('ERROR', 'Servidor biométrico no disponible');
                 return {
                     success: false,
                     message: 'Servidor biométrico no disponible'
@@ -89,6 +126,7 @@ export class TouchModeService {
 
             if (employeesWithFingerprints.length === 0) {
                 logger.error('[TouchModeService] ❌ No hay empleados con huellas registradas');
+                this.transitionTo('IDLE', 'Sin huellas registradas');
                 return {
                     success: false,
                     message: 'No hay empleados con huellas registradas. Por favor, registre huellas primero.'
@@ -118,6 +156,7 @@ export class TouchModeService {
 
             if (!result.ok) {
                 logger.error('[TouchModeService] ❌ Error al iniciar modo touch:', result.message);
+                this.transitionTo('ERROR', result.message || 'Error al iniciar modo touch');
                 return {
                     success: false,
                     message: result.message || 'Error al iniciar modo touch'
@@ -141,6 +180,7 @@ export class TouchModeService {
             // Resetear contador de errores al iniciar correctamente
             this.consecutiveErrors = 0;
             this.errorDeactivationInProgress = false;
+            this.transitionTo('TOUCH_CONTINUOUS', 'Modo touch continuo activo');
 
             logger.info('=== ✅ MODO TOUCH CONTINUO ACTIVO ===');
             logger.info(`[TouchModeService] 👂 Escuchando eventos del lector...`);
@@ -152,6 +192,7 @@ export class TouchModeService {
             };
         } catch (error: any) {
             logger.error('[TouchModeService] ❌ Error al iniciar modo touch:', error);
+            this.transitionTo('ERROR', error.message || 'Error al iniciar modo touch');
             return {
                 success: false,
                 message: error.message || 'Error al iniciar modo touch'
@@ -259,6 +300,9 @@ export class TouchModeService {
             // Siempre desconectar eventos SSE y resetear estado activo local
             this.disconnectFromEvents();
             this.state.isActive = false;
+            if (this.state.hardwareState !== 'ENROLLING') {
+                this.transitionTo('IDLE', 'Modo touch detenido');
+            }
         }
     }
 
@@ -419,7 +463,8 @@ export class TouchModeService {
     /**
      * Identificar empleado automáticamente y registrar asistencia
      */
-    private async autoIdentifyAndRegister() {
+     private async autoIdentifyAndRegister() {
+        this.transitionTo('IDENTIFYING', 'Identificando huella dactilar');
         try {
             logger.info('🔍 [TouchModeService] ==================== INICIANDO IDENTIFICACIÓN ====================');
 
@@ -584,6 +629,10 @@ export class TouchModeService {
             this.emitEvent('AUTO_REGISTER_ERROR', {
                 error: error.message
             });
+        } finally {
+            if (this.state.isActive && this.state.hardwareState === 'IDENTIFYING') {
+                this.transitionTo('TOUCH_CONTINUOUS', 'Reanudando escucha continua tras identificación');
+            }
         }
     }
 
@@ -596,6 +645,7 @@ export class TouchModeService {
         }
 
         this.errorDeactivationInProgress = true;
+        this.transitionTo('ERROR', message);
 
         logger.error('❌❌❌ [TouchModeService] ERROR CRÍTICO DETECTADO ❌❌❌');
         logger.error(`[TouchModeService] Mensaje: ${message}`);
@@ -639,5 +689,6 @@ export class TouchModeService {
         this.disconnectFromEvents();
         this.eventHandlers = [];
         this.state.isActive = false;
+        this.transitionTo('IDLE', 'Servicio liberado');
     }
 }

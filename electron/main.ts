@@ -642,10 +642,16 @@ function initIpcHandlers() {
 
   safeHandle('biometric:enrollFingerprint', async (_event, employeeId: number, fingerPosition: string) => {
     const wasActive = await pauseTouchModeIfActive();
+    if (touchModeServiceInstance) {
+      touchModeServiceInstance.setHardwareState('ENROLLING', 'Enrolamiento iniciado');
+    }
     try {
       const service = await getBiometricService();
       return await service.enrollFingerprint(employeeId, fingerPosition as any);
     } finally {
+      if (touchModeServiceInstance && !wasActive) {
+        touchModeServiceInstance.setHardwareState('IDLE', 'Enrolamiento finalizado');
+      }
       await resumeTouchModeIfWasActive(wasActive);
     }
   });

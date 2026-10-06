@@ -10,9 +10,14 @@ import { BIOMETRIC_SERVER, DEFAULT_TARGET_FARN, TIMEOUT_CAPTURE_MS, TIMEOUT_ENRO
 import { logger } from '../shared/logger.js';
 
 export class BiometricService {
-    private db = getDatabaseManager();
-    private fingerprintModel = new FingerprintModel(this.db);
+    private db: any;
+    private fingerprintModel: FingerprintModel;
     private readerInitialized = false;
+
+    constructor(db?: any) {
+        this.db = db || getDatabaseManager();
+        this.fingerprintModel = new FingerprintModel(this.db);
+    }
 
     /**
      * Verificar si el servidor biométrico está disponible
