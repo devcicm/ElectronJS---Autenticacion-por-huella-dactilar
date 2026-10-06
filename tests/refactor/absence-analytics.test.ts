@@ -10,6 +10,8 @@ import {
     findEmployeeInText,
     parseDomainQuery,
     answerDomainQuery,
+    exportAbsenceHistoryToCSV,
+    exportQAResultToCSV,
     type AbsenceRecordLike,
     type EmployeeInfoLike,
     type DomainQAContext
@@ -221,4 +223,46 @@ test('parseDomainQuery y answerDomainQuery: interpreta palabras clave de dominio
     assert.equal(q5.intent, 'GENERAL_METRICS');
     const res5 = answerDomainQuery('resumen general de personal faltas y tiempo', ctx);
     assert.ok(res5.kpis.length >= 3);
+});
+
+test('exportAbsenceHistoryToCSV y exportQAResultToCSV: generan formato CSV con BOM UTF-8 y delimitadores para Excel', () => {
+    const employee: EmployeeInfoLike = {
+        id: 1,
+        employee_code: 'EMP-001',
+        first_name: 'Juan',
+        last_name: 'Pérez',
+        department_name: 'Sistemas',
+        position: 'Desarrollador'
+    };
+
+    const records: AbsenceRecordLike[] = [
+        { employee_id: 1, date: '2026-02-11', status: 'absent', notes: 'Permiso médico' },
+        { employee_id: 1, date: '2026-02-13', status: 'absent' }
+    ];
+
+    const history = calculateEmployeeAbsenceHistory(records, employee);
+    const csvHistory = exportAbsenceHistoryToCSV(history);
+
+    // Valida BOM UTF-8 al inicio
+    assert.ok(csvHistory.startsWith('\uFEFF'));
+    // Valida metadatos del reporte
+    assert.ok(csvHistory.includes('REPORTE ANALÍTICO DE HISTORIAL DE FALTAS'));
+    assert.ok(csvHistory.includes('EMP-001'));
+    assert.ok(csvHistory.includes('Juan Pérez'));
+    assert.ok(csvHistory.includes('Total Faltas Acumuladas;2'));
+    // Valida desglose semanal y diario
+    assert.ok(csvHistory.includes('2026-02-11'));
+    assert.ok(csvHistory.includes('Miércoles'));
+    assert.ok(csvHistory.includes('Permiso médico'));
+
+    // Test de exportación de resultado Q&A
+    const ctx: DomainQAContext = { employees: [employee], attendanceRecords: records };
+    const qaResult = answerDomainQuery('¿Quién tiene más faltas en el personal?', ctx);
+    const csvQA = exportQAResultToCSV(qaResult);
+
+    assert.ok(csvQA.startsWith('\uFEFF'));
+    assert.ok(csvQA.includes('REPORTE DE CONSULTA DE ASISTENCIA Y PERSONAL'));
+    assert.ok(csvQA.includes('Pregunta Formulada'));
+    assert.ok(csvQA.includes('RANKING DE AUSENTISMO'));
+    assert.ok(csvQA.includes('Juan Pérez'));
 });

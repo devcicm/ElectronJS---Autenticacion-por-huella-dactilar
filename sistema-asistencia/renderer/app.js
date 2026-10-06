@@ -2872,10 +2872,156 @@ function toggleMonthAbsenceAccordion(monthKey) {
     }
 }
 
+// Estado en memoria de las últimas consultas realizadas (para exportación y descarga)
+let currentAbsenceHistoryData = null;
+let currentQAQueryResultData = null;
+
+/**
+ * Utilidad pura para disparar descarga de archivos desde el navegador
+ */
+function downloadFile(content, fileName, mimeType = 'text/csv;charset=utf-8;') {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Exporta el historial de faltas actual a formato CSV compatible con Microsoft Excel
+ */
+function exportAbsenceHistoryToExcel() {
+    if (!currentAbsenceHistoryData) {
+        showNotification('No hay datos de consulta para exportar a Excel', 'warning');
+        return;
+    }
+    const h = currentAbsenceHistoryData;
+    const lines = [];
+    lines.push('REPORTE ANALÍTICO DE HISTORIAL DE FALTAS');
+    lines.push(`Empleado;${h.employee.first_name} ${h.employee.last_name}`);
+    lines.push(`Nómina / Matrícula;${h.employee.employee_code}`);
+    lines.push(`Departamento;${h.employee.department_name || 'General'}`);
+    lines.push(`Puesto;${h.employee.position || 'Colaborador'}`);
+    lines.push(`Total Faltas Acumuladas;${h.totalAbsences}`);
+    lines.push(`Meses con Inasistencias;${h.monthsWithAbsencesCount}`);
+    lines.push(`Promedio Faltas / Mes;${h.averagePerMonth}`);
+    lines.push(`Fecha de Emisión;${new Date().toISOString().split('T')[0]}`);
+    lines.push('');
+    lines.push('DESGLOSE DETALLADO DE INASISTENCIAS POR MES Y SEMANA');
+    lines.push('Año-Mes;Mes;Semana;Día de la Semana;Fecha (YYYY-MM-DD);Notas / Justificación');
+
+    for (let m = 0; m < h.months.length; m++) {
+        const month = h.months[m];
+        for (let w = 0; w < month.weeks.length; w++) {
+            const week = month.weeks[w];
+            for (let d = 0; d < week.days.length; d++) {
+                const day = week.days[d];
+                const cleanNote = (day.notes || '').replace(/;/g, ',').replace(/[\r\n]+/g, ' ');
+                lines.push(`${month.monthKey};${month.monthName};${week.weekLabel};${day.dayOfWeek};${day.date};${cleanNote}`);
+            }
+        }
+    }
+
+    const csvContent = '\uFEFF' + lines.join('\r\n');
+    const fileName = `Historial_Faltas_${h.employee.employee_code}_${new Date().toISOString().split('T')[0]}.csv`;
+    downloadFile(csvContent, fileName);
+    showNotification('Historial de faltas exportado a Excel exitosamente (.csv con formato internacional)', 'success');
+}
+
+/**
+ * Guarda o imprime la consulta como documento PDF mediante el diálogo de Chromium
+ */
+function exportAbsenceHistoryToPDF() {
+    if (!currentAbsenceHistoryData) {
+        showNotification('No hay datos para exportar a PDF', 'warning');
+        return;
+    }
+    showNotification('Abriendo diálogo de impresión. Selecciona "Guardar como PDF" como destino.', 'info');
+    setTimeout(() => {
+        window.print();
+    }, 250);
+}
+
+/**
+ * Imprime directamente la consulta de historial de faltas
+ */
+function printAbsenceHistory() {
+    window.print();
+}
+
+/**
+ * Exporta el resultado de la consulta Q&A a Excel
+ */
+function exportQAToExcel() {
+    if (!currentQAQueryResultData) {
+        showNotification('No hay consulta activa para exportar a Excel', 'warning');
+        return;
+    }
+    const q = currentQAQueryResultData;
+    const lines = [];
+    lines.push('REPORTE DE CONSULTA DE ASISTENCIA Y PERSONAL');
+    lines.push(`Pregunta Formulada;${q.query}`);
+    lines.push(`Tipo de Consulta;${q.type || 'General'}`);
+    lines.push(`Resumen Ejecutivo;${(q.summary || '').replace(/;/g, ',').replace(/[\r\n]+/g, ' ')}`);
+    lines.push(`Fecha de Emisión;${new Date().toISOString().split('T')[0]}`);
+    lines.push('');
+
+    if (q.kpis && q.kpis.length > 0) {
+        lines.push('MÉTRICAS CLAVE (KPI)');
+        lines.push('Indicador;Valor');
+        q.kpis.forEach(k => lines.push(`${k.label};${k.value}`));
+        lines.push('');
+    }
+
+    if (q.data && Array.isArray(q.data)) {
+        lines.push('REGISTROS Y DETALLES');
+        if (q.type === 'ranking') {
+            lines.push('Posición;Nómina;Empleado;Total Faltas');
+            q.data.forEach((item, idx) => lines.push(`${idx + 1};${item.code};${item.name};${item.count}`));
+        } else if (q.type === 'late') {
+            lines.push('Fecha;Entrada;Minutos Tarde;Estado');
+            q.data.forEach(r => lines.push(`${r.date};${r.check_in_time || '-'};${r.minutes_late || 0};${r.status}`));
+        } else if (q.type === 'time') {
+            lines.push('Fecha;Entrada;Salida;Minutos Extra;Estado');
+            q.data.forEach(r => lines.push(`${r.date};${r.check_in_time || '-'};${r.check_out_time || '-'};${r.minutes_overtime || 0};${r.status}`));
+        }
+    }
+
+    const csvContent = '\uFEFF' + lines.join('\r\n');
+    downloadFile(csvContent, `Consulta_Personal_${new Date().toISOString().split('T')[0]}.csv`);
+    showNotification('Resultado de la consulta exportado a Excel exitosamente', 'success');
+}
+
+/**
+ * Guarda o imprime la consulta Q&A como PDF
+ */
+function exportQAToPDF() {
+    if (!currentQAQueryResultData) {
+        showNotification('No hay consulta activa para exportar a PDF', 'warning');
+        return;
+    }
+    showNotification('Abriendo diálogo de impresión. Selecciona "Guardar como PDF" como destino.', 'info');
+    setTimeout(() => {
+        window.print();
+    }, 250);
+}
+
+/**
+ * Imprime directamente la consulta Q&A
+ */
+function printQAResult() {
+    window.print();
+}
+
 /**
  * Renderiza el árbol visual de historial de faltas de un empleado
  */
 function renderAbsenceHistoryHTMLClient(history) {
+    currentAbsenceHistoryData = history;
     const emp = history.employee;
     const photoSrc = emp.photo_url || '';
     const initials = `${(emp.first_name || '')[0] || ''}${(emp.last_name || '')[0] || ''}`.toUpperCase();
@@ -2956,7 +3102,7 @@ function renderAbsenceHistoryHTMLClient(history) {
 
     return `
         <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
-            <!-- HEADER DEL EMPLEADO -->
+            <!-- HEADER DEL EMPLEADO Y BARRA DE EXPORTACIÓN -->
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #F3F4F6;">
                 <div style="display: flex; align-items: center; gap: 15px;">
                     ${avatarHtml}
@@ -2969,9 +3115,15 @@ function renderAbsenceHistoryHTMLClient(history) {
                         </div>
                     </div>
                 </div>
-                <div>
-                    <button class="btn btn-secondary" onclick="printReport()" style="padding: 8px 16px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                        <span>🖨️</span> Imprimir Historial
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" onclick="printAbsenceHistory()" style="padding: 8px 14px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;" title="Imprimir directamente">
+                        <span>🖨️</span> Imprimir
+                    </button>
+                    <button class="btn btn-success" onclick="exportAbsenceHistoryToExcel()" style="padding: 8px 14px; font-size: 13px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 6px;" title="Guardar en Microsoft Excel (.csv)">
+                        <span>📊</span> Guardar en Excel
+                    </button>
+                    <button class="btn btn-danger" onclick="exportAbsenceHistoryToPDF()" style="padding: 8px 14px; font-size: 13px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 6px;" title="Guardar como documento PDF">
+                        <span>📄</span> Guardar en PDF
                     </button>
                 </div>
             </div>
@@ -3103,7 +3255,9 @@ async function showEmployeeAbsenceHistoryModal(employeeCodeOrId) {
                         ${renderAbsenceHistoryHTMLClient(history)}
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="printReport()">🖨️ Imprimir</button>
+                        <button class="btn btn-secondary" onclick="printAbsenceHistory()">🖨️ Imprimir</button>
+                        <button class="btn btn-success" onclick="exportAbsenceHistoryToExcel()" style="background: #10B981; color: white;">📊 Guardar en Excel</button>
+                        <button class="btn btn-danger" onclick="exportAbsenceHistoryToPDF()" style="background: #DC2626; color: white;">📄 Guardar en PDF</button>
                         <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
                     </div>
                 </div>
@@ -3208,15 +3362,41 @@ async function processAndRenderDomainQuestion(rawQuery) {
         if (targetEmp && hasLate) {
             const lates = attendanceRecords.filter(r => r.employee_id === targetEmp.id && r.status === 'late');
             const totalMins = lates.reduce((acc, r) => acc + (r.minutes_late || 0), 0);
+            const summary = lates.length === 0 
+                ? `${targetEmp.first_name} ${targetEmp.last_name} no registra retardos. Mantiene 100% de puntualidad.`
+                : `El colaborador acumula ${lates.length} llegadas tarde con un total de ${totalMins} minutos de demora acumulada.`;
+
+            currentQAQueryResultData = {
+                query: rawQuery,
+                type: 'late',
+                summary,
+                kpis: [
+                    { label: 'Total Retardos', value: lates.length },
+                    { label: 'Minutos Tarde Acumulados', value: `${totalMins} min` }
+                ],
+                data: lates
+            };
+
             resultsArea.innerHTML = `
                 <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-weight: 700; color: #374151; font-size: 14px;">Análisis de Impuntualidad</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="printQAResult()" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Imprimir directamente">
+                                <span>🖨️</span> Imprimir
+                            </button>
+                            <button class="btn btn-success" onclick="exportQAToExcel()" style="padding: 6px 12px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Exportar a Microsoft Excel (.csv)">
+                                <span>📊</span> Guardar en Excel
+                            </button>
+                            <button class="btn btn-danger" onclick="exportQAToPDF()" style="padding: 6px 12px; font-size: 12px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Guardar como documento PDF">
+                                <span>📄</span> Guardar en PDF
+                            </button>
+                        </div>
+                    </div>
                     <div style="background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
                         <strong style="color: #92400E; font-size: 14px;">💬 Análisis de Impuntualidad:</strong>
                         <p style="margin: 4px 0 0; color: #78350F; font-size: 13px;">
-                            ${lates.length === 0 
-                                ? `${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)} no registra retardos. Mantiene 100% de puntualidad.`
-                                : `El colaborador acumula <strong>${lates.length} llegadas tarde</strong> con un total de <strong>${totalMins} minutos</strong> de demora acumulada.`
-                            }
+                            ${escapeHtml(summary)}
                         </p>
                     </div>
                     <table class="data-table">
@@ -3246,13 +3426,40 @@ async function processAndRenderDomainQuestion(rawQuery) {
             let overtimeMins = attended.reduce((acc, r) => acc + (r.minutes_overtime || 0), 0);
             const totalHours = (totalMins / 60).toFixed(1);
             const otHours = (overtimeMins / 60).toFixed(1);
+            const summary = `${targetEmp.first_name} ${targetEmp.last_name} ha laborado aproximadamente ${totalHours} horas en ${attended.length} jornadas registradas, con ${otHours} horas de sobretiempo.`;
+
+            currentQAQueryResultData = {
+                query: rawQuery,
+                type: 'time',
+                summary,
+                kpis: [
+                    { label: 'Tiempo Laborado', value: `${totalHours} hrs` },
+                    { label: 'Días Asistidos', value: attended.length },
+                    { label: 'Sobretiempo Extra', value: `${otHours} hrs` }
+                ],
+                data: attended
+            };
 
             resultsArea.innerHTML = `
                 <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-weight: 700; color: #374151; font-size: 14px;">Balance de Tiempo Laborado</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="printQAResult()" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Imprimir directamente">
+                                <span>🖨️</span> Imprimir
+                            </button>
+                            <button class="btn btn-success" onclick="exportQAToExcel()" style="padding: 6px 12px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Exportar a Microsoft Excel (.csv)">
+                                <span>📊</span> Guardar en Excel
+                            </button>
+                            <button class="btn btn-danger" onclick="exportQAToPDF()" style="padding: 6px 12px; font-size: 12px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Guardar como documento PDF">
+                                <span>📄</span> Guardar en PDF
+                            </button>
+                        </div>
+                    </div>
                     <div style="background: #ECFDF5; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
                         <strong style="color: #065F46; font-size: 14px;">💬 Balance de Tiempo Laborado:</strong>
                         <p style="margin: 4px 0 0; color: #047857; font-size: 13px;">
-                            ${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)} ha laborado aproximadamente <strong>${totalHours} horas</strong> en <strong>${attended.length} jornadas</strong> registradas, con <strong>${otHours} horas</strong> de sobretiempo.
+                            ${escapeHtml(summary)}
                         </p>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
@@ -3295,15 +3502,41 @@ async function processAndRenderDomainQuestion(rawQuery) {
                 .sort((a, b) => b.count - a.count)
                 .slice(0, 5);
 
+            const summary = ranking.length > 0
+                ? `El colaborador con más faltas registradas es ${ranking[0].name} (${ranking[0].code}) con ${ranking[0].count} inasistencias.`
+                : 'No se registran faltas en el sistema.';
+
+            currentQAQueryResultData = {
+                query: rawQuery,
+                type: 'ranking',
+                summary,
+                kpis: [
+                    { label: 'Líder en Faltas', value: ranking[0]?.name || 'N/A' },
+                    { label: 'Faltas Registradas', value: ranking[0]?.count || 0 }
+                ],
+                data: ranking
+            };
+
             resultsArea.innerHTML = `
                 <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-weight: 700; color: #374151; font-size: 14px;">Ranking de Ausentismo</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="printQAResult()" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Imprimir directamente">
+                                <span>🖨️</span> Imprimir
+                            </button>
+                            <button class="btn btn-success" onclick="exportQAToExcel()" style="padding: 6px 12px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Exportar a Microsoft Excel (.csv)">
+                                <span>📊</span> Guardar en Excel
+                            </button>
+                            <button class="btn btn-danger" onclick="exportQAToPDF()" style="padding: 6px 12px; font-size: 12px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Guardar como documento PDF">
+                                <span>📄</span> Guardar en PDF
+                            </button>
+                        </div>
+                    </div>
                     <div style="background: #FEF2F2; border-left: 4px solid #EF4444; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
                         <strong style="color: #991B1B; font-size: 14px;">💬 Ranking de Ausentismo:</strong>
                         <p style="margin: 4px 0 0; color: #B91C1C; font-size: 13px;">
-                            ${ranking.length > 0
-                                ? `El colaborador con más faltas registradas es <strong>${escapeHtml(ranking[0].name)}</strong> (${escapeHtml(ranking[0].code)}) con <strong>${ranking[0].count} inasistencias</strong>.`
-                                : 'No se registran faltas en el sistema.'
-                            }
+                            ${escapeHtml(summary)}
                         </p>
                     </div>
                     <div style="display: grid; gap: 10px;">
@@ -3331,13 +3564,41 @@ async function processAndRenderDomainQuestion(rawQuery) {
         const presentCount = attendanceRecords.filter(r => r.status === 'present').length;
         const total = attendanceRecords.length;
         const attRate = total > 0 ? (((presentCount + lateCount) / total) * 100).toFixed(1) : '100.0';
+        const summary = `Plantilla de ${employees.length} colaboradores con una tasa de asistencia acumulada de ${attRate}%. Se registran ${absCount} ausencias y ${lateCount} retardos en total.`;
+
+        currentQAQueryResultData = {
+            query: rawQuery,
+            type: 'global',
+            summary,
+            kpis: [
+                { label: 'Plantilla Total', value: employees.length },
+                { label: 'Tasa Asistencia', value: `${attRate}%` },
+                { label: 'Total Inasistencias', value: absCount },
+                { label: 'Total Retardos', value: lateCount }
+            ],
+            data: []
+        };
 
         resultsArea.innerHTML = `
             <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                    <span style="font-weight: 700; color: #374151; font-size: 14px;">Panorama General de Asistencia</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" onclick="printQAResult()" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Imprimir directamente">
+                            <span>🖨️</span> Imprimir
+                        </button>
+                        <button class="btn btn-success" onclick="exportQAToExcel()" style="padding: 6px 12px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Exportar a Microsoft Excel (.csv)">
+                            <span>📊</span> Guardar en Excel
+                        </button>
+                        <button class="btn btn-danger" onclick="exportQAToPDF()" style="padding: 6px 12px; font-size: 12px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Guardar como documento PDF">
+                            <span>📄</span> Guardar en PDF
+                        </button>
+                    </div>
+                </div>
                 <div style="background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
                     <strong style="color: #166534; font-size: 14px;">💬 Panorama General de Asistencia:</strong>
                     <p style="margin: 4px 0 0; color: #14532D; font-size: 13px;">
-                        Plantilla de <strong>${employees.length} colaboradores</strong> con una tasa de asistencia acumulada de <strong>${attRate}%</strong>. Se registran <strong>${absCount} ausencias</strong> y <strong>${lateCount} retardos</strong> en total.
+                        ${escapeHtml(summary)}
                     </p>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
@@ -4770,4 +5031,11 @@ Object.assign(window, {
     calcEmployeeAbsenceHistoryClient,
     getWeekRangeClient,
     groupAbsenceDaysByWeekClient,
+    exportAbsenceHistoryToExcel,
+    exportAbsenceHistoryToPDF,
+    printAbsenceHistory,
+    exportQAToExcel,
+    exportQAToPDF,
+    printQAResult,
+    downloadFile,
 });

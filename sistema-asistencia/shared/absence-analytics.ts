@@ -790,3 +790,80 @@ function getMostFrequentDay(dist: Record<string, number>): string {
     }
     return topVal > 0 ? topDay : 'Sin faltas';
 }
+
+// ============================================================================
+// EXPORTACIÓN A EXCEL (CSV CON FORMATO INTERNACIONAL Y BOM UTF-8)
+// ============================================================================
+
+/**
+ * Genera contenido CSV compatible al 100% con Microsoft Excel en español (BOM UTF-8, delimitador ;)
+ * para el Historial de Faltas de un empleado (mensual y semanal).
+ */
+export function exportAbsenceHistoryToCSV(history: EmployeeAbsenceHistoryResult): string {
+    const lines: string[] = [];
+    lines.push('REPORTE ANALÍTICO DE HISTORIAL DE FALTAS');
+    lines.push(`Empleado;${history.employee.first_name} ${history.employee.last_name}`);
+    lines.push(`Nómina / Matrícula;${history.employee.employee_code}`);
+    lines.push(`Departamento;${history.employee.department_name || 'General'}`);
+    lines.push(`Puesto;${history.employee.position || 'Colaborador'}`);
+    lines.push(`Total Faltas Acumuladas;${history.totalAbsences}`);
+    lines.push(`Meses con Inasistencias;${history.monthsWithAbsencesCount}`);
+    lines.push(`Promedio Faltas / Mes;${history.averagePerMonth}`);
+    lines.push(`Día Más Frecuente;${getMostFrequentDay(history.dayOfWeekDistribution)}`);
+    lines.push(`Fecha de Emisión;${new Date().toISOString().split('T')[0]}`);
+    lines.push('');
+    lines.push('DESGLOSE DETALLADO DE INASISTENCIAS POR MES Y SEMANA');
+    lines.push('Año-Mes;Mes;Semana;Día de la Semana;Fecha (YYYY-MM-DD);Notas / Justificación');
+
+    for (let m = 0; m < history.months.length; m++) {
+        const month = history.months[m];
+        for (let w = 0; w < month.weeks.length; w++) {
+            const week = month.weeks[w];
+            for (let d = 0; d < week.days.length; d++) {
+                const day = week.days[d];
+                const cleanNote = (day.notes || '').replace(/;/g, ',').replace(/[\r\n]+/g, ' ');
+                lines.push(`${month.monthKey};${month.monthName};${week.weekLabel};${day.dayOfWeek};${day.date};${cleanNote}`);
+            }
+        }
+    }
+
+    // BOM UTF-8 (\uFEFF) para que Excel reconozca tildes y caracteres especiales automáticamente
+    return '\uFEFF' + lines.join('\r\n');
+}
+
+/**
+ * Genera contenido CSV compatible con Excel para los resultados del Explorador Q&A.
+ */
+export function exportQAResultToCSV(result: DomainQueryResult): string {
+    const lines: string[] = [];
+    lines.push('REPORTE DE CONSULTA DE ASISTENCIA Y PERSONAL');
+    lines.push(`Pregunta Formulada;${result.parsed.rawQuery}`);
+    lines.push(`Intención Detectada;${result.parsed.intent}`);
+    lines.push(`Resumen Ejecutivo;${result.naturalAnswer.replace(/;/g, ',').replace(/[\r\n]+/g, ' ')}`);
+    lines.push(`Fecha de Emisión;${new Date().toISOString().split('T')[0]}`);
+    lines.push('');
+    lines.push('MÉTRICAS CLAVE (KPI)');
+    lines.push('Indicador;Valor');
+    for (let i = 0; i < result.kpis.length; i++) {
+        const kpi = result.kpis[i];
+        lines.push(`${kpi.label};${kpi.value}`);
+    }
+
+    if (result.detailsType === 'ranking_list' && Array.isArray(result.data)) {
+        lines.push('');
+        lines.push('RANKING DE AUSENTISMO');
+        lines.push('Posición;Nómina;Empleado;Departamento;Total Faltas');
+        result.data.forEach((item: any, idx: number) => {
+            lines.push(`${idx + 1};${item.code};${item.name};${item.dept || ''};${item.count}`);
+        });
+    } else if (result.detailsType === 'records_table' && Array.isArray(result.data)) {
+        lines.push('');
+        lines.push('REGISTROS RELACIONADOS');
+        lines.push('Fecha;Entrada;Salida;Estado;Minutos Tarde;Minutos Extra');
+        result.data.forEach((r: any) => {
+            lines.push(`${r.date};${r.check_in_time || ''};${r.check_out_time || ''};${r.status};${r.minutes_late || 0};${r.minutes_overtime || 0}`);
+        });
+    }
+
+    return '\uFEFF' + lines.join('\r\n');
+}
