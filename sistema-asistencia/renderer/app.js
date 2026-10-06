@@ -1387,6 +1387,7 @@ async function showEmployeeDetails(employeeId) {
                     `}
                 </div>
                 <div class="modal-footer">
+                    <button class="btn btn-danger" onclick="closeModal(); showEmployeeAbsenceHistoryModal('${employee.employee_code || employeeId}')" style="background: #EF4444; color: white;">📅 Historial de Faltas</button>
                     <button class="btn btn-primary" onclick="closeModal(); showEnrollFingerprintModal(${employeeId})">Registrar Huella</button>
                     <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
                 </div>
@@ -2530,15 +2531,259 @@ async function deleteShift(shiftId) {
     }
 }
 
-// ==================== REPORTS SECTION ====================
+// ==================== REPORTS SECTION & ANALYTICS EXPLORER ====================
+const SPANISH_DAYS_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const SPANISH_MONTHS_NAMES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+/**
+ * Utilidad pura: Rango de semana de lunes a domingo para una fecha YYYY-MM-DD
+ */
+function getWeekRangeClient(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return { startDate: dateStr, endDate: dateStr, label: dateStr };
+    const parts = dateStr.trim().split('-');
+    if (parts.length < 3) return { startDate: dateStr, endDate: dateStr, label: dateStr };
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    const dateObj = new Date(y, m - 1, d);
+    const dayIdx = dateObj.getDay();
+    const diffToMonday = dayIdx === 0 ? -6 : 1 - dayIdx;
+    const monday = new Date(y, m - 1, d + diffToMonday);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    const pad = n => String(n).padStart(2, '0');
+    return {
+        startDate: `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`,
+        endDate: `${sunday.getFullYear()}-${pad(sunday.getMonth() + 1)}-${pad(sunday.getDate())}`,
+        label: `${pad(monday.getDate())}/${pad(monday.getMonth() + 1)} al ${pad(sunday.getDate())}/${pad(sunday.getMonth() + 1)}`
+    };
+}
+
+/**
+ * Agrupa días de inasistencia dentro de un mes por semanas cronológicas
+ */
+function groupAbsenceDaysByWeekClient(days) {
+    if (!days || days.length === 0) return [];
+    const weekMap = new Map();
+    for (let i = 0; i < days.length; i++) {
+        const item = days[i];
+        const range = getWeekRangeClient(item.date);
+        const existing = weekMap.get(range.startDate);
+        if (existing) {
+            existing.items.push(item);
+        } else {
+            weekMap.set(range.startDate, { range, items: [item] });
+        }
+    }
+    const sorted = Array.from(weekMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return sorted.map(([_, data], idx) => {
+        const sortedItems = [...data.items].sort((a, b) => a.date.localeCompare(b.date));
+        return {
+            weekNumber: idx + 1,
+            weekLabel: `Semana ${idx + 1} (${data.range.label})`,
+            startDate: data.range.startDate,
+            endDate: data.range.endDate,
+            totalDays: sortedItems.length,
+            days: sortedItems
+        };
+    });
+}
+
+/**
+ * Calcula el historial analítico de faltas de un empleado:
+ * - Suma de cada mes que tuvo falta del mes correspondiente
+ * - Desglose de qué días faltó en la semana de ese mes
+ */
+function calcEmployeeAbsenceHistoryClient(records, employee) {
+    const absences = (records || []).filter(r => r.status === 'absent');
+    const dayDistribution = { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0, 'Domingo': 0 };
+    const monthBuckets = new Map();
+
+    for (let i = 0; i < absences.length; i++) {
+        const r = absences[i];
+        if (!r.date) continue;
+        const parts = r.date.trim().split('-');
+        if (parts.length < 3) continue;
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        const dObj = new Date(y, m - 1, d);
+        const dayName = SPANISH_DAYS_NAMES[dObj.getDay()] || 'Desconocido';
+        if (dayDistribution[dayName] !== undefined) {
+            dayDistribution[dayName]++;
+        }
+        const monthKey = `${y}-${String(m).padStart(2, '0')}`;
+        const dayItem = {
+            date: r.date,
+            dayOfWeek: dayName,
+            dayOfMonth: d,
+            formattedDate: `${dayName} ${String(d).padStart(2, '0')} de ${SPANISH_MONTHS_NAMES[m - 1] || 'Mes ' + m}`,
+            notes: r.notes || ''
+        };
+        const curList = monthBuckets.get(monthKey);
+        if (curList) curList.push(dayItem);
+        else monthBuckets.set(monthKey, [dayItem]);
+    }
+
+    const sortedMonthKeys = Array.from(monthBuckets.keys()).sort((a, b) => b.localeCompare(a));
+    let worstMonth = null;
+
+    const months = sortedMonthKeys.map(mKey => {
+        const [yearStr, monthStr] = mKey.split('-');
+        const y = parseInt(yearStr, 10);
+        const m = parseInt(monthStr, 10);
+        const monthName = `${SPANISH_MONTHS_NAMES[m - 1] || 'Mes ' + m} ${y}`;
+        const items = monthBuckets.get(mKey) || [];
+        const total = items.length;
+        if (!worstMonth || total > worstMonth.total) {
+            worstMonth = { monthName, total };
+        }
+        const weeks = groupAbsenceDaysByWeekClient(items);
+        return {
+            monthKey: mKey,
+            year: y,
+            monthNumber: m,
+            monthName,
+            totalAbsences: total,
+            weeks
+        };
+    });
+
+    const totalAbsences = absences.length;
+    const monthsWithAbsencesCount = months.length;
+    const averagePerMonth = monthsWithAbsencesCount > 0 ? (totalAbsences / monthsWithAbsencesCount).toFixed(1) : '0';
+
+    return {
+        employee,
+        totalAbsences,
+        monthsWithAbsencesCount,
+        averagePerMonth,
+        worstMonth,
+        months,
+        dayOfWeekDistribution: dayDistribution
+    };
+}
+
+/**
+ * Carga la sección de reportes integrando el Explorador Inteligente & Historial de Faltas
+ */
 async function loadReportsSection() {
     const container = document.querySelector('#reports-section .card-body');
     if (!container) return;
 
+    if (!employees || employees.length === 0) {
+        try {
+            await loadEmployees();
+        } catch (_) {}
+    }
+
     const todayStr = new Date().toISOString().split('T')[0];
     const currentMonth = new Date().toISOString().slice(0, 7);
 
+    const employeeOptions = (employees || [])
+        .map(e => `<option value="${escapeHtml(e.employee_code)}">${escapeHtml(e.employee_code)} - ${escapeHtml(e.first_name)} ${escapeHtml(e.last_name)}</option>`)
+        .join('');
+
     container.innerHTML = `
+        <!-- CENTRO ANALÍTICO: EXPLORADOR DE FALTAS & Q&A DE DOMINIO -->
+        <div style="background: white; border: 2px solid #E5E7EB; border-radius: 14px; padding: 24px; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid #F3F4F6; padding-bottom: 15px;">
+                <div>
+                    <h3 style="margin: 0; color: #1F2937; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+                        <span>🧠</span> Explorador Inteligente & Historial de Faltas
+                    </h3>
+                    <p style="margin: 4px 0 0; color: #6B7280; font-size: 13px;">
+                        Ingresa una nómina para calcular la suma de faltas por mes y días por semana, o haz preguntas en lenguaje natural sobre el personal.
+                    </p>
+                </div>
+                <div style="display: flex; background: #F3F4F6; padding: 4px; border-radius: 10px; gap: 4px;">
+                    <button id="tab-btn-absences" class="btn" style="padding: 8px 18px; font-size: 13px; background: #3B82F6; color: white; border-radius: 8px; font-weight: 600;" onclick="switchReportsSubTab('absences')">
+                        📅 Historial de Faltas
+                    </button>
+                    <button id="tab-btn-qa" class="btn" style="padding: 8px 18px; font-size: 13px; background: transparent; color: #4B5563; border-radius: 8px; font-weight: 600;" onclick="switchReportsSubTab('qa')">
+                        💬 Preguntas al Personal (NLP)
+                    </button>
+                </div>
+            </div>
+
+            <!-- SUB-TAB 1: HISTORIAL DE FALTAS -->
+            <div id="subtab-content-absences">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 20px; align-items: end;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">
+                            Nómina / Matrícula del Empleado:
+                        </label>
+                        <input type="text" id="absence-employee-input" class="form-control" placeholder="Ej: EMP-001 o 001..." onkeydown="if(event.key === 'Enter') onSearchEmployeeAbsences()">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">
+                            O Selecciona un Colaborador:
+                        </label>
+                        <select id="absence-employee-select" class="form-control" onchange="if(this.value) { document.getElementById('absence-employee-input').value = this.value; onSearchEmployeeAbsences(); }">
+                            <option value="">-- Seleccionar de la plantilla --</option>
+                            ${employeeOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn btn-danger" style="width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;" onclick="onSearchEmployeeAbsences()">
+                            <span>🔍</span> Consultar Historial de Faltas
+                        </button>
+                    </div>
+                </div>
+                <div id="absence-history-results-area">
+                    <div style="text-align: center; padding: 35px 20px; background: #F9FAFB; border-radius: 12px; border: 2px dashed #E5E7EB; color: #6B7280; font-size: 14px;">
+                        <span style="font-size: 28px; display: block; margin-bottom: 8px;">📊</span>
+                        Ingresa una nómina o selecciona un empleado para calcular la <strong>suma de faltas de cada mes</strong> y el <strong>desglose de días específicos por semana</strong>.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-TAB 2: PREGUNTAS Y RESPUESTAS (NLP) -->
+            <div id="subtab-content-qa" style="display: none;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">
+                        Formula una pregunta sobre el dominio de asistencia (empleado, faltas, tiempo, retardos):
+                    </label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="qa-query-input" class="form-control" placeholder="Ej: ¿Qué días faltó el empleado EMP-001 en la semana? o ¿Quién tiene más faltas este mes?" onkeydown="if(event.key === 'Enter') onExecuteDomainQuestion()">
+                        <button class="btn btn-primary" style="white-space: nowrap; padding: 0 24px; font-weight: 600; display: flex; align-items: center; gap: 6px;" onclick="onExecuteDomainQuestion()">
+                            <span>✨</span> Preguntar
+                        </button>
+                    </div>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; align-items: center;">
+                    <span style="font-size: 12px; color: #6B7280; font-weight: 600;">Consultas rápidas:</span>
+                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Qué días faltó el empleado EMP-001 en la semana?')">
+                        📅 ¿Qué días faltó EMP-001 en la semana?
+                    </button>
+                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('Historial de faltas de EMP-001')">
+                        📊 Historial de faltas de EMP-001
+                    </button>
+                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Quién tiene más faltas en el personal?')">
+                        🔴 ¿Quién tiene más faltas?
+                    </button>
+                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Cuánto tiempo trabajó el empleado EMP-001?')">
+                        ⏱️ ¿Cuánto tiempo trabajó EMP-001?
+                    </button>
+                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('retardos y minutos tarde de EMP-001')">
+                        ⏰ Retardos de EMP-001
+                    </button>
+                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('resumen general de personal faltas y tiempo')">
+                        📈 Resumen global: personal, faltas y tiempo
+                    </button>
+                </div>
+                <div id="qa-query-results-area">
+                    <div style="text-align: center; padding: 35px 20px; background: #F9FAFB; border-radius: 12px; border: 2px dashed #E5E7EB; color: #6B7280; font-size: 14px;">
+                        <span style="font-size: 28px; display: block; margin-bottom: 8px;">💬</span>
+                        Escribe tu pregunta o presiona una sugerencia para explorar los datos mediante palabras clave contextuales (<em>empleado, falta, tiempo, retardo, mes, semana</em>).
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h4 style="color: #4B5563; margin: 0 0 15px; font-size: 15px; font-weight: 600;">Reportes Tradicionales del Sistema:</h4>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
             <!-- Reporte Diario -->
             <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
@@ -2587,6 +2832,542 @@ async function loadReportsSection() {
             </div>
         </div>
     `;
+}
+
+/**
+ * Alterna entre subtabs en la sección de reportes
+ */
+function switchReportsSubTab(subTab) {
+    const tabAbsences = document.getElementById('tab-btn-absences');
+    const tabQA = document.getElementById('tab-btn-qa');
+    const contentAbsences = document.getElementById('subtab-content-absences');
+    const contentQA = document.getElementById('subtab-content-qa');
+
+    if (subTab === 'absences') {
+        if (tabAbsences) { tabAbsences.style.background = '#3B82F6'; tabAbsences.style.color = 'white'; }
+        if (tabQA) { tabQA.style.background = 'transparent'; tabQA.style.color = '#4B5563'; }
+        if (contentAbsences) contentAbsences.style.display = 'block';
+        if (contentQA) contentQA.style.display = 'none';
+    } else {
+        if (tabQA) { tabQA.style.background = '#3B82F6'; tabQA.style.color = 'white'; }
+        if (tabAbsences) { tabAbsences.style.background = 'transparent'; tabAbsences.style.color = '#4B5563'; }
+        if (contentQA) contentQA.style.display = 'block';
+        if (contentAbsences) contentAbsences.style.display = 'none';
+    }
+}
+
+/**
+ * Alterna el acordeón mensual de inasistencias
+ */
+function toggleMonthAbsenceAccordion(monthKey) {
+    const content = document.getElementById(`accordion-content-${monthKey}`);
+    const icon = document.getElementById(`accordion-icon-${monthKey}`);
+    if (!content) return;
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        if (icon) icon.textContent = '▼';
+    } else {
+        content.style.display = 'none';
+        if (icon) icon.textContent = '▶';
+    }
+}
+
+/**
+ * Renderiza el árbol visual de historial de faltas de un empleado
+ */
+function renderAbsenceHistoryHTMLClient(history) {
+    const emp = history.employee;
+    const photoSrc = emp.photo_url || '';
+    const initials = `${(emp.first_name || '')[0] || ''}${(emp.last_name || '')[0] || ''}`.toUpperCase();
+
+    const avatarHtml = photoSrc
+        ? `<img src="${photoSrc}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid #EF4444;">`
+        : `<div style="width: 56px; height: 56px; border-radius: 50%; background: #EF4444; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;">${initials}</div>`;
+
+    // Día de mayor incidencia
+    let mostFrequentDay = 'Ninguno';
+    let maxDayVal = 0;
+    if (history.dayOfWeekDistribution) {
+        for (const [day, count] of Object.entries(history.dayOfWeekDistribution)) {
+            if (count > maxDayVal) {
+                maxDayVal = count;
+                mostFrequentDay = `${day} (${count})`;
+            }
+        }
+    }
+
+    let monthsHTML = '';
+    if (history.months.length === 0) {
+        monthsHTML = `
+            <div style="background: #ECFDF5; border: 2px solid #A7F3D0; border-radius: 12px; padding: 25px; text-align: center; color: #065F46;">
+                <span style="font-size: 32px; display: block; margin-bottom: 8px;">🌟</span>
+                <strong style="font-size: 16px;">¡Registro Impecable!</strong>
+                <p style="margin: 6px 0 0; font-size: 13px;">Este empleado no registra ninguna inasistencia en el sistema. Cumplimiento del 100%.</p>
+            </div>
+        `;
+    } else {
+        monthsHTML = history.months.map(m => `
+            <div style="margin-bottom: 16px; border: 1px solid #E5E7EB; border-radius: 12px; overflow: hidden; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="background: #F8FAFC; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid #E5E7EB;" onclick="toggleMonthAbsenceAccordion('${m.monthKey}')">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 20px;">📅</span>
+                        <div>
+                            <strong style="color: #1E293B; font-size: 15px;">${escapeHtml(m.monthName)}</strong>
+                            <div style="font-size: 12px; color: #64748B;">${m.weeks.length} ${m.weeks.length === 1 ? 'semana con inasistencia' : 'semanas con inasistencias'}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="badge badge-danger" style="font-size: 13px; padding: 6px 14px; border-radius: 20px; font-weight: 700; background: #EF4444; color: white;">
+                            Suma del mes: ${m.totalAbsences} ${m.totalAbsences === 1 ? 'falta' : 'faltas'}
+                        </span>
+                        <span id="accordion-icon-${m.monthKey}" style="font-size: 14px; color: #64748B;">▼</span>
+                    </div>
+                </div>
+                <div id="accordion-content-${m.monthKey}" style="padding: 18px 20px;">
+                    <p style="margin: 0 0 12px; font-size: 13px; color: #475569; font-weight: 600;">
+                        🗓️ Desglose semanal: días específicos de falta en ${escapeHtml(m.monthName)}:
+                    </p>
+                    <div style="display: grid; gap: 12px;">
+                        ${m.weeks.map(week => `
+                            <div style="background: #FEF2F2; border-left: 4px solid #EF4444; border-radius: 8px; padding: 12px 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-weight: 700; color: #991B1B; font-size: 13px;">${escapeHtml(week.weekLabel)}</span>
+                                    <span style="background: #FEE2E2; color: #991B1B; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                        ${week.totalDays} ${week.totalDays === 1 ? 'día' : 'días'}
+                                    </span>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                    ${week.days.map(d => `
+                                        <div style="background: white; border: 1px solid #FCA5A5; border-radius: 6px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                                            <span style="color: #DC2626; font-size: 12px;">🔴</span>
+                                            <strong style="color: #1F2937; font-size: 13px;">${escapeHtml(d.dayOfWeek)}</strong>
+                                            <span style="color: #4B5563; font-size: 13px;">${escapeHtml(d.formattedDate)}</span>
+                                            ${d.notes ? `<span style="color: #6B7280; font-size: 11px; font-style: italic;">(${escapeHtml(d.notes)})</span>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    return `
+        <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
+            <!-- HEADER DEL EMPLEADO -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #F3F4F6;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    ${avatarHtml}
+                    <div>
+                        <h4 style="margin: 0; font-size: 18px; color: #1F2937;">${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)}</h4>
+                        <div style="display: flex; gap: 10px; margin-top: 4px; font-size: 12px; color: #6B7280; flex-wrap: wrap;">
+                            <span style="background: #EFF6FF; color: #1D4ED8; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Nómina: ${escapeHtml(emp.employee_code)}</span>
+                            <span>Departamento: <strong>${escapeHtml(emp.department_name || 'General')}</strong></span>
+                            <span>Puesto: <strong>${escapeHtml(emp.position || 'Colaborador')}</strong></span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-secondary" onclick="printReport()" style="padding: 8px 16px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                        <span>🖨️</span> Imprimir Historial
+                    </button>
+                </div>
+            </div>
+
+            <!-- METRICAS / KPIS -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px;">
+                <div style="background: #FEF2F2; border: 1px solid #FCA5A5; padding: 14px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 26px; font-weight: 800; color: #DC2626;">${history.totalAbsences}</div>
+                    <div style="font-size: 12px; color: #991B1B; font-weight: 600; margin-top: 2px;">Faltas Históricas</div>
+                </div>
+                <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 14px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 26px; font-weight: 800; color: #D97706;">${history.monthsWithAbsencesCount}</div>
+                    <div style="font-size: 12px; color: #92400E; font-weight: 600; margin-top: 2px;">Meses con Inasistencia</div>
+                </div>
+                <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 14px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 26px; font-weight: 800; color: #2563EB;">${history.averagePerMonth}</div>
+                    <div style="font-size: 12px; color: #1E40AF; font-weight: 600; margin-top: 2px;">Promedio Faltas / Mes</div>
+                </div>
+                <div style="background: #FAF5FF; border: 1px solid #E9D5FF; padding: 14px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 18px; font-weight: 800; color: #7E22CE; margin-top: 5px;">${escapeHtml(mostFrequentDay)}</div>
+                    <div style="font-size: 12px; color: #6B21A8; font-weight: 600; margin-top: 4px;">Día Más Frecuente</div>
+                </div>
+            </div>
+
+            <!-- LISTA DE MESES Y DESGLOSE SEMANAL -->
+            <div style="margin-top: 10px;">
+                <h5 style="margin: 0 0 15px; color: #374151; font-size: 14px; font-weight: 700;">
+                    📈 Suma Mensual & Días de Inasistencia por Semana:
+                </h5>
+                ${monthsHTML}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Consulta el historial de faltas ingresando nómina o seleccionando de la lista
+ */
+async function onSearchEmployeeAbsences() {
+    const inputVal = (document.getElementById('absence-employee-input')?.value || '').trim();
+    const selectVal = (document.getElementById('absence-employee-select')?.value || '').trim();
+    const searchCode = inputVal || selectVal;
+
+    const resultsArea = document.getElementById('absence-history-results-area');
+    if (!resultsArea) return;
+
+    if (!searchCode) {
+        showNotification('Por favor ingresa o selecciona la nómina/matrícula del empleado', 'warning');
+        return;
+    }
+
+    resultsArea.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #6B7280;">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px;">Buscando y calculando historial de faltas de ${escapeHtml(searchCode)}...</p>
+        </div>
+    `;
+
+    try {
+        if (!employees || employees.length === 0) {
+            await loadEmployees();
+        }
+
+        const normSearch = searchCode.toLowerCase().replace(/[-_\s]/g, '');
+        const targetEmp = (employees || []).find(e => {
+            const eCodeNorm = (e.employee_code || '').toLowerCase().replace(/[-_\s]/g, '');
+            const idStr = String(e.id);
+            return eCodeNorm === normSearch || e.employee_code.toLowerCase() === searchCode.toLowerCase() || idStr === searchCode;
+        });
+
+        if (!targetEmp) {
+            resultsArea.innerHTML = `
+                <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 25px; text-align: center; color: #991B1B;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">❌</div>
+                    <strong>No se encontró ningún empleado con la nómina o código "${escapeHtml(searchCode)}"</strong>
+                    <p style="margin: 6px 0 0; font-size: 13px; color: #B91C1C;">Verifica la matrícula o selecciónalo desde la lista desplegable.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const records = await window.attendance.getAttendanceRecords({ employee_id: targetEmp.id });
+        const history = calcEmployeeAbsenceHistoryClient(records, targetEmp);
+        resultsArea.innerHTML = renderAbsenceHistoryHTMLClient(history);
+        showNotification(`Historial de ${targetEmp.first_name} ${targetEmp.last_name} calculado`, 'success');
+    } catch (err) {
+        logger.error('Error al consultar faltas:', err);
+        resultsArea.innerHTML = `
+            <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 20px; color: #991B1B;">
+                Error al consultar registros de asistencia: ${escapeHtml(err.message)}
+            </div>
+        `;
+    }
+}
+
+/**
+ * Modal emergente con el historial de faltas de un empleado (invocable desde cualquier parte)
+ */
+async function showEmployeeAbsenceHistoryModal(employeeCodeOrId) {
+    if (!employees || employees.length === 0) {
+        await loadEmployees();
+    }
+
+    const codeStr = String(employeeCodeOrId || '').trim();
+    const norm = codeStr.toLowerCase().replace(/[-_\s]/g, '');
+    const emp = (employees || []).find(e => {
+        const eCodeNorm = (e.employee_code || '').toLowerCase().replace(/[-_\s]/g, '');
+        return eCodeNorm === norm || String(e.id) === codeStr || e.employee_code === codeStr;
+    });
+
+    if (!emp) {
+        showNotification('Empleado no encontrado', 'error');
+        return;
+    }
+
+    try {
+        showNotification('Generando historial de faltas...', 'info');
+        const records = await window.attendance.getAttendanceRecords({ employee_id: emp.id });
+        const history = calcEmployeeAbsenceHistoryClient(records, emp);
+
+        const modalHTML = `
+            <div class="modal active" onclick="if(event.target === this) closeModal()">
+                <div class="modal-content" style="max-width: 950px;">
+                    <div class="modal-header">
+                        <h3>📅 Historial de Faltas: ${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</h3>
+                        <button class="close-btn" onclick="closeModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        ${renderAbsenceHistoryHTMLClient(history)}
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="printReport()">🖨️ Imprimir</button>
+                        <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    } catch (err) {
+        logger.error('Error al abrir modal de faltas:', err);
+        showNotification('Error al abrir el historial de faltas', 'error');
+    }
+}
+
+/**
+ * Ejecuta una consulta formulada en lenguaje natural
+ */
+async function onExecuteDomainQuestion() {
+    const query = (document.getElementById('qa-query-input')?.value || '').trim();
+    if (!query) {
+        showNotification('Por favor escribe una pregunta sobre el personal', 'warning');
+        return;
+    }
+    await processAndRenderDomainQuestion(query);
+}
+
+/**
+ * Ejecuta una pregunta sugerida rápida
+ */
+async function onQuickDomainQuestion(questionText) {
+    const input = document.getElementById('qa-query-input');
+    if (input) input.value = questionText;
+    await processAndRenderDomainQuestion(questionText);
+}
+
+/**
+ * Motor de procesamiento y renderizado de preguntas de dominio (NLP & Data Science)
+ */
+async function processAndRenderDomainQuestion(rawQuery) {
+    const resultsArea = document.getElementById('qa-query-results-area');
+    if (!resultsArea) return;
+
+    resultsArea.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #6B7280;">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px;">Analizando consulta y correlacionando registros...</p>
+        </div>
+    `;
+
+    try {
+        if (!employees || employees.length === 0) await loadEmployees();
+        const attendanceRecords = await window.attendance.getAttendanceRecords();
+
+        // Normalización y extracción de palabras clave
+        const norm = rawQuery.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[¿?¡!.,:;]/g, ' ').replace(/\s+/g, ' ').trim();
+
+        const checkW = words => words.some(w => new RegExp(`\\b${w}\\b`).test(norm));
+        const hasAbsence = checkW(['falta', 'faltas', 'falto', 'ausente', 'ausentes', 'ausencia', 'ausencias', 'inasistencia', 'inasistencias']);
+        const hasLate = checkW(['retardo', 'retardos', 'tarde', 'tardanza', 'tardanzas', 'demora', 'retraso', 'impuntual']);
+        const hasTime = checkW(['tiempo', 'hora', 'horas', 'jornada', 'trabajadas', 'trabajado', 'sobretiempo', 'duracion']);
+        const hasRanking = checkW(['mas', 'menos', 'top', 'mayor', 'menor', 'quien', 'cuales', 'ranking']);
+
+        // Localizar empleado
+        let targetEmp = null;
+        for (let i = 0; i < employees.length; i++) {
+            const e = employees[i];
+            const codeNorm = e.employee_code.toLowerCase().replace(/[-_]/g, '');
+            if (new RegExp(`\\b${e.employee_code.toLowerCase().replace('-', '[-_]?')}\\b`, 'i').test(norm) ||
+                new RegExp(`\\b${codeNorm}\\b`, 'i').test(norm.replace(/[-_]/g, ''))) {
+                targetEmp = e;
+                break;
+            }
+            const fName = `${e.first_name} ${e.last_name}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (fName.length > 3 && norm.includes(fName)) {
+                targetEmp = e;
+                break;
+            }
+        }
+
+        // Caso 1: Historial o días de falta de un empleado
+        if (targetEmp && (hasAbsence || /dias|semana|mes|historial/i.test(norm) || (!hasTime && !hasLate))) {
+            const empRecords = attendanceRecords.filter(r => r.employee_id === targetEmp.id);
+            const history = calcEmployeeAbsenceHistoryClient(empRecords, targetEmp);
+            resultsArea.innerHTML = `
+                <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                        <strong style="color: #1E40AF; font-size: 14px;">💬 Respuesta Contextual:</strong>
+                        <p style="margin: 4px 0 0; color: #1E3A8A; font-size: 13px;">
+                            ${history.totalAbsences === 0 
+                                ? `El colaborador ${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)} (${escapeHtml(targetEmp.employee_code)}) no registra ninguna falta en el sistema.`
+                                : `El empleado ${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)} (${escapeHtml(targetEmp.employee_code)}) acumula <strong>${history.totalAbsences} faltas</strong> en <strong>${history.monthsWithAbsencesCount} mes(es)</strong>, con un promedio de ${history.averagePerMonth} faltas por mes.`
+                            }
+                        </p>
+                    </div>
+                    ${renderAbsenceHistoryHTMLClient(history)}
+                </div>
+            `;
+            return;
+        }
+
+        // Caso 2: Retardos de un empleado
+        if (targetEmp && hasLate) {
+            const lates = attendanceRecords.filter(r => r.employee_id === targetEmp.id && r.status === 'late');
+            const totalMins = lates.reduce((acc, r) => acc + (r.minutes_late || 0), 0);
+            resultsArea.innerHTML = `
+                <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+                    <div style="background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                        <strong style="color: #92400E; font-size: 14px;">💬 Análisis de Impuntualidad:</strong>
+                        <p style="margin: 4px 0 0; color: #78350F; font-size: 13px;">
+                            ${lates.length === 0 
+                                ? `${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)} no registra retardos. Mantiene 100% de puntualidad.`
+                                : `El colaborador acumula <strong>${lates.length} llegadas tarde</strong> con un total de <strong>${totalMins} minutos</strong> de demora acumulada.`
+                            }
+                        </p>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Fecha</th><th>Entrada</th><th>Minutos Tarde</th><th>Estado</th></tr>
+                        </thead>
+                        <tbody>
+                            ${lates.map(r => `
+                                <tr>
+                                    <td>${escapeHtml(r.date)}</td>
+                                    <td>${escapeHtml(r.check_in_time || '-')}</td>
+                                    <td><span class="badge badge-warning">${r.minutes_late || 0} min</span></td>
+                                    <td><span class="badge badge-warning">Tarde</span></td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="4" style="text-align:center;">Sin retardos</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            return;
+        }
+
+        // Caso 3: Tiempo trabajado de un empleado
+        if (targetEmp && hasTime) {
+            const attended = attendanceRecords.filter(r => r.employee_id === targetEmp.id && (r.status === 'present' || r.status === 'late'));
+            let totalMins = attended.length * 480;
+            let overtimeMins = attended.reduce((acc, r) => acc + (r.minutes_overtime || 0), 0);
+            const totalHours = (totalMins / 60).toFixed(1);
+            const otHours = (overtimeMins / 60).toFixed(1);
+
+            resultsArea.innerHTML = `
+                <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+                    <div style="background: #ECFDF5; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                        <strong style="color: #065F46; font-size: 14px;">💬 Balance de Tiempo Laborado:</strong>
+                        <p style="margin: 4px 0 0; color: #047857; font-size: 13px;">
+                            ${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)} ha laborado aproximadamente <strong>${totalHours} horas</strong> en <strong>${attended.length} jornadas</strong> registradas, con <strong>${otHours} horas</strong> de sobretiempo.
+                        </p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 800; color: #16A34A;">${totalHours} hrs</div>
+                            <div style="font-size: 12px; color: #15803D;">Tiempo Laborado</div>
+                        </div>
+                        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 800; color: #2563EB;">${attended.length}</div>
+                            <div style="font-size: 12px; color: #1E40AF;">Días Asistidos</div>
+                        </div>
+                        <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 800; color: #D97706;">${otHours} hrs</div>
+                            <div style="font-size: 12px; color: #92400E;">Sobretiempo (Extra)</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Caso 4: Ranking de faltas (Top ausentismo)
+        if (hasRanking && hasAbsence) {
+            const counts = new Map();
+            attendanceRecords.forEach(r => {
+                if (r.status === 'absent') {
+                    counts.set(r.employee_id, (counts.get(r.employee_id) || 0) + 1);
+                }
+            });
+            const ranking = Array.from(counts.entries())
+                .map(([empId, count]) => {
+                    const emp = employees.find(e => e.id === empId);
+                    return {
+                        id: empId,
+                        code: emp ? emp.employee_code : `EMP-${empId}`,
+                        name: emp ? `${emp.first_name} ${emp.last_name}` : `Empleado ${empId}`,
+                        count
+                    };
+                })
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5);
+
+            resultsArea.innerHTML = `
+                <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+                    <div style="background: #FEF2F2; border-left: 4px solid #EF4444; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                        <strong style="color: #991B1B; font-size: 14px;">💬 Ranking de Ausentismo:</strong>
+                        <p style="margin: 4px 0 0; color: #B91C1C; font-size: 13px;">
+                            ${ranking.length > 0
+                                ? `El colaborador con más faltas registradas es <strong>${escapeHtml(ranking[0].name)}</strong> (${escapeHtml(ranking[0].code)}) con <strong>${ranking[0].count} inasistencias</strong>.`
+                                : 'No se registran faltas en el sistema.'
+                            }
+                        </p>
+                    </div>
+                    <div style="display: grid; gap: 10px;">
+                        ${ranking.map((item, idx) => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #F9FAFB; border-radius: 8px; border: 1px solid #E5E7EB;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-weight: 800; color: #6B7280; width: 24px;">#${idx + 1}</span>
+                                    <div>
+                                        <strong style="color: #1F2937;">${escapeHtml(item.name)}</strong>
+                                        <span style="color: #6B7280; font-size: 12px; margin-left: 6px;">(${escapeHtml(item.code)})</span>
+                                    </div>
+                                </div>
+                                <span class="badge badge-danger" style="font-size: 13px; font-weight: 700; padding: 6px 12px;">${item.count} faltas</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Caso 5: Resumen global / multivariable
+        const absCount = attendanceRecords.filter(r => r.status === 'absent').length;
+        const lateCount = attendanceRecords.filter(r => r.status === 'late').length;
+        const presentCount = attendanceRecords.filter(r => r.status === 'present').length;
+        const total = attendanceRecords.length;
+        const attRate = total > 0 ? (((presentCount + lateCount) / total) * 100).toFixed(1) : '100.0';
+
+        resultsArea.innerHTML = `
+            <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+                <div style="background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                    <strong style="color: #166534; font-size: 14px;">💬 Panorama General de Asistencia:</strong>
+                    <p style="margin: 4px 0 0; color: #14532D; font-size: 13px;">
+                        Plantilla de <strong>${employees.length} colaboradores</strong> con una tasa de asistencia acumulada de <strong>${attRate}%</strong>. Se registran <strong>${absCount} ausencias</strong> y <strong>${lateCount} retardos</strong> en total.
+                    </p>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                    <div style="background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 800; color: #2563EB;">${employees.length}</div>
+                        <div style="font-size: 12px; color: #4B5563;">Plantilla Total</div>
+                    </div>
+                    <div style="background: #ECFDF5; border: 1px solid #A7F3D0; padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 800; color: #059669;">${attRate}%</div>
+                        <div style="font-size: 12px; color: #065F46;">Tasa de Asistencia</div>
+                    </div>
+                    <div style="background: #FEF2F2; border: 1px solid #FCA5A5; padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 800; color: #DC2626;">${absCount}</div>
+                        <div style="font-size: 12px; color: #991B1B;">Total Inasistencias</div>
+                    </div>
+                    <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 800; color: #D97706;">${lateCount}</div>
+                        <div style="font-size: 12px; color: #92400E;">Total Retardos</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        logger.error('Error al procesar pregunta:', err);
+        resultsArea.innerHTML = `
+            <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 20px; color: #991B1B;">
+                Error al procesar la pregunta: ${escapeHtml(err.message)}
+            </div>
+        `;
+    }
 }
 
 function onGenerateMonthlyReportClick() {
@@ -3980,4 +4761,13 @@ Object.assign(window, {
     updateShift,
     toggleAutoAttendance,
     loadRecordsSection,
+    switchReportsSubTab,
+    toggleMonthAbsenceAccordion,
+    onSearchEmployeeAbsences,
+    showEmployeeAbsenceHistoryModal,
+    onExecuteDomainQuestion,
+    onQuickDomainQuestion,
+    calcEmployeeAbsenceHistoryClient,
+    getWeekRangeClient,
+    groupAbsenceDaysByWeekClient,
 });
