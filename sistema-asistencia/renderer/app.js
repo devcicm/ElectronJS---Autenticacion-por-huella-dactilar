@@ -734,14 +734,27 @@ async function saveNewEmployee() {
         return;
     }
 
+    const deptId = safeParseInt(document.getElementById('emp-department').value, 0);
+    const shiftId = safeParseInt(document.getElementById('emp-shift').value, 0);
+    if (deptId <= 0) {
+        showNotification('Debe seleccionar un departamento válido', 'warning');
+        document.getElementById('emp-department').focus();
+        return;
+    }
+    if (shiftId <= 0) {
+        showNotification('Debe seleccionar un turno válido', 'warning');
+        document.getElementById('emp-shift').focus();
+        return;
+    }
+
     const data = {
         employee_code: sanitizeText(document.getElementById('emp-code').value, 50),
         first_name: sanitizeText(document.getElementById('emp-firstname').value, 100),
         last_name: sanitizeText(document.getElementById('emp-lastname').value, 100),
         email: sanitizeEmail(email),
         phone: sanitizePhone(document.getElementById('emp-phone').value),
-        department_id: parseInt(document.getElementById('emp-department').value),
-        shift_id: parseInt(document.getElementById('emp-shift').value),
+        department_id: deptId,
+        shift_id: shiftId,
         position: sanitizeText(document.getElementById('emp-position').value, 100),
         hire_date: document.getElementById('emp-hire-date').value,
         status: 'active',
@@ -908,15 +921,28 @@ async function updateEmployee(employeeId) {
         submitBtn.textContent = 'Actualizando...';
     }
 
+    const deptId = safeParseInt(document.getElementById('edit-emp-department').value, 0);
+    const shiftId = safeParseInt(document.getElementById('edit-emp-shift').value, 0);
+    if (deptId <= 0) {
+        showNotification('Debe seleccionar un departamento válido', 'warning');
+        document.getElementById('edit-emp-department').focus();
+        return;
+    }
+    if (shiftId <= 0) {
+        showNotification('Debe seleccionar un turno válido', 'warning');
+        document.getElementById('edit-emp-shift').focus();
+        return;
+    }
+
     const data = {
-        id: employeeId,
+        id: safeParseInt(employeeId, 0),
         employee_code: sanitizeText(document.getElementById('edit-emp-code').value, 50),
         first_name: sanitizeText(document.getElementById('edit-emp-firstname').value, 100),
         last_name: sanitizeText(document.getElementById('edit-emp-lastname').value, 100),
         email: sanitizeEmail(email),
         phone: sanitizePhone(document.getElementById('edit-emp-phone').value),
-        department_id: parseInt(document.getElementById('edit-emp-department').value),
-        shift_id: parseInt(document.getElementById('edit-emp-shift').value),
+        department_id: deptId,
+        shift_id: shiftId,
         position: sanitizeText(document.getElementById('edit-emp-position').value, 100),
         hire_date: document.getElementById('edit-emp-hire-date').value,
         status: document.getElementById('edit-emp-status').value,
@@ -2469,7 +2495,7 @@ async function generateMonthlyReport() {
                                         </thead>
                                         <tbody>
                                             ${report.employeeStats.map(emp => {
-                                                const attendanceRate = parseFloat(emp.attendanceRate);
+                                                const attendanceRate = safeParseFloat(emp.attendanceRate, 0);
                                                 const rateColor = attendanceRate >= 95 ? '#10B981' : attendanceRate >= 80 ? '#F59E0B' : '#EF4444';
                                                 return `
                                                 <tr>
@@ -2544,7 +2570,7 @@ async function showEmployeeReportDetails() {
     try {
         closeModal();
         showNotification('Generando reporte del empleado...', 'info');
-        const report = await window.reports.generateEmployee(parseInt(employeeId));
+        const report = await window.reports.generateEmployee(safeParseInt(employeeId, 0));
 
         const modalHTML = `
             <div class="modal active" onclick="if(event.target === this) closeModal()">
@@ -2854,7 +2880,8 @@ function loadSavedSettings() {
 
     try {
         const saved = localStorage.getItem('attendance_settings');
-        return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+        const parsed = safeParseJson(saved, null);
+        return parsed && typeof parsed === 'object' ? safeClone({ ...defaultSettings, ...parsed }) : defaultSettings;
     } catch {
         return defaultSettings;
     }
@@ -2864,15 +2891,15 @@ async function saveSettings() {
     try {
         const oldSettings = loadSavedSettings();
         const newSettings = {
-            absentTime: document.getElementById('setting-absent-time').value,
-            requireCheckout: document.getElementById('setting-require-checkout').checked,
-            allowManual: document.getElementById('setting-allow-manual').checked,
-            requireBiometric: document.getElementById('setting-require-biometric').checked,
-            captureTimeoutSeconds: parseInt(document.getElementById('setting-capture-timeout')?.value || '20', 10),
-            enableNotifications: document.getElementById('setting-notifications').checked,
-            lateAlerts: document.getElementById('setting-late-alerts').checked,
-            biometricFailAlerts: document.getElementById('setting-biometric-fail-alerts').checked,
-            autoStartListening: document.getElementById('setting-auto-start-listening').checked
+            absentTime: document.getElementById('setting-absent-time')?.value || '09:00',
+            requireCheckout: safeParseBoolean(document.getElementById('setting-require-checkout')?.checked, true),
+            allowManual: safeParseBoolean(document.getElementById('setting-allow-manual')?.checked, true),
+            requireBiometric: safeParseBoolean(document.getElementById('setting-require-biometric')?.checked, false),
+            captureTimeoutSeconds: safeParseInt(document.getElementById('setting-capture-timeout')?.value, 20),
+            enableNotifications: safeParseBoolean(document.getElementById('setting-notifications')?.checked, true),
+            lateAlerts: safeParseBoolean(document.getElementById('setting-late-alerts')?.checked, true),
+            biometricFailAlerts: safeParseBoolean(document.getElementById('setting-biometric-fail-alerts')?.checked, false),
+            autoStartListening: safeParseBoolean(document.getElementById('setting-auto-start-listening')?.checked, true)
         };
 
         localStorage.setItem('attendance_settings', JSON.stringify(newSettings));

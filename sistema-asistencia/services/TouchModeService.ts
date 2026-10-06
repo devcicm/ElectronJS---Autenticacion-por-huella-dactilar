@@ -12,6 +12,7 @@ import { AttendanceModel } from '../models/index.js';
 import { BIOMETRIC_SERVER, fetchJson } from '../shared/biometric-config.js';
 import { logger } from '../shared/logger.js';
 import { getLocalDateString } from '../shared/date-utils.js';
+import { safeParseInt } from '../shared/object-utils.js';
 
 export interface TouchModeState {
     isActive: boolean;
@@ -454,9 +455,9 @@ export class TouchModeService {
             let employeeId: number;
             const employeeIdMatch = identifyResult.userId.match(/employee_(\d+)/);
             if (employeeIdMatch) {
-                employeeId = parseInt(employeeIdMatch[1]);
+                employeeId = safeParseInt(employeeIdMatch[1], 0);
             } else if (/^\d+$/.test(identifyResult.userId)) {
-                employeeId = parseInt(identifyResult.userId);
+                employeeId = safeParseInt(identifyResult.userId, 0);
             } else {
                 logger.error('[TouchModeService] Formato de userId inválido:', identifyResult.userId);
                 this.emitEvent('IDENTIFICATION_FAILED', {

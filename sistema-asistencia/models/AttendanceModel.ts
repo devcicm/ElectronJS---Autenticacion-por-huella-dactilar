@@ -12,6 +12,7 @@ import {
     AttendanceStatus
 } from '../types/index.js';
 import { getLocalDateString, getLocalTimeString } from '../shared/date-utils.js';
+import { safeParseInt, safeParseBoolean } from '../shared/object-utils.js';
 
 export class AttendanceModel {
     constructor(private db: DatabaseManager) {}
@@ -117,21 +118,30 @@ export class AttendanceModel {
      * Crear registro de asistencia
      */
     create(data: AttendanceRecordCreate): AttendanceRecord {
+        if (!data || typeof data !== 'object') {
+            throw new Error('Datos de asistencia inválidos o no proporcionados');
+        }
+
+        const empId = safeParseInt(data.employee_id, 0);
+        if (empId <= 0) {
+            throw new Error('ID de empleado inválido');
+        }
+
         const result = this.db.execute(
             `INSERT INTO attendance_records (
                 employee_id, date, check_in_time, check_out_time, status,
                 minutes_late, minutes_overtime, fingerprint_verified, notes
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                data.employee_id,
-                data.date,
-                data.check_in_time || null,
-                data.check_out_time || null,
+                empId,
+                String(data.date || '').trim(),
+                data.check_in_time ? String(data.check_in_time).trim() : null,
+                data.check_out_time ? String(data.check_out_time).trim() : null,
                 data.status,
-                data.minutes_late || 0,
-                data.minutes_overtime || 0,
-                data.fingerprint_verified ? 1 : 0,
-                data.notes || null
+                safeParseInt(data.minutes_late, 0),
+                safeParseInt(data.minutes_overtime, 0),
+                safeParseBoolean(data.fingerprint_verified, false) ? 1 : 0,
+                data.notes ? String(data.notes).trim() : null
             ]
         );
 
@@ -238,10 +248,11 @@ export class AttendanceModel {
     /**
      * Calcular minutos de retraso
      */
-    private calculateLateMinutes(checkInTime: string, shiftStartTime: string, toleranceMinutes: number): number {
+    private calculateLateMinutes(checkInTime: string, shiftStartTime?: string, toleranceMinutes?: number): number {
+        if (!shiftStartTime || typeof shiftStartTime !== 'string') return 0;
         const checkIn = this.timeToMinutes(checkInTime);
         const shiftStart = this.timeToMinutes(shiftStartTime);
-        const tolerance = toleranceMinutes || 0;
+        const tolerance = safeParseInt(toleranceMinutes, 0);
 
         const diff = checkIn - shiftStart - tolerance;
         return diff > 0 ? diff : 0;
@@ -250,7 +261,8 @@ export class AttendanceModel {
     /**
      * Calcular minutos de tiempo extra
      */
-    private calculateOvertimeMinutes(checkOutTime: string, shiftEndTime: string): number {
+    private calculateOvertimeMinutes(checkOutTime: string, shiftEndTime?: string): number {
+        if (!shiftEndTime || typeof shiftEndTime !== 'string') return 0;
         const checkOut = this.timeToMinutes(checkOutTime);
         const shiftEnd = this.timeToMinutes(shiftEndTime);
 
@@ -262,7 +274,10 @@ export class AttendanceModel {
      * Convertir tiempo HH:MM a minutos
      */
     private timeToMinutes(time: string): number {
-        const [hours, minutes] = time.split(':').map(Number);
+        if (!time || typeof time !== 'string') return 0;
+        const parts = time.split(':');
+        const hours = safeParseInt(parts[0], 0);
+        const minutes = safeParseInt(parts[1], 0);
         return hours * 60 + minutes;
     }
 

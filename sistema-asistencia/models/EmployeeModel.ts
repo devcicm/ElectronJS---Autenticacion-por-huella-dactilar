@@ -10,6 +10,7 @@ import {
     EmployeeWithDetails,
     EmployeeFilters
 } from '../types/index.js';
+import { safeParseInt } from '../shared/object-utils.js';
 
 export class EmployeeModel {
     constructor(private db: DatabaseManager) {}
@@ -134,21 +135,30 @@ export class EmployeeModel {
      * Crear un nuevo empleado
      */
     create(data: EmployeeCreate): Employee {
+        if (!data || typeof data !== 'object') {
+            throw new Error('Datos de empleado inválidos o no proporcionados');
+        }
+
+        const deptId = safeParseInt(data.department_id, 0);
+        const shiftId = safeParseInt(data.shift_id, 0);
+        if (deptId <= 0) throw new Error('Departamento inválido');
+        if (shiftId <= 0) throw new Error('Turno inválido');
+
         const result = this.db.execute(
             `INSERT INTO employees (
                 employee_code, first_name, last_name, email, phone,
                 department_id, shift_id, position, hire_date, status, photo_url, enrollment_mode
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                data.employee_code,
-                data.first_name,
-                data.last_name,
-                data.email,
-                data.phone || null,
-                data.department_id,
-                data.shift_id,
-                data.position,
-                data.hire_date,
+                String(data.employee_code || '').trim(),
+                String(data.first_name || '').trim(),
+                String(data.last_name || '').trim(),
+                String(data.email || '').trim().toLowerCase(),
+                data.phone ? String(data.phone).trim() : null,
+                deptId,
+                shiftId,
+                String(data.position || '').trim(),
+                String(data.hire_date || '').trim(),
                 data.status || 'active',
                 data.photo_url || null,
                 data.enrollment_mode || 'simple'
@@ -167,36 +177,49 @@ export class EmployeeModel {
      * Actualizar un empleado
      */
     update(data: EmployeeUpdate): Employee {
+        if (!data || typeof data !== 'object') {
+            throw new Error('Datos de actualización inválidos o no proporcionados');
+        }
+
+        const id = safeParseInt(data.id, 0);
+        if (id <= 0) {
+            throw new Error('ID de empleado inválido');
+        }
+
         const updates: string[] = [];
         const params: any[] = [];
 
         if (data.employee_code !== undefined) {
             updates.push('employee_code = ?');
-            params.push(data.employee_code);
+            params.push(String(data.employee_code).trim());
         }
         if (data.first_name !== undefined) {
             updates.push('first_name = ?');
-            params.push(data.first_name);
+            params.push(String(data.first_name).trim());
         }
         if (data.last_name !== undefined) {
             updates.push('last_name = ?');
-            params.push(data.last_name);
+            params.push(String(data.last_name).trim());
         }
         if (data.email !== undefined) {
             updates.push('email = ?');
-            params.push(data.email);
+            params.push(String(data.email).trim().toLowerCase());
         }
         if (data.phone !== undefined) {
             updates.push('phone = ?');
-            params.push(data.phone);
+            params.push(data.phone ? String(data.phone).trim() : null);
         }
         if (data.department_id !== undefined) {
+            const deptId = safeParseInt(data.department_id, 0);
+            if (deptId <= 0) throw new Error('Departamento inválido');
             updates.push('department_id = ?');
-            params.push(data.department_id);
+            params.push(deptId);
         }
         if (data.shift_id !== undefined) {
+            const shiftId = safeParseInt(data.shift_id, 0);
+            if (shiftId <= 0) throw new Error('Turno inválido');
             updates.push('shift_id = ?');
-            params.push(data.shift_id);
+            params.push(shiftId);
         }
         if (data.status !== undefined) {
             updates.push('status = ?');

@@ -4,6 +4,7 @@
 
 import { DatabaseManager } from '../database/init.js';
 import { Fingerprint, FingerprintCreate, FingerprintUpdate, FingerPosition } from '../types/index.js';
+import { safeParseInt } from '../shared/object-utils.js';
 
 export class FingerprintModel {
     constructor(private db: DatabaseManager) {}
@@ -12,9 +13,11 @@ export class FingerprintModel {
      * Obtener todas las huellas de un empleado
      */
     getByEmployee(employeeId: number): Fingerprint[] {
+        const empId = safeParseInt(employeeId, 0);
+        if (empId <= 0) return [];
         return this.db.query<Fingerprint>(
             'SELECT * FROM fingerprints WHERE employee_id = ? ORDER BY finger_position',
-            [employeeId]
+            [empId]
         );
     }
 
@@ -22,9 +25,11 @@ export class FingerprintModel {
      * Obtener huella por ID
      */
     getById(id: number): Fingerprint | undefined {
+        const cleanId = safeParseInt(id, 0);
+        if (cleanId <= 0) return undefined;
         return this.db.queryOne<Fingerprint>(
             'SELECT * FROM fingerprints WHERE id = ?',
-            [id]
+            [cleanId]
         );
     }
 
@@ -32,9 +37,11 @@ export class FingerprintModel {
      * Obtener huella específica de un empleado (por mano y dedo)
      */
     getByEmployeeAndFinger(employeeId: number, hand: 'LEFT' | 'RIGHT', fingerPosition: FingerPosition): Fingerprint | undefined {
+        const empId = safeParseInt(employeeId, 0);
+        if (empId <= 0) return undefined;
         return this.db.queryOne<Fingerprint>(
             'SELECT * FROM fingerprints WHERE employee_id = ? AND hand = ? AND finger_position = ?',
-            [employeeId, hand, fingerPosition]
+            [empId, hand, fingerPosition]
         );
     }
 
@@ -42,8 +49,14 @@ export class FingerprintModel {
      * Crear o actualizar una huella
      */
     upsert(data: FingerprintCreate): Fingerprint {
+        if (!data || typeof data !== 'object') {
+            throw new Error('Datos de huella inválidos');
+        }
+        const empId = safeParseInt(data.employee_id, 0);
+        if (empId <= 0) throw new Error('ID de empleado inválido');
+
         // Verificar si ya existe (considerando mano Y dedo)
-        const existing = this.getByEmployeeAndFinger(data.employee_id, data.hand, data.finger_position);
+        const existing = this.getByEmployeeAndFinger(empId, data.hand, data.finger_position);
 
         if (existing) {
             // Actualizar
@@ -54,7 +67,10 @@ export class FingerprintModel {
             });
         } else {
             // Crear nuevo
-            return this.create(data);
+            return this.create({
+                ...data,
+                employee_id: empId
+            });
         }
     }
 

@@ -334,9 +334,11 @@ export class BiometricService {
             };
 
             if (data.ok && data.matched && data.userId) {
+                const match = String(data.userId).match(/(\d+)/);
+                const empId = match ? parseInt(match[1], 10) : 0;
                 return {
                     success: true,
-                    employeeId: parseInt(data.userId),
+                    employeeId: empId > 0 ? empId : undefined,
                     message: 'Empleado identificado',
                     score: data.score
                 };

@@ -19,6 +19,7 @@ import {
     AttendanceFilters
 } from '../types/index.js';
 import { getLocalDateString, parseLocalDate } from '../shared/date-utils.js';
+import { safeParseInt, safeParseBoolean } from '../shared/object-utils.js';
 
 export class AttendanceService {
     private db: DatabaseManager;
@@ -48,8 +49,14 @@ export class AttendanceService {
         alreadyCheckedIn?: boolean;
     }> {
         try {
+            const empId = safeParseInt(employeeId, 0);
+            if (empId <= 0) {
+                return { success: false, message: 'ID de empleado inválido' };
+            }
+            const isVerified = safeParseBoolean(fingerprintVerified, true);
+
             // Verificar que el empleado existe y está activo
-            const employee = this.employeeModel.getById(employeeId);
+            const employee = this.employeeModel.getById(empId);
             if (!employee) {
                 return { success: false, message: 'Empleado no encontrado' };
             }
@@ -60,7 +67,7 @@ export class AttendanceService {
 
             // Verificación de idempotencia: Si ya registró entrada hoy, devolver éxito con el registro existente
             const today = getLocalDateString();
-            const existing = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
+            const existing = this.attendanceModel.getByEmployeeAndDate(empId, today);
             if (existing && existing.check_in_time) {
                 return {
                     success: true,
@@ -72,7 +79,7 @@ export class AttendanceService {
             }
 
             // Marcar entrada
-            const record = this.attendanceModel.checkIn(employeeId, fingerprintVerified);
+            const record = this.attendanceModel.checkIn(empId, isVerified);
 
             let message = `Entrada registrada correctamente`;
             if (record.status === 'late') {
@@ -104,14 +111,19 @@ export class AttendanceService {
         alreadyCheckedOut?: boolean;
     }> {
         try {
-            const employee = this.employeeModel.getById(employeeId);
+            const empId = safeParseInt(employeeId, 0);
+            if (empId <= 0) {
+                return { success: false, message: 'ID de empleado inválido' };
+            }
+
+            const employee = this.employeeModel.getById(empId);
             if (!employee) {
                 return { success: false, message: 'Empleado no encontrado' };
             }
 
             // Verificación de idempotencia: Si ya registró salida hoy, devolver éxito con el registro existente
             const today = getLocalDateString();
-            const existing = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
+            const existing = this.attendanceModel.getByEmployeeAndDate(empId, today);
             if (existing && existing.check_out_time) {
                 return {
                     success: true,
@@ -122,7 +134,7 @@ export class AttendanceService {
                 };
             }
 
-            const record = this.attendanceModel.checkOut(employeeId);
+            const record = this.attendanceModel.checkOut(empId);
 
             let message = `Salida registrada correctamente`;
             if (record.minutes_overtime > 0) {
@@ -212,7 +224,12 @@ export class AttendanceService {
         can: boolean;
         reason?: string;
     } {
-        const employee = this.employeeModel.getById(employeeId);
+        const empId = safeParseInt(employeeId, 0);
+        if (empId <= 0) {
+            return { can: false, reason: 'ID de empleado inválido' };
+        }
+
+        const employee = this.employeeModel.getById(empId);
 
         if (!employee) {
             return { can: false, reason: 'Empleado no encontrado' };
@@ -223,7 +240,7 @@ export class AttendanceService {
         }
 
         const today = getLocalDateString();
-        const existing = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
+        const existing = this.attendanceModel.getByEmployeeAndDate(empId, today);
 
         if (existing) {
             return { can: false, reason: 'Ya tiene registro de entrada hoy' };
@@ -239,14 +256,19 @@ export class AttendanceService {
         can: boolean;
         reason?: string;
     } {
-        const employee = this.employeeModel.getById(employeeId);
+        const empId = safeParseInt(employeeId, 0);
+        if (empId <= 0) {
+            return { can: false, reason: 'ID de empleado inválido' };
+        }
+
+        const employee = this.employeeModel.getById(empId);
 
         if (!employee) {
             return { can: false, reason: 'Empleado no encontrado' };
         }
 
         const today = getLocalDateString();
-        const existing = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
+        const existing = this.attendanceModel.getByEmployeeAndDate(empId, today);
 
         if (!existing) {
             return { can: false, reason: 'No hay registro de entrada hoy' };
@@ -361,8 +383,10 @@ export class AttendanceService {
      */
     generateMonthlyReport(year?: number, month?: number) {
         const now = new Date();
-        const targetYear = year || now.getFullYear();
-        const targetMonth = month || now.getMonth() + 1;
+        const y = safeParseInt(year, now.getFullYear());
+        const m = safeParseInt(month, now.getMonth() + 1);
+        const targetYear = y >= 1970 ? y : now.getFullYear();
+        const targetMonth = m >= 1 && m <= 12 ? m : now.getMonth() + 1;
 
         // Primer y último día del mes
         const startDate = new Date(targetYear, targetMonth - 1, 1);
@@ -461,7 +485,12 @@ export class AttendanceService {
      * Generar reporte individual de empleado
      */
     generateEmployeeReport(employeeId: number, startDate?: string, endDate?: string) {
-        const employee = this.employeeModel.getByIdWithDetails(employeeId);
+        const empId = safeParseInt(employeeId, 0);
+        if (empId <= 0) {
+            throw new Error('ID de empleado inválido');
+        }
+
+        const employee = this.employeeModel.getByIdWithDetails(empId);
         if (!employee) {
             throw new Error('Empleado no encontrado');
         }
@@ -474,12 +503,12 @@ export class AttendanceService {
         const endStr = getLocalDateString(end);
 
         const records = this.attendanceModel.getAllWithDetails({
-            employee_id: employeeId,
+            employee_id: empId,
             start_date: startStr,
             end_date: endStr
         });
 
-        const fingerprints = this.fingerprintModel.getByEmployee(employeeId);
+        const fingerprints = this.fingerprintModel.getByEmployee(empId);
 
         // Calcular estadísticas
         const totalDays = records.length;

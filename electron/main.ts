@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
 import { BIOMETRIC_PORT } from '../sistema-asistencia/shared/biometric-config.js';
 import { logger } from '../sistema-asistencia/shared/logger.js';
+import { safeParseInt, safeParseBoolean, safeParseJson } from '../sistema-asistencia/shared/object-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -235,7 +236,7 @@ function initIpcHandlers() {
           const ts = new Date().toISOString().replace(/[:.]/g, '-');
           const file = path.join(dir, `trace-electron-${ts}.json`);
           fs.writeFileSync(file, json);
-          const events = JSON.parse(json)?.events?.length || 0;
+          const events = safeParseJson<any>(json, null)?.events?.length || 0;
           logger.info(`[trace] dump OK → ${file} (${events} events)`);
           return { ok: true, path: file, events };
       } catch (e: any) {
@@ -323,22 +324,22 @@ function initIpcHandlers() {
   // Check-in / Check-out (C: safeHandle)
   safeHandle('attendance:checkIn', async (_event, employeeId: number, fingerprintVerified: boolean) => {
     const service = await getAttendanceService();
-    return await service.checkInWithFingerprint(employeeId, fingerprintVerified);
+    return await service.checkInWithFingerprint(safeParseInt(employeeId, 0), safeParseBoolean(fingerprintVerified, true));
   });
 
   safeHandle('attendance:checkOut', async (_event, employeeId: number) => {
     const service = await getAttendanceService();
-    return await service.checkOut(employeeId);
+    return await service.checkOut(safeParseInt(employeeId, 0));
   });
 
   ipcMain.handle('attendance:canCheckIn', async (_event, employeeId: number) => {
     const service = await getAttendanceService();
-    return service.canCheckIn(employeeId);
+    return service.canCheckIn(safeParseInt(employeeId, 0));
   });
 
   ipcMain.handle('attendance:canCheckOut', async (_event, employeeId: number) => {
     const service = await getAttendanceService();
-    return service.canCheckOut(employeeId);
+    return service.canCheckOut(safeParseInt(employeeId, 0));
   });
 
   // Empleados
@@ -349,12 +350,12 @@ function initIpcHandlers() {
 
   ipcMain.handle('attendance:getEmployeeById', async (_event, id: number) => {
     const { employeeModel } = await getModels();
-    return employeeModel.getByIdWithDetails(id);
+    return employeeModel.getByIdWithDetails(safeParseInt(id, 0));
   });
 
   ipcMain.handle('attendance:getEmployeeDetails', async (_event, id: number) => {
     const service = await getAttendanceService();
-    return service.getEmployeeDetails(id);
+    return service.getEmployeeDetails(safeParseInt(id, 0));
   });
 
   ipcMain.handle('attendance:createEmployee', async (_event, data: any) => {
@@ -371,8 +372,8 @@ function initIpcHandlers() {
         message = 'Ya existe un empleado con ese correo electrónico';
       } else if (error.message?.includes('UNIQUE constraint failed: employees.employee_code')) {
         message = 'Ya existe un empleado con ese código';
-      } else if (error.message?.includes('FOREIGN KEY constraint failed')) {
-        message = 'Departamento o turno inválido';
+      } else if (error.message?.includes('FOREIGN KEY constraint failed') || error.message?.includes('inválido')) {
+        message = error.message || 'Departamento o turno inválido';
       }
 
       return { success: false, message };
@@ -392,8 +393,8 @@ function initIpcHandlers() {
         message = 'Ya existe un empleado con ese correo electrónico';
       } else if (error.message?.includes('UNIQUE constraint failed: employees.employee_code')) {
         message = 'Ya existe un empleado con ese código';
-      } else if (error.message?.includes('FOREIGN KEY constraint failed')) {
-        message = 'Departamento o turno inválido';
+      } else if (error.message?.includes('FOREIGN KEY constraint failed') || error.message?.includes('inválido')) {
+        message = error.message || 'Departamento o turno inválido';
       }
 
       return { success: false, message };
@@ -402,7 +403,7 @@ function initIpcHandlers() {
 
   ipcMain.handle('attendance:deleteEmployee', async (_event, id: number) => {
     const { employeeModel } = await getModels();
-    return employeeModel.delete(id);
+    return employeeModel.delete(safeParseInt(id, 0));
   });
 
   // Registros de asistencia
@@ -429,7 +430,7 @@ function initIpcHandlers() {
 
   ipcMain.handle('attendance:deleteDepartment', async (_event, id: number) => {
     const { departmentModel } = await getModels();
-    return departmentModel.delete(id);
+    return departmentModel.delete(safeParseInt(id, 0));
   });
 
   // Turnos
@@ -450,23 +451,23 @@ function initIpcHandlers() {
 
   ipcMain.handle('attendance:deleteShift', async (_event, id: number) => {
     const { shiftModel } = await getModels();
-    return shiftModel.delete(id);
+    return shiftModel.delete(safeParseInt(id, 0));
   });
 
   // Huellas
   ipcMain.handle('attendance:getEmployeeFingerprints', async (_event, employeeId: number) => {
     const { fingerprintModel } = await getModels();
-    return fingerprintModel.getByEmployee(employeeId);
+    return fingerprintModel.getByEmployee(safeParseInt(employeeId, 0));
   });
 
   ipcMain.handle('attendance:deleteFingerprint', async (_event, id: number) => {
     const { fingerprintModel } = await getModels();
-    return fingerprintModel.delete(id);
+    return fingerprintModel.delete(safeParseInt(id, 0));
   });
 
   ipcMain.handle('attendance:deleteAllEmployeeFingerprints', async (_event, employeeId: number) => {
     const { fingerprintModel } = await getModels();
-    return fingerprintModel.deleteByEmployee(employeeId);
+    return fingerprintModel.deleteByEmployee(safeParseInt(employeeId, 0));
   });
 
   // Resetear toda la base de datos
@@ -553,12 +554,15 @@ function initIpcHandlers() {
 
   ipcMain.handle('reports:generateMonthly', async (_event, year?: number, month?: number) => {
     const service = await getAttendanceService();
-    return service.generateMonthlyReport(year, month);
+    return service.generateMonthlyReport(
+      year !== undefined ? safeParseInt(year, 0) : undefined,
+      month !== undefined ? safeParseInt(month, 0) : undefined
+    );
   });
 
   ipcMain.handle('reports:generateEmployee', async (_event, employeeId: number, startDate?: string, endDate?: string) => {
     const service = await getAttendanceService();
-    return service.generateEmployeeReport(employeeId, startDate, endDate);
+    return service.generateEmployeeReport(safeParseInt(employeeId, 0), startDate, endDate);
   });
 
   // === TOUCH MODE SERVICE & BIOMETRIC HARDWARE COORDINATION ===
