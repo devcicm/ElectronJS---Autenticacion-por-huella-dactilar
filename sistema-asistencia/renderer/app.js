@@ -574,13 +574,13 @@ async function loadEmployeesSection() {
     employees = await window.attendance.getEmployees({});
 
     container.innerHTML = `
-        <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <input type="text" id="employee-search" placeholder="Buscar empleado..."
-                       style="padding: 10px; border: 1px solid #E5E7EB; border-radius: 8px; width: 300px;"
+        <div style="margin-bottom: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+            <div style="flex: 1 1 240px; max-width: 380px;">
+                <input type="text" id="employee-search" placeholder="🔍 Buscar empleado por nómina, nombre..."
+                       style="padding: 10px 14px; border: 1px solid #E5E7EB; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 14px;"
                        onkeyup="filterEmployees(this.value)">
             </div>
-            <button class="btn btn-primary" onclick="showAddEmployeeModal()">
+            <button class="btn btn-primary" onclick="showAddEmployeeModal()" style="white-space: nowrap;">
                 + Agregar Empleado
             </button>
         </div>
@@ -2001,7 +2001,7 @@ function loadDepartmentsSection() {
             </button>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px;">
             ${departments.map(dept => {
                 const count = deptCounts.get(dept.id) || 0;
                 const mgr = dept.manager_id ? employeeMap.get(dept.manager_id) : null;
@@ -2277,7 +2277,7 @@ function loadShiftsSection() {
             </button>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px;">
             ${shifts.map(shift => {
                 const count = shiftCounts.get(shift.id) || 0;
 
