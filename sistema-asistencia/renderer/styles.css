@@ -228,6 +228,7 @@ body {
     padding: 1.5rem;
     box-shadow: var(--shadow-md);
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .table-container h2 {
@@ -235,74 +236,155 @@ body {
     color: var(--gray-900);
 }
 
+.table-container table,
 .data-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: auto;
 }
 
+.table-container thead,
 .data-table thead {
     background: var(--gray-50);
 }
 
+.table-container th,
 .data-table th {
-    padding: 1rem;
+    padding: 0.85rem 1rem;
     text-align: left;
     font-weight: 600;
     color: var(--gray-700);
     border-bottom: 2px solid var(--gray-200);
+    vertical-align: middle;
 }
 
+.table-container td,
 .data-table td {
-    padding: 1rem;
+    padding: 0.85rem 1rem;
     border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
 }
 
+.table-container tbody tr,
 .data-table tbody tr {
     transition: background 0.2s;
 }
 
+.table-container tbody tr:hover,
 .data-table tbody tr:hover {
     background: var(--gray-50);
 }
 
-/* ==================== STATUS BADGES ==================== */
+/* ==================== BADGES & PÍLDORAS (ANTI-MOCHADO) ==================== */
+.badge,
 .status-badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 10px;
     border-radius: 9999px;
-    font-size: 0.875rem;
+    font-size: 11px;
     font-weight: 600;
-    text-transform: capitalize;
+    line-height: 1.25;
+    white-space: nowrap;
+    text-transform: none;
+    box-sizing: border-box;
+    vertical-align: middle;
+    flex-shrink: 0;
 }
 
-.status-badge.status-present {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--success);
-}
-
-.status-badge.status-late {
-    background: rgba(245, 158, 11, 0.1);
-    color: var(--warning);
-}
-
-.status-badge.status-absent {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--danger);
-}
-
-.status-badge.status-excused {
-    background: rgba(59, 130, 246, 0.1);
-    color: var(--info);
-}
-
+.badge-success,
+.status-badge.status-present,
 .status-badge.status-active {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--success);
+    background: #D1FAE5;
+    color: #065F46;
 }
 
+.badge-warning,
+.status-badge.status-late {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.badge-danger,
+.status-badge.status-absent {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.badge-info,
+.status-badge.status-excused {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.badge-purple {
+    background: #F3E8FF;
+    color: #6B21A8;
+}
+
+.badge-gray,
 .status-badge.status-inactive {
-    background: rgba(107, 114, 128, 0.1);
-    color: var(--gray-500);
+    background: #F3F4F6;
+    color: #4B5563;
+}
+
+/* Píldoras de Modo de Enrolamiento */
+.badge-mode {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-sizing: border-box;
+    vertical-align: middle;
+    color: white;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.badge-mode-simple {
+    background: #3B82F6;
+}
+
+.badge-mode-advanced {
+    background: #8B5CF6;
+}
+
+.badge-mode-none {
+    background: #9CA3AF;
+}
+
+/* Acciones en Tablas (Botones en línea sin envolver) */
+.table-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.table-actions .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.1s;
+}
+
+.table-actions .btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
 }
 
 /* ==================== EMPLOYEE CARDS ==================== */

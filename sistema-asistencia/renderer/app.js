@@ -549,18 +549,18 @@ async function loadEmployeesSection() {
         </div>
 
         <div class="table-container">
-            <table>
+            <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Código</th>
+                        <th style="white-space: nowrap; width: 1%;">Código</th>
                         <th>Nombre</th>
                         <th>Email</th>
                         <th>Departamento</th>
-                        <th>Turno</th>
-                        <th>Huellas</th>
-                        <th>Modo</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
+                        <th style="white-space: nowrap;">Turno</th>
+                        <th style="text-align: center; white-space: nowrap; width: 1%;">Huellas</th>
+                        <th style="text-align: center; white-space: nowrap; width: 1%; min-width: 110px;">Modo</th>
+                        <th style="text-align: center; white-space: nowrap; width: 1%;">Estado</th>
+                        <th style="text-align: center; white-space: nowrap; width: 1%;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="employees-table-body">
@@ -583,33 +583,35 @@ function renderEmployeeRow(emp) {
     const statusText = emp.status === 'active' ? 'Activo' : emp.status === 'suspended' ? 'Suspendido' : 'Inactivo';
 
     const avatarHtml = emp.photo_url
-        ? `<img src="${escapeHtml(emp.photo_url)}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid #D1D5DB; vertical-align: middle;">`
-        : `<div style="width: 28px; height: 28px; border-radius: 50%; background: #E5E7EB; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; vertical-align: middle;">👤</div>`;
+        ? `<img src="${escapeHtml(emp.photo_url)}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid #D1D5DB; vertical-align: middle; flex-shrink: 0;">`
+        : `<div style="width: 28px; height: 28px; border-radius: 50%; background: #E5E7EB; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; vertical-align: middle; flex-shrink: 0;">👤</div>`;
 
     return `
     <tr>
-        <td><strong>${escapeHtml(emp.employee_code || '')}</strong></td>
+        <td style="white-space: nowrap;"><strong>${escapeHtml(emp.employee_code || '')}</strong></td>
         <td>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
                 ${avatarHtml}
-                <span>${escapeHtml((emp.first_name || '') + ' ' + (emp.last_name || ''))}</span>
+                <span style="font-weight: 500;">${escapeHtml((emp.first_name || '') + ' ' + (emp.last_name || ''))}</span>
             </div>
         </td>
         <td>${escapeHtml(emp.email || '')}</td>
         <td>${escapeHtml(emp.department_name || '')}</td>
-        <td>${escapeHtml(emp.shift_name || '')}</td>
-        <td style="text-align: center;">${emp.fingerprints_count || 0}/10</td>
-        <td style="text-align: center;">
-            <span style="background: ${enrollmentColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+        <td style="white-space: nowrap;">${escapeHtml(emp.shift_name || '')}</td>
+        <td style="text-align: center; white-space: nowrap;">${emp.fingerprints_count || 0}/10</td>
+        <td style="text-align: center; white-space: nowrap;">
+            <span class="badge badge-mode" style="background: ${enrollmentColor}; color: white; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
                 ${enrollmentText}
             </span>
         </td>
-        <td><span class="badge badge-${statusClass}">${escapeHtml(statusText)}</span></td>
-        <td>
-            <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #3B82F6; color: white;" title="Ver detalles">👁️</button>
-            <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #10B981; color: white;" title="Editar">✏️</button>
-            <button class="btn" onclick="showEnrollFingerprintModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #8B5CF6; color: white;" title="Registrar huella">👆</button>
-            <button class="btn" onclick="deleteEmployee(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #EF4444; color: white;" title="Eliminar">🗑️</button>
+        <td style="text-align: center; white-space: nowrap;"><span class="badge badge-${statusClass}">${escapeHtml(statusText)}</span></td>
+        <td style="text-align: center; white-space: nowrap;">
+            <div class="table-actions" style="display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap;">
+                <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #3B82F6; color: white; display: inline-flex; align-items: center; justify-content: center;" title="Ver detalles">👁️</button>
+                <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; justify-content: center;" title="Editar">✏️</button>
+                <button class="btn" onclick="showEnrollFingerprintModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #8B5CF6; color: white; display: inline-flex; align-items: center; justify-content: center;" title="Registrar huella">👆</button>
+                <button class="btn" onclick="deleteEmployee(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #EF4444; color: white; display: inline-flex; align-items: center; justify-content: center;" title="Eliminar">🗑️</button>
+            </div>
         </td>
     </tr>
     `;
@@ -1887,30 +1889,30 @@ async function loadAttendanceSection(filters = {}) {
             </div>
 
             <div class="table-container">
-                <table>
+                <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Fecha</th>
+                            <th style="white-space: nowrap; width: 1%;">Fecha</th>
                             <th>Empleado</th>
                             <th>Departamento</th>
-                            <th>Entrada</th>
-                            <th>Salida</th>
-                            <th>Estado</th>
-                            <th>Retraso</th>
-                            <th>Verificado</th>
+                            <th style="white-space: nowrap; width: 1%;">Entrada</th>
+                            <th style="white-space: nowrap; width: 1%;">Salida</th>
+                            <th style="text-align: center; white-space: nowrap; width: 1%;">Estado</th>
+                            <th style="text-align: center; white-space: nowrap; width: 1%;">Retraso</th>
+                            <th style="text-align: center; white-space: nowrap; width: 1%;">Verificado</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${records.length > 0 ? records.map(rec => `
                             <tr>
-                                <td>${escapeHtml(rec.date)}</td>
-                                <td>${escapeHtml(rec.employee_name)}</td>
+                                <td style="white-space: nowrap;">${escapeHtml(rec.date)}</td>
+                                <td style="white-space: nowrap; font-weight: 500;">${escapeHtml(rec.employee_name)}</td>
                                 <td>${escapeHtml(rec.department_name)}</td>
-                                <td>${escapeHtml(rec.check_in_time || '-')}</td>
-                                <td>${escapeHtml(rec.check_out_time || '-')}</td>
-                                <td><span class="badge badge-${getStatusBadgeClass(rec.status)}">${escapeHtml(getStatusLabel(rec.status))}</span></td>
-                                <td>${rec.minutes_late ? rec.minutes_late + ' min' : '-'}</td>
-                                <td style="text-align: center;">${rec.fingerprint_verified ? '✓' : '-'}</td>
+                                <td style="white-space: nowrap;">${escapeHtml(rec.check_in_time || '-')}</td>
+                                <td style="white-space: nowrap;">${escapeHtml(rec.check_out_time || '-')}</td>
+                                <td style="text-align: center; white-space: nowrap;"><span class="badge badge-${getStatusBadgeClass(rec.status)}">${escapeHtml(getStatusLabel(rec.status))}</span></td>
+                                <td style="text-align: center; white-space: nowrap;">${rec.minutes_late ? rec.minutes_late + ' min' : '-'}</td>
+                                <td style="text-align: center; white-space: nowrap;">${rec.fingerprint_verified ? '✓' : '-'}</td>
                             </tr>
                         `).join('') : `
                             <tr>
