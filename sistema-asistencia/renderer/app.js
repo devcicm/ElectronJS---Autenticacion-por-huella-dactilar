@@ -50,6 +50,9 @@ window.addEventListener('beforeunload', () => {
         clearInterval(touchModePollingInterval);
         touchModePollingInterval = null;
     }
+    if (typeof closeCameraModal === 'function') {
+        closeCameraModal();
+    }
     window.FingerprintEnroller?.disconnect();
 });
 
@@ -579,10 +582,19 @@ function renderEmployeeRow(emp) {
     const statusClass = emp.status === 'active' ? 'success' : emp.status === 'suspended' ? 'warning' : 'danger';
     const statusText = emp.status === 'active' ? 'Activo' : emp.status === 'suspended' ? 'Suspendido' : 'Inactivo';
 
+    const avatarHtml = emp.photo_url
+        ? `<img src="${escapeHtml(emp.photo_url)}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid #D1D5DB; vertical-align: middle;">`
+        : `<div style="width: 28px; height: 28px; border-radius: 50%; background: #E5E7EB; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; vertical-align: middle;">👤</div>`;
+
     return `
     <tr>
-        <td>${escapeHtml(emp.employee_code || '')}</td>
-        <td>${escapeHtml((emp.first_name || '') + ' ' + (emp.last_name || ''))}</td>
+        <td><strong>${escapeHtml(emp.employee_code || '')}</strong></td>
+        <td>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                ${avatarHtml}
+                <span>${escapeHtml((emp.first_name || '') + ' ' + (emp.last_name || ''))}</span>
+            </div>
+        </td>
         <td>${escapeHtml(emp.email || '')}</td>
         <td>${escapeHtml(emp.department_name || '')}</td>
         <td>${escapeHtml(emp.shift_name || '')}</td>
@@ -621,6 +633,198 @@ function filterEmployees(searchText) {
     tbody.innerHTML = filtered.map(renderEmployeeRow).join('');
 }
 
+// ============================================================================
+// GESTIÓN DE FOTOGRAFÍA CON CÁMARA WEB / ARCHIVO
+// ============================================================================
+let activeCameraStream = null;
+
+function openCameraModal(targetDataId, previewImgId, placeholderId, clearBtnId) {
+    closeCameraModal();
+
+    const cameraModalHTML = `
+        <div id="camera-capture-modal" class="modal active" style="z-index: 10000; background: rgba(0,0,0,0.75);">
+            <div class="modal-content" style="max-width: 440px; text-align: center; border-radius: 12px; overflow: hidden; padding: 0;">
+                <div class="modal-header" style="background: #1F2937; color: white; padding: 12px 20px;">
+                    <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>📷</span> Capturar Fotografía de Empleado
+                    </h3>
+                    <button class="close-btn" style="color: white;" onclick="closeCameraModal()">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 20px; background: #111827;">
+                    <div style="position: relative; width: 300px; height: 300px; margin: 0 auto; background: #000; border-radius: 16px; overflow: hidden; border: 2px solid #374151;">
+                        <video id="camera-stream-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 190px; height: 230px; border: 2px dashed rgba(59, 130, 246, 0.85); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 9999px rgba(0,0,0,0.25);"></div>
+                        <div id="camera-loading-msg" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #9CA3AF; font-size: 13px;">
+                            Iniciando cámara web...
+                        </div>
+                    </div>
+                    <div id="camera-error-msg" style="color: #F87171; margin-top: 12px; font-size: 13px; display: none;"></div>
+                </div>
+                <div class="modal-footer" style="padding: 15px; background: #1F2937; display: flex; justify-content: center; gap: 12px;">
+                    <button type="button" class="btn" style="background: #4B5563; color: white;" onclick="closeCameraModal()">Cancelar</button>
+                    <button type="button" id="btn-take-snapshot" class="btn btn-primary" style="background: #10B981; border: none; font-weight: 600;" onclick="takePhotoSnapshot('${targetDataId}', '${previewImgId}', '${placeholderId}', '${clearBtnId}')" disabled>
+                        📸 Capturar Foto
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', cameraModalHTML);
+
+    const videoEl = document.getElementById('camera-stream-video');
+    const loadMsg = document.getElementById('camera-loading-msg');
+    const errMsg = document.getElementById('camera-error-msg');
+    const snapBtn = document.getElementById('btn-take-snapshot');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (loadMsg) loadMsg.style.display = 'none';
+        if (errMsg) {
+            errMsg.textContent = 'Este entorno no soporta captura de cámara web.';
+            errMsg.style.display = 'block';
+        }
+        return;
+    }
+
+    navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        audio: false
+    })
+    .then(stream => {
+        activeCameraStream = stream;
+        if (videoEl) {
+            videoEl.srcObject = stream;
+            videoEl.onloadedmetadata = () => {
+                videoEl.play();
+                if (loadMsg) loadMsg.style.display = 'none';
+                if (snapBtn) snapBtn.disabled = false;
+            };
+        }
+    })
+    .catch(err => {
+        logger.error('[Camera] Error accediendo a cámara:', err);
+        if (loadMsg) loadMsg.style.display = 'none';
+        if (errMsg) {
+            errMsg.textContent = 'No se pudo acceder a la cámara web. Verifique permisos o conexión.';
+            errMsg.style.display = 'block';
+        }
+    });
+}
+
+function takePhotoSnapshot(targetDataId, previewImgId, placeholderId, clearBtnId) {
+    const videoEl = document.getElementById('camera-stream-video');
+    if (!videoEl || !activeCameraStream) return;
+
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 300;
+        canvas.height = 300;
+        const ctx = canvas.getContext('2d');
+
+        const vWidth = videoEl.videoWidth || 300;
+        const vHeight = videoEl.videoHeight || 300;
+        const size = Math.min(vWidth, vHeight);
+        const startX = (vWidth - size) / 2;
+        const startY = (vHeight - size) / 2;
+
+        ctx.drawImage(videoEl, startX, startY, size, size, 0, 0, 300, 300);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        const targetInput = document.getElementById(targetDataId);
+        if (targetInput) targetInput.value = dataUrl;
+
+        const previewImg = document.getElementById(previewImgId);
+        const placeholder = document.getElementById(placeholderId);
+        const clearBtn = document.getElementById(clearBtnId);
+
+        if (previewImg) {
+            previewImg.src = dataUrl;
+            previewImg.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'inline-block';
+
+        showNotification('Fotografía capturada con éxito', 'success');
+    } catch (e) {
+        logger.error('[Camera] Error al capturar snapshot:', e);
+        showNotification('Error procesando la fotografía', 'error');
+    } finally {
+        closeCameraModal();
+    }
+}
+
+function closeCameraModal() {
+    if (activeCameraStream) {
+        try {
+            activeCameraStream.getTracks().forEach(track => track.stop());
+        } catch (_) {}
+        activeCameraStream = null;
+    }
+    const modal = document.getElementById('camera-capture-modal');
+    if (modal) modal.remove();
+}
+
+function handlePhotoFileUpload(event, targetDataId, previewImgId, placeholderId, clearBtnId) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showNotification('Debe seleccionar un archivo de imagen válido', 'warning');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
+            const size = Math.min(img.width, img.height);
+            const startX = (img.width - size) / 2;
+            const startY = (img.height - size) / 2;
+            ctx.drawImage(img, startX, startY, size, size, 0, 0, 300, 300);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+            const targetInput = document.getElementById(targetDataId);
+            if (targetInput) targetInput.value = dataUrl;
+
+            const previewImg = document.getElementById(previewImgId);
+            const placeholder = document.getElementById(placeholderId);
+            const clearBtn = document.getElementById(clearBtnId);
+
+            if (previewImg) {
+                previewImg.src = dataUrl;
+                previewImg.style.display = 'block';
+            }
+            if (placeholder) placeholder.style.display = 'none';
+            if (clearBtn) clearBtn.style.display = 'inline-block';
+
+            showNotification('Imagen cargada correctamente', 'success');
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearEmployeePhoto(targetDataId, previewImgId, placeholderId, clearBtnId) {
+    const targetInput = document.getElementById(targetDataId);
+    if (targetInput) targetInput.value = '';
+
+    const previewImg = document.getElementById(previewImgId);
+    const placeholder = document.getElementById(placeholderId);
+    const clearBtn = document.getElementById(clearBtnId);
+
+    if (previewImg) {
+        previewImg.src = '';
+        previewImg.style.display = 'none';
+    }
+    if (placeholder) placeholder.style.display = 'flex';
+    if (clearBtn) clearBtn.style.display = 'none';
+}
+
 // Mostrar modal para agregar empleado
 function showAddEmployeeModal() {
     const modalHTML = `
@@ -633,6 +837,30 @@ function showAddEmployeeModal() {
                 <div class="modal-body">
                     <form id="add-employee-form" onsubmit="event.preventDefault(); saveNewEmployee();">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <!-- Fotografía del Empleado (Cámara / Archivo) -->
+                            <div class="form-group" style="grid-column: 1 / -1; background: #F9FAFB; padding: 12px; border-radius: 8px; border: 1px dashed #D1D5DB;">
+                                <label style="font-weight: 600; margin-bottom: 8px; display: block; font-size: 13px;">Fotografía del Empleado (Cámara Web / Archivo)</label>
+                                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                    <div id="emp-photo-preview-container" style="width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #E5E7EB; border: 2px solid #9CA3AF; display: flex; align-items: center; justify-content: center;">
+                                        <img id="emp-photo-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="Vista previa">
+                                        <span id="emp-photo-placeholder" style="font-size: 26px;">👤</span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <button type="button" class="btn" style="background: #2563EB; color: white; padding: 6px 12px; font-size: 12px;" onclick="openCameraModal('emp-photo-data', 'emp-photo-preview', 'emp-photo-placeholder', 'emp-photo-clear-btn')">
+                                            📷 Tomar Foto
+                                        </button>
+                                        <label class="btn" style="background: #4B5563; color: white; padding: 6px 12px; font-size: 12px; cursor: pointer; margin: 0; display: inline-flex; align-items: center;">
+                                            📁 Subir Archivo
+                                            <input type="file" accept="image/*" style="display: none;" onchange="handlePhotoFileUpload(event, 'emp-photo-data', 'emp-photo-preview', 'emp-photo-placeholder', 'emp-photo-clear-btn')">
+                                        </label>
+                                        <button type="button" id="emp-photo-clear-btn" class="btn" style="background: #EF4444; color: white; padding: 6px 12px; font-size: 12px; display: none;" onclick="clearEmployeePhoto('emp-photo-data', 'emp-photo-preview', 'emp-photo-placeholder', 'emp-photo-clear-btn')">
+                                            🗑️ Quitar
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="emp-photo-data" value="">
+                            </div>
+
                             <div class="form-group">
                                 <label>Código de Empleado *</label>
                                 <input type="text" id="emp-code" class="form-control" required>
@@ -760,6 +988,7 @@ async function saveNewEmployee() {
         position: sanitizeText(document.getElementById('emp-position').value, 100),
         hire_date: document.getElementById('emp-hire-date').value,
         status: 'active',
+        photo_url: document.getElementById('emp-photo-data')?.value || null,
         enrollment_mode: document.getElementById('emp-enrollment-mode')?.value || 'simple'
     };
 
@@ -812,6 +1041,30 @@ function showEditEmployeeModal(employeeId) {
                 <div class="modal-body">
                     <form id="edit-employee-form" onsubmit="event.preventDefault(); updateEmployee(${employeeId});">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <!-- Fotografía del Empleado (Cámara / Archivo) -->
+                            <div class="form-group" style="grid-column: 1 / -1; background: #F9FAFB; padding: 12px; border-radius: 8px; border: 1px dashed #D1D5DB;">
+                                <label style="font-weight: 600; margin-bottom: 8px; display: block; font-size: 13px;">Fotografía del Empleado (Cámara Web / Archivo)</label>
+                                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                    <div id="edit-emp-photo-preview-container" style="width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #E5E7EB; border: 2px solid #9CA3AF; display: flex; align-items: center; justify-content: center;">
+                                        <img id="edit-emp-photo-preview" src="${escapeHtml(employee.photo_url || '')}" style="width: 100%; height: 100%; object-fit: cover; ${employee.photo_url ? '' : 'display: none;'}" alt="Vista previa">
+                                        <span id="edit-emp-photo-placeholder" style="font-size: 26px; ${employee.photo_url ? 'display: none;' : ''}">👤</span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <button type="button" class="btn" style="background: #2563EB; color: white; padding: 6px 12px; font-size: 12px;" onclick="openCameraModal('edit-emp-photo-data', 'edit-emp-photo-preview', 'edit-emp-photo-placeholder', 'edit-emp-photo-clear-btn')">
+                                            📷 Tomar Foto
+                                        </button>
+                                        <label class="btn" style="background: #4B5563; color: white; padding: 6px 12px; font-size: 12px; cursor: pointer; margin: 0; display: inline-flex; align-items: center;">
+                                            📁 Subir Archivo
+                                            <input type="file" accept="image/*" style="display: none;" onchange="handlePhotoFileUpload(event, 'edit-emp-photo-data', 'edit-emp-photo-preview', 'edit-emp-photo-placeholder', 'edit-emp-photo-clear-btn')">
+                                        </label>
+                                        <button type="button" id="edit-emp-photo-clear-btn" class="btn" style="background: #EF4444; color: white; padding: 6px 12px; font-size: 12px; ${employee.photo_url ? '' : 'display: none;'}" onclick="clearEmployeePhoto('edit-emp-photo-data', 'edit-emp-photo-preview', 'edit-emp-photo-placeholder', 'edit-emp-photo-clear-btn')">
+                                            🗑️ Quitar
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="edit-emp-photo-data" value="${escapeHtml(employee.photo_url || '')}">
+                            </div>
+
                             <div class="form-group">
                                 <label>Código de Empleado *</label>
                                 <input type="text" id="edit-emp-code" class="form-control" value="${escapeHtml(employee.employee_code)}" required>
@@ -948,6 +1201,7 @@ async function updateEmployee(employeeId) {
         position: sanitizeText(document.getElementById('edit-emp-position').value, 100),
         hire_date: document.getElementById('edit-emp-hire-date').value,
         status: document.getElementById('edit-emp-status').value,
+        photo_url: document.getElementById('edit-emp-photo-data')?.value !== undefined ? (document.getElementById('edit-emp-photo-data').value || null) : undefined,
         enrollment_mode: document.getElementById('edit-emp-enrollment-mode')?.value || 'simple'
     };
 
@@ -1030,11 +1284,14 @@ async function showEmployeeDetails(employeeId) {
                 </div>
                 <div class="modal-body">
                     <div style="text-align: center; margin-bottom: 30px;">
-                        <div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: 600; margin: 0 auto 15px;">
-                            ${getInitials(employee.first_name, employee.last_name)}
-                        </div>
+                        ${employee.photo_url 
+                            ? `<img src="${escapeHtml(employee.photo_url)}" alt="Foto de ${escapeHtml(employee.first_name)}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px; display: block; border: 3px solid #3B82F6; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">`
+                            : `<div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: 600; margin: 0 auto 15px;">
+                                ${getInitials(employee.first_name, employee.last_name)}
+                               </div>`
+                        }
                         <h3 style="margin: 0;">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
-                        <p style="color: #6B7280;">${escapeHtml(employee.employee_code)}</p>
+                        <p style="color: #6B7280; margin-top: 4px;">Nómina / Matrícula: <strong>${escapeHtml(employee.employee_code)}</strong> (ID: #${employee.id})</p>
                     </div>
 
                     <div style="display: grid; gap: 15px;">
