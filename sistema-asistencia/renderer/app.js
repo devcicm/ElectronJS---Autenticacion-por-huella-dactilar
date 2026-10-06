@@ -535,41 +535,45 @@ async function loadEmployeesSection() {
                     </tr>
                 </thead>
                 <tbody id="employees-table-body">
-                    ${employees.map(emp => {
-                        const enrollmentMode = emp.enrollment_mode || 'N/A';
-                        const enrollmentText = enrollmentMode === 'simple' ? 'Simple (1)' :
-                                             enrollmentMode === 'advanced' ? 'Avanzado (10)' :
-                                             'Sin definir';
-                        const enrollmentColor = enrollmentMode === 'simple' ? '#3B82F6' :
-                                              enrollmentMode === 'advanced' ? '#8B5CF6' :
-                                              '#9CA3AF';
-
-                        return `
-                        <tr>
-                            <td>${escapeHtml(emp.employee_code)}</td>
-                            <td>${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)}</td>
-                            <td>${escapeHtml(emp.email)}</td>
-                            <td>${escapeHtml(emp.department_name)}</td>
-                            <td>${escapeHtml(emp.shift_name)}</td>
-                            <td style="text-align: center;">${emp.fingerprints_count || 0}/10</td>
-                            <td style="text-align: center;">
-                                <span style="background: ${enrollmentColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                    ${enrollmentText}
-                                </span>
-                            </td>
-                            <td><span class="badge badge-${emp.status === 'active' ? 'success' : 'danger'}">${escapeHtml(emp.status)}</span></td>
-                            <td>
-                                <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #3B82F6; color: white;" title="Ver detalles">👁️</button>
-                                <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #10B981; color: white;" title="Editar">✏️</button>
-                                <button class="btn" onclick="showEnrollFingerprintModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #8B5CF6; color: white;" title="Registrar huella">👆</button>
-                                <button class="btn" onclick="deleteEmployee(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #EF4444; color: white;" title="Eliminar">🗑️</button>
-                            </td>
-                        </tr>
-                        `;
-                    }).join('')}
+                    ${employees.map(renderEmployeeRow).join('')}
                 </tbody>
             </table>
         </div>
+    `;
+}
+
+function renderEmployeeRow(emp) {
+    const enrollmentMode = emp.enrollment_mode || 'N/A';
+    const enrollmentText = enrollmentMode === 'simple' ? 'Simple (1)' :
+                         enrollmentMode === 'advanced' ? 'Avanzado (10)' :
+                         'Sin definir';
+    const enrollmentColor = enrollmentMode === 'simple' ? '#3B82F6' :
+                          enrollmentMode === 'advanced' ? '#8B5CF6' :
+                          '#9CA3AF';
+    const statusClass = emp.status === 'active' ? 'success' : emp.status === 'suspended' ? 'warning' : 'danger';
+    const statusText = emp.status === 'active' ? 'Activo' : emp.status === 'suspended' ? 'Suspendido' : 'Inactivo';
+
+    return `
+    <tr>
+        <td>${escapeHtml(emp.employee_code || '')}</td>
+        <td>${escapeHtml((emp.first_name || '') + ' ' + (emp.last_name || ''))}</td>
+        <td>${escapeHtml(emp.email || '')}</td>
+        <td>${escapeHtml(emp.department_name || '')}</td>
+        <td>${escapeHtml(emp.shift_name || '')}</td>
+        <td style="text-align: center;">${emp.fingerprints_count || 0}/10</td>
+        <td style="text-align: center;">
+            <span style="background: ${enrollmentColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                ${enrollmentText}
+            </span>
+        </td>
+        <td><span class="badge badge-${statusClass}">${escapeHtml(statusText)}</span></td>
+        <td>
+            <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #3B82F6; color: white;" title="Ver detalles">👁️</button>
+            <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #10B981; color: white;" title="Editar">✏️</button>
+            <button class="btn" onclick="showEnrollFingerprintModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #8B5CF6; color: white;" title="Registrar huella">👆</button>
+            <button class="btn" onclick="deleteEmployee(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #EF4444; color: white;" title="Eliminar">🗑️</button>
+        </td>
+    </tr>
     `;
 }
 
@@ -577,46 +581,18 @@ function filterEmployees(searchText) {
     const tbody = document.getElementById('employees-table-body');
     if (!tbody) return;
 
-    const filtered = employees.filter(emp => {
-        const searchLower = searchText.toLowerCase();
-        return emp.first_name.toLowerCase().includes(searchLower) ||
-               emp.last_name.toLowerCase().includes(searchLower) ||
-               emp.employee_code.toLowerCase().includes(searchLower) ||
-               emp.email.toLowerCase().includes(searchLower);
-    });
+    const term = (searchText || '').trim().toLowerCase();
+    const filtered = term === ''
+        ? employees
+        : employees.filter(emp => {
+            const first = (emp.first_name || '').toLowerCase();
+            const last = (emp.last_name || '').toLowerCase();
+            const code = (emp.employee_code || '').toLowerCase();
+            const email = (emp.email || '').toLowerCase();
+            return first.includes(term) || last.includes(term) || code.includes(term) || email.includes(term);
+        });
 
-    tbody.innerHTML = filtered.map(emp => {
-        const enrollmentMode = emp.enrollment_mode || 'N/A';
-        const enrollmentText = enrollmentMode === 'simple' ? 'Simple (1)' :
-                             enrollmentMode === 'advanced' ? 'Avanzado (10)' :
-                             'Sin definir';
-        const enrollmentColor = enrollmentMode === 'simple' ? '#3B82F6' :
-                              enrollmentMode === 'advanced' ? '#8B5CF6' :
-                              '#9CA3AF';
-
-        return `
-        <tr>
-            <td>${escapeHtml(emp.employee_code)}</td>
-            <td>${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)}</td>
-            <td>${escapeHtml(emp.email)}</td>
-            <td>${escapeHtml(emp.department_name)}</td>
-            <td>${escapeHtml(emp.shift_name)}</td>
-            <td style="text-align: center;">${emp.fingerprints_count || 0}/10</td>
-            <td style="text-align: center;">
-                <span style="background: ${enrollmentColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                    ${enrollmentText}
-                </span>
-            </td>
-            <td><span class="badge badge-${emp.status === 'active' ? 'success' : emp.status === 'suspended' ? 'warning' : 'danger'}">${escapeHtml(emp.status === 'active' ? 'Activo' : emp.status === 'suspended' ? 'Suspendido' : 'Inactivo')}</span></td>
-            <td>
-                <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #3B82F6; color: white;" title="Ver detalles">👁️</button>
-                <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #10B981; color: white;" title="Editar">✏️</button>
-                <button class="btn" onclick="showEnrollFingerprintModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; margin-right: 3px; background: #8B5CF6; color: white;" title="Registrar huella">👆</button>
-                <button class="btn" onclick="deleteEmployee(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #EF4444; color: white;" title="Eliminar">🗑️</button>
-            </td>
-        </tr>
-        `;
-    }).join('');
+    tbody.innerHTML = filtered.map(renderEmployeeRow).join('');
 }
 
 // Mostrar modal para agregar empleado
@@ -1636,6 +1612,10 @@ function loadDepartmentsSection() {
     const container = document.getElementById('departments-container');
     if (!container) return;
 
+    // Precomputación funcional O(E) para conteos e índice de empleados
+    const deptCounts = (window.countToMap || countToMap)(employees, e => e.department_id);
+    const employeeMap = (window.indexToMap || indexToMap)(employees, e => e.id);
+
     container.innerHTML = `
         <div style="margin-bottom: 20px;">
             <button class="btn btn-primary" onclick="showAddDepartmentModal()">
@@ -1644,7 +1624,12 @@ function loadDepartmentsSection() {
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-            ${departments.map(dept => `
+            ${departments.map(dept => {
+                const count = deptCounts.get(dept.id) || 0;
+                const mgr = dept.manager_id ? employeeMap.get(dept.manager_id) : null;
+                const mgrText = mgr ? ` • 👤 ${escapeHtml(mgr.first_name + ' ' + mgr.last_name)}` : '';
+
+                return `
                 <div style="background: white; border-radius: 12px; padding: 20px; border: 2px solid #E5E7EB; position: relative;">
                     <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 8px;">
                         <button onclick="showEditDepartmentModal(${dept.id})"
@@ -1661,12 +1646,7 @@ function loadDepartmentsSection() {
                         <div style="flex: 1; padding-right: 60px;">
                             <h4 style="margin: 0; color: #1F2937;">${escapeHtml(dept.name)}</h4>
                             <p style="margin: 5px 0 0; color: #6B7280; font-size: 13px;">
-                                ${employees.filter(e => e.department_id === dept.id).length} empleados
-                                ${(() => {
-                                    if (!dept.manager_id) return '';
-                                    const mgr = employees.find(e => e.id === dept.manager_id);
-                                    return mgr ? ` • 👤 ${escapeHtml(mgr.first_name + ' ' + mgr.last_name)}` : '';
-                                })()}
+                                ${count} empleados${mgrText}
                             </p>
                         </div>
                     </div>
@@ -1674,7 +1654,8 @@ function loadDepartmentsSection() {
                         ${dept.description || 'Sin descripción'}
                     </p>
                 </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
     `;
 }
@@ -1908,6 +1889,9 @@ function loadShiftsSection() {
     const container = document.getElementById('shifts-container');
     if (!container) return;
 
+    // Precomputación funcional O(E) de turnos
+    const shiftCounts = (window.countToMap || countToMap)(employees, e => e.shift_id);
+
     container.innerHTML = `
         <div style="margin-bottom: 20px;">
             <button class="btn btn-primary" onclick="showAddShiftModal()">
@@ -1916,7 +1900,10 @@ function loadShiftsSection() {
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-            ${shifts.map(shift => `
+            ${shifts.map(shift => {
+                const count = shiftCounts.get(shift.id) || 0;
+
+                return `
                 <div style="background: white; border-radius: 12px; padding: 20px; border: 2px solid #E5E7EB; position: relative;">
                     <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 8px;">
                         <button onclick="showEditShiftModal(${shift.id})"
@@ -1933,7 +1920,7 @@ function loadShiftsSection() {
                         <div style="flex: 1; padding-right: 60px;">
                             <h4 style="margin: 0; color: #1F2937;">${escapeHtml(shift.name)}</h4>
                             <p style="margin: 5px 0 0; color: #6B7280; font-size: 13px;">
-                                ${employees.filter(e => e.shift_id === shift.id).length} empleados
+                                ${count} empleados
                             </p>
                         </div>
                     </div>
@@ -1952,7 +1939,8 @@ function loadShiftsSection() {
                         </div>
                     </div>
                 </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
     `;
 }

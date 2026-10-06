@@ -219,11 +219,9 @@ export class TouchModeService {
                     })
                 );
 
-                for (const res of results) {
-                    if (res.status === 'fulfilled' && res.value) {
-                        loaded++;
-                    }
-                }
+                loaded += results.filter(
+                    (res): res is PromiseFulfilledResult<boolean> => res.status === 'fulfilled' && res.value === true
+                ).length;
             }
 
             logger.info(`[TouchModeService] ✅ ${loaded}/${fingerprints.length} huellas cargadas al backend`);

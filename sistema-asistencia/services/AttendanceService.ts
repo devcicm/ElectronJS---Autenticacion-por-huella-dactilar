@@ -20,6 +20,7 @@ import {
 } from '../types/index.js';
 import { getLocalDateString, parseLocalDate } from '../shared/date-utils.js';
 import { safeParseInt, safeParseBoolean } from '../shared/object-utils.js';
+import { summarizeAttendance, groupToMap } from '../shared/fp-utils.js';
 
 export class AttendanceService {
     private db: DatabaseManager;
@@ -313,9 +314,8 @@ export class AttendanceService {
         const summary = this.attendanceModel.getDailySummary(targetDate);
         const employees = this.employeeModel.getAllWithDetails({ status: 'active' });
 
-        // Calcular estadísticas adicionales
-        const verifiedCount = records.filter(r => r.fingerprint_verified).length;
-        const avgLateMinutes = records.reduce((sum, r) => sum + (r.minutes_late || 0), 0) / (records.length || 1);
+        // Reducción funcional O(N) en una sola pasada pura
+        const summaryMetrics = summarizeAttendance(records);
 
         return {
             date: targetDate,
@@ -324,11 +324,11 @@ export class AttendanceService {
             totalEmployees: employees.length,
             stats: {
                 total: records.length,
-                present: records.filter(r => r.status === 'present').length,
-                late: records.filter(r => r.status === 'late').length,
+                present: summaryMetrics.present,
+                late: summaryMetrics.late,
                 absent: employees.length - records.length,
-                verified: verifiedCount,
-                avgLateMinutes: Math.round(avgLateMinutes)
+                verified: summaryMetrics.verified,
+                avgLateMinutes: summaryMetrics.avgLateMinutes
             }
         };
     }
@@ -349,24 +349,21 @@ export class AttendanceService {
             end_date: endStr
         });
 
-        // Agrupar por día
-        const byDay = new Map<string, AttendanceWithDetails[]>();
-        records.forEach(record => {
-            if (!byDay.has(record.date)) {
-                byDay.set(record.date, []);
-            }
-            byDay.get(record.date)!.push(record);
-        });
+        // Agrupación pura O(N) por día
+        const byDay = groupToMap(records, r => r.date);
 
-        // Generar resumen por día
-        const dailyStats = Array.from(byDay.entries()).map(([date, dayRecords]) => ({
-            date,
-            total: dayRecords.length,
-            present: dayRecords.filter(r => r.status === 'present').length,
-            late: dayRecords.filter(r => r.status === 'late').length,
-            absent: dayRecords.filter(r => r.status === 'absent').length,
-            verified: dayRecords.filter(r => r.fingerprint_verified).length
-        }));
+        // Fold funcional O(N) por día en lugar de múltiples pasadas con filter
+        const dailyStats = Array.from(byDay.entries()).map(([date, dayRecords]) => {
+            const m = summarizeAttendance(dayRecords);
+            return {
+                date,
+                total: m.total,
+                present: m.present,
+                late: m.late,
+                absent: m.absent,
+                verified: m.verified
+            };
+        });
 
         return {
             startDate: startStr,
@@ -402,65 +399,31 @@ export class AttendanceService {
 
         const employees = this.employeeModel.getAllWithDetails({ status: 'active' });
 
-        // Optimización Big O: Indexar empleados O(1) vía Map en lugar de .find O(E) dentro del loop
+        // Indexación funcional O(1) vía Map
         const employeeMap = new Map<number, EmployeeWithDetails>(employees.map(e => [e.id, e]));
 
-        // Estadísticas por empleado O(R)
-        const byEmployee = new Map<number, AttendanceWithDetails[]>();
-        records.forEach(record => {
-            if (!byEmployee.has(record.employee_id)) {
-                byEmployee.set(record.employee_id, []);
-            }
-            byEmployee.get(record.employee_id)!.push(record);
-        });
+        // Agrupación funcional O(N) por empleado
+        const byEmployee = groupToMap(records, r => r.employee_id);
 
         const employeeStats = Array.from(byEmployee.entries()).map(([empId, empRecords]) => {
             const emp = employeeMap.get(empId);
-
-            let presentCount = 0;
-            let lateCount = 0;
-            let absentCount = 0;
-            let totalLateMinutes = 0;
-
-            for (let i = 0; i < empRecords.length; i++) {
-                const r = empRecords[i];
-                if (r.status === 'present') presentCount++;
-                else if (r.status === 'late') lateCount++;
-                else if (r.status === 'absent') absentCount++;
-                totalLateMinutes += (r.minutes_late || 0);
-            }
-
-            const attendedCount = presentCount + lateCount;
-            const rate = empRecords.length > 0
-                ? ((attendedCount / empRecords.length) * 100).toFixed(1)
-                : '0.0';
+            const m = summarizeAttendance(empRecords);
 
             return {
                 employeeId: empId,
                 employeeName: emp ? `${emp.first_name} ${emp.last_name}` : 'N/A',
                 employeeCode: emp?.employee_code || 'N/A',
-                totalDays: empRecords.length,
-                presentDays: presentCount,
-                lateDays: lateCount,
-                absentDays: absentCount,
-                totalLateMinutes,
-                attendanceRate: rate
+                totalDays: m.total,
+                presentDays: m.present,
+                lateDays: m.late,
+                absentDays: m.absent,
+                totalLateMinutes: m.totalLateMinutes,
+                attendanceRate: m.attendanceRate
             };
         });
 
-        // Totales globales en una sola pasada O(R)
-        let totalPresent = 0;
-        let totalLate = 0;
-        let totalAbsent = 0;
-        let totalVerified = 0;
-
-        for (let i = 0; i < records.length; i++) {
-            const r = records[i];
-            if (r.status === 'present') totalPresent++;
-            else if (r.status === 'late') totalLate++;
-            else if (r.status === 'absent') totalAbsent++;
-            if (r.fingerprint_verified) totalVerified++;
-        }
+        // Totales globales en fold puro O(N)
+        const totalSummary = summarizeAttendance(records);
 
         return {
             year: targetYear,
@@ -472,11 +435,11 @@ export class AttendanceService {
             records,
             employeeStats,
             totalStats: {
-                totalRecords: records.length,
-                present: totalPresent,
-                late: totalLate,
-                absent: totalAbsent,
-                verified: totalVerified
+                totalRecords: totalSummary.total,
+                present: totalSummary.present,
+                late: totalSummary.late,
+                absent: totalSummary.absent,
+                verified: totalSummary.verified
             }
         };
     }
@@ -510,14 +473,8 @@ export class AttendanceService {
 
         const fingerprints = this.fingerprintModel.getByEmployee(empId);
 
-        // Calcular estadísticas
-        const totalDays = records.length;
-        const presentDays = records.filter(r => r.status === 'present').length;
-        const lateDays = records.filter(r => r.status === 'late').length;
-        const absentDays = records.filter(r => r.status === 'absent').length;
-        const totalLateMinutes = records.reduce((sum, r) => sum + (r.minutes_late || 0), 0);
-        const totalOvertimeMinutes = records.reduce((sum, r) => sum + (r.minutes_overtime || 0), 0);
-        const verifiedDays = records.filter(r => r.fingerprint_verified).length;
+        // Fold funcional O(N) en una sola pasada (evita 6 iteraciones separadas)
+        const m = summarizeAttendance(records);
 
         return {
             employee,
@@ -528,17 +485,17 @@ export class AttendanceService {
             records,
             fingerprints: fingerprints.length,
             stats: {
-                totalDays,
-                presentDays,
-                lateDays,
-                absentDays,
-                totalLateMinutes,
-                avgLateMinutes: totalDays > 0 ? Math.round(totalLateMinutes / totalDays) : 0,
-                totalOvertimeMinutes,
-                avgOvertimeMinutes: totalDays > 0 ? Math.round(totalOvertimeMinutes / totalDays) : 0,
-                verifiedDays,
-                attendanceRate: totalDays > 0 ? ((presentDays + lateDays) / totalDays * 100).toFixed(1) : '0.0',
-                punctualityRate: totalDays > 0 ? (presentDays / totalDays * 100).toFixed(1) : '0.0'
+                totalDays: m.total,
+                presentDays: m.present,
+                lateDays: m.late,
+                absentDays: m.absent,
+                totalLateMinutes: m.totalLateMinutes,
+                avgLateMinutes: m.avgLateMinutes,
+                totalOvertimeMinutes: m.totalOvertimeMinutes,
+                avgOvertimeMinutes: m.avgOvertimeMinutes,
+                verifiedDays: m.verified,
+                attendanceRate: m.attendanceRate,
+                punctualityRate: m.punctualityRate
             }
         };
     }

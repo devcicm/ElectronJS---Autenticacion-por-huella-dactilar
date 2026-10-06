@@ -293,27 +293,16 @@ export class BiometricService {
                 };
             }
 
-            // Preparar array de fingerprints para el backend
-            const fingerprintArray: Array<{
-                userId: string;
-                hand: string;
-                finger: string;
-                templateBase64: string;
-                format: string;
-            }> = [];
-
-            for (const empId of employeeIds) {
-                const fingerprints = this.fingerprintModel.getByEmployee(empId);
-                for (const fp of fingerprints) {
-                    fingerprintArray.push({
-                        userId: empId.toString(),
-                        hand: fp.hand,
-                        finger: fp.finger_position,
-                        templateBase64: fp.template_data,
-                        format: 'ISO'
-                    });
-                }
-            }
+            // Preparar array de fingerprints para el backend mediante transformación funcional pura
+            const fingerprintArray = employeeIds.flatMap(empId =>
+                this.fingerprintModel.getByEmployee(empId).map(fp => ({
+                    userId: empId.toString(),
+                    hand: fp.hand,
+                    finger: fp.finger_position,
+                    templateBase64: fp.template_data,
+                    format: 'ISO'
+                }))
+            );
 
             // Llamar al endpoint de verificación múltiple
             // Este endpoint captura del lector y compara contra todos los templates

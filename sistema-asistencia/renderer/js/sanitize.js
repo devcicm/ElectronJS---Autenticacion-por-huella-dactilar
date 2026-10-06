@@ -113,6 +113,99 @@
         return result;
     }
 
+    function groupToMap(list, keyFn) {
+        const map = new Map();
+        if (!Array.isArray(list)) return map;
+        for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const key = keyFn(item);
+            const existing = map.get(key);
+            if (existing) {
+                existing.push(item);
+            } else {
+                map.set(key, [item]);
+            }
+        }
+        return map;
+    }
+
+    function countToMap(list, keyFn) {
+        const map = new Map();
+        if (!Array.isArray(list)) return map;
+        for (let i = 0; i < list.length; i++) {
+            const key = keyFn(list[i]);
+            map.set(key, (map.get(key) || 0) + 1);
+        }
+        return map;
+    }
+
+    function indexToMap(list, keyFn) {
+        const map = new Map();
+        if (!Array.isArray(list)) return map;
+        for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            map.set(keyFn(item), item);
+        }
+        return map;
+    }
+
+    function groupBy(list, keyFn) {
+        const result = Object.create(null);
+        if (!Array.isArray(list)) return Object.assign({}, result);
+        for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const key = keyFn(item);
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+            if (!result[key]) {
+                result[key] = [];
+            }
+            result[key].push(item);
+        }
+        return Object.assign({}, result);
+    }
+
+    function countBy(list, keyFn) {
+        const result = Object.create(null);
+        if (!Array.isArray(list)) return Object.assign({}, result);
+        for (let i = 0; i < list.length; i++) {
+            const key = keyFn(list[i]);
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+            result[key] = (result[key] || 0) + 1;
+        }
+        return Object.assign({}, result);
+    }
+
+    function indexBy(list, keyFn) {
+        const result = Object.create(null);
+        if (!Array.isArray(list)) return Object.assign({}, result);
+        for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const key = keyFn(item);
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+            result[key] = item;
+        }
+        return Object.assign({}, result);
+    }
+
+    function partition(list, predicate) {
+        const truthy = [];
+        const falsy = [];
+        if (!Array.isArray(list)) return [truthy, falsy];
+        for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            if (predicate(item)) {
+                truthy.push(item);
+            } else {
+                falsy.push(item);
+            }
+        }
+        return [truthy, falsy];
+    }
+
+    function pipe(initial, ...fns) {
+        return fns.reduce((acc, fn) => fn(acc), initial);
+    }
+
     window.sanitizeText = sanitizeText;
     window.sanitizePhone = sanitizePhone;
     window.sanitizeEmail = sanitizeEmail;
@@ -122,6 +215,15 @@
     window.safeParseJson = safeParseJson;
     window.safeClone = safeClone;
     window.safeDestructure = safeDestructure;
+    window.groupToMap = groupToMap;
+    window.countToMap = countToMap;
+    window.indexToMap = indexToMap;
+    window.groupBy = groupBy;
+    window.countBy = countBy;
+    window.indexBy = indexBy;
+    window.partition = partition;
+    window.pipe = pipe;
+
     window.ObjectUtils = {
         safeParseInt,
         safeParseFloat,
@@ -129,5 +231,16 @@
         safeParseJson,
         safeClone,
         safeDestructure
+    };
+
+    window.FpUtils = {
+        groupToMap,
+        countToMap,
+        indexToMap,
+        groupBy,
+        countBy,
+        indexBy,
+        partition,
+        pipe
     };
 })();
