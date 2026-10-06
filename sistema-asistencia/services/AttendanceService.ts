@@ -16,7 +16,9 @@ import {
     AttendanceWithDetails,
     Employee,
     EmployeeWithDetails,
-    AttendanceFilters
+    AttendanceFilters,
+    AttendanceStatus,
+    AttendanceUpdate
 } from '../types/index.js';
 import { getLocalDateString, parseLocalDate } from '../shared/date-utils.js';
 import { safeParseInt, safeParseBoolean } from '../shared/object-utils.js';
@@ -157,9 +159,77 @@ export class AttendanceService {
     }
 
     /**
-     * Obtener registros de asistencia con detalles
+     * Justificar una falta (actualiza estado a excused/on_leave y asigna nota justificativa)
      */
-    getAttendanceRecords(filters?: AttendanceFilters): AttendanceWithDetails[] {
+    async justifyAbsence(
+        recordIdOrData: number | { recordId?: number; employeeId?: number; date?: string; notes?: string; status?: AttendanceStatus },
+        justificationNotes?: string,
+        newStatus: AttendanceStatus = 'excused'
+    ): Promise<{
+        success: boolean;
+        message: string;
+        record?: AttendanceRecord;
+    }> {
+        try {
+            let recId = 0;
+            let empId = 0;
+            let dateStr = '';
+            let notes = '';
+            let status: AttendanceStatus = newStatus;
+
+            if (typeof recordIdOrData === 'object' && recordIdOrData !== null) {
+                recId = safeParseInt(recordIdOrData.recordId, 0);
+                empId = safeParseInt(recordIdOrData.employeeId, 0);
+                dateStr = String(recordIdOrData.date || '').trim();
+                notes = String(recordIdOrData.notes || '').trim();
+                if (recordIdOrData.status) status = recordIdOrData.status;
+            } else {
+                recId = safeParseInt(recordIdOrData, 0);
+                notes = String(justificationNotes || '').trim();
+            }
+
+            let updated: AttendanceRecord | undefined;
+            if (recId > 0) {
+                updated = this.attendanceModel.justifyAbsence(recId, notes, status);
+            } else if (empId > 0 && dateStr) {
+                updated = this.attendanceModel.justifyOrUpsertAbsence(empId, dateStr, notes, status);
+            }
+
+            if (!updated) {
+                return {
+                    success: false,
+                    message: 'No se encontró el registro de asistencia a justificar'
+                };
+            }
+
+            return {
+                success: true,
+                message: 'Falta justificada correctamente',
+                record: updated
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                message: error.message || 'Error al justificar la falta'
+            };
+        }
+    }
+
+    /**
+     * Obtener registros de asistencia con detalles (soporta también acción de justificación por filters.action === 'justify')
+     */
+    getAttendanceRecords(filters?: AttendanceFilters | any): AttendanceWithDetails[] | Promise<any> {
+        if (filters && typeof filters === 'object' && (filters.action === 'justify' || filters.action === 'justifyAbsence')) {
+            return this.justifyAbsence(
+                {
+                    recordId: filters.recordId || filters.id,
+                    employeeId: filters.employee_id || filters.employeeId,
+                    date: filters.date,
+                    notes: filters.notes || filters.justification || '',
+                    status: filters.status || 'excused'
+                }
+            );
+        }
         return this.attendanceModel.getAllWithDetails(filters);
     }
 

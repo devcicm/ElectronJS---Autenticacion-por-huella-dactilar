@@ -12,6 +12,8 @@
 import { groupToMap, countToMap, summarizeAttendance, type AttendanceRecordLike } from './fp-utils.js';
 
 export interface AbsenceDayItem {
+    readonly id?: number;              // ID del registro attendance_records
+    readonly employeeId?: number;      // ID del empleado
     readonly date: string;             // YYYY-MM-DD
     readonly dayOfWeek: string;        // 'Lunes', 'Martes', etc.
     readonly dayOfMonth: number;       // 1..31
@@ -231,6 +233,8 @@ export function calculateEmployeeAbsenceHistory(
 
         const monthKey = `${comp.year}-${String(comp.month).padStart(2, '0')}`;
         const dayItem: AbsenceDayItem = {
+            id: r.id,
+            employeeId: r.employee_id,
             date: r.date,
             dayOfWeek: dayName,
             dayOfMonth: comp.day,

@@ -340,3 +340,76 @@ test('Simetría de esquemas: DB columns coinciden exactamente con DTOs y Fronten
     });
     assert.equal(updatedDept.manager_id, null);
 });
+
+// ----------------------------------------------------------------------------
+// 7. JUSTIFICACIÓN DE FALTAS Y ESCRITURA ÁGIL EN ATTENDANCE MODEL Y SERVICE
+// ----------------------------------------------------------------------------
+test('Justificación de faltas: AttendanceModel y AttendanceService actualizan status y notas correctamente', async () => {
+    const { AttendanceModel } = await import('../../dist/sistema-asistencia/models/AttendanceModel.js');
+    const { AttendanceService } = await import('../../dist/sistema-asistencia/services/AttendanceService.js');
+    const { EmployeeModel } = await import('../../dist/sistema-asistencia/models/EmployeeModel.js');
+    const db = createTestDb();
+
+    const empModel = new EmployeeModel(db as any);
+    const attModel = new AttendanceModel(db as any);
+    const service = new AttendanceService(db as any);
+
+    const emp = empModel.create({
+        employee_code: 'EMP-JUSTIFY',
+        first_name: 'Roberto',
+        last_name: 'Navarro',
+        email: 'roberto@empresa.com',
+        department_id: 1,
+        shift_id: 1,
+        position: 'Analista',
+        hire_date: '2025-01-01'
+    });
+
+    // 1. Crear falta mediante markAbsentees
+    const testDate = '2026-02-18';
+    attModel.markAbsentees(testDate);
+    const rec = attModel.getByEmployeeAndDate(emp.id, testDate);
+    assert.ok(rec);
+    assert.equal(rec.status, 'absent');
+    assert.equal(rec.notes, null);
+
+    // 2. Justificar mediante AttendanceModel.justifyAbsence
+    const justifiedModel = attModel.justifyAbsence(rec.id, 'Incapacidad médica - Folio #98213', 'excused');
+    assert.ok(justifiedModel);
+    assert.equal(justifiedModel.status, 'excused');
+    assert.equal(justifiedModel.notes, 'Incapacidad médica - Folio #98213');
+
+    // 3. Justificar mediante AttendanceService.justifyAbsence
+    const resService = await service.justifyAbsence(rec.id, 'Permiso con goce - Autorizado por RRHH', 'on_leave');
+    assert.equal(resService.success, true);
+    assert.ok(resService.record);
+    assert.equal(resService.record.status, 'on_leave');
+    assert.equal(resService.record.notes, 'Permiso con goce - Autorizado por RRHH');
+
+    // 4. Justificar por acción polimórfica en getAttendanceRecords({ action: 'justify', ... })
+    const resIpc = await service.getAttendanceRecords({
+        action: 'justify',
+        recordId: rec.id,
+        notes: 'Vacaciones autorizadas',
+        status: 'excused'
+    });
+    assert.equal(resIpc.success, true);
+    assert.equal(resIpc.record?.status, 'excused');
+    assert.equal(resIpc.record?.notes, 'Vacaciones autorizadas');
+
+    // 5. Justificar falta futura / no registrada previamente mediante justifyOrUpsertAbsence
+    const futureDate = '2026-03-01';
+    const resUpsert = await service.getAttendanceRecords({
+        action: 'justify',
+        employeeId: emp.id,
+        date: futureDate,
+        notes: 'Comisión de trabajo - Conferencia CDMX',
+        status: 'excused'
+    });
+    assert.equal(resUpsert.success, true);
+    assert.ok(resUpsert.record);
+    assert.equal(resUpsert.record.date, futureDate);
+    assert.equal(resUpsert.record.status, 'excused');
+    assert.equal(resUpsert.record.notes, 'Comisión de trabajo - Conferencia CDMX');
+});
+

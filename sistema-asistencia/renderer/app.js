@@ -2616,6 +2616,8 @@ function calcEmployeeAbsenceHistoryClient(records, employee) {
         }
         const monthKey = `${y}-${String(m).padStart(2, '0')}`;
         const dayItem = {
+            id: r.id,
+            employeeId: r.employee_id,
             date: r.date,
             dayOfWeek: dayName,
             dayOfMonth: d,
@@ -3083,14 +3085,25 @@ function renderAbsenceHistoryHTMLClient(history) {
                                     </span>
                                 </div>
                                 <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                    ${week.days.map(d => `
-                                        <div style="background: white; border: 1px solid #FCA5A5; border-radius: 6px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
-                                            <span style="color: #DC2626; font-size: 12px;">🔴</span>
+                                    ${week.days.map(d => {
+                                        const hasNote = Boolean(d.notes && d.notes.trim());
+                                        const noteDisplay = hasNote ? `<span style="background: #FEF3C7; color: #92400E; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500;" title="${escapeHtml(d.notes)}">📝 ${escapeHtml(d.notes)}</span>` : '';
+                                        const btnLabel = hasNote ? '✏️ Editar' : '✏️ Justificar';
+                                        const btnStyle = hasNote 
+                                            ? 'background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;' 
+                                            : 'background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5;';
+                                        return `
+                                        <div style="background: white; border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); flex-wrap: wrap;">
+                                            <span style="color: ${hasNote ? '#F59E0B' : '#DC2626'}; font-size: 12px;">${hasNote ? '🟡' : '🔴'}</span>
                                             <strong style="color: #1F2937; font-size: 13px;">${escapeHtml(d.dayOfWeek)}</strong>
                                             <span style="color: #4B5563; font-size: 13px;">${escapeHtml(d.formattedDate)}</span>
-                                            ${d.notes ? `<span style="color: #6B7280; font-size: 11px; font-style: italic;">(${escapeHtml(d.notes)})</span>` : ''}
+                                            ${noteDisplay}
+                                            <button type="button" class="btn btn-sm" onclick="openJustifyAbsenceModal(${d.id || 0}, '${escapeHtml(d.date)}', ${emp.id || 0}, '${escapeHtml(emp.employee_code || '')}', '${escapeHtml(d.notes || '')}')" style="padding: 2px 8px; font-size: 11px; border-radius: 6px; cursor: pointer; font-weight: 600; ${btnStyle}" title="Justificar o registrar motivo de la falta con 1 clic">
+                                                ${btnLabel}
+                                            </button>
                                         </div>
-                                    `).join('')}
+                                        `;
+                                    }).join('')}
                                 </div>
                             </div>
                         `).join('')}
@@ -3267,6 +3280,172 @@ async function showEmployeeAbsenceHistoryModal(employeeCodeOrId) {
     } catch (err) {
         logger.error('Error al abrir modal de faltas:', err);
         showNotification('Error al abrir el historial de faltas', 'error');
+    }
+}
+
+/**
+ * Abre el micro-modal dinámico para justificar una inasistencia (Escritura ágil 1-clic)
+ */
+function openJustifyAbsenceModal(recordId, dateStr, employeeId, employeeCode, currentNotes = '') {
+    // Si ya existe un modal de justificación abierto, removerlo
+    const existingModal = document.getElementById('justify-absence-modal-container');
+    if (existingModal) existingModal.remove();
+
+    const formattedDate = dateStr ? formatFullDateEsClient(dateStr, true) : 'Fecha no especificada';
+
+    const modalHTML = `
+        <div id="justify-absence-modal-container" class="modal active" style="z-index: 9999;" onclick="if(event.target === this) closeJustifyAbsenceModal()">
+            <div class="modal-content" style="max-width: 520px; border-radius: 14px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);">
+                <div class="modal-header" style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0; padding: 16px 20px; border-top-left-radius: 14px; border-top-right-radius: 14px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 17px; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                            <span>✏️</span> Justificar Inasistencia
+                        </h3>
+                        <div style="font-size: 12px; color: #64748B; margin-top: 3px;">
+                            Empleado: <strong>${escapeHtml(employeeCode)}</strong> &bull; ${escapeHtml(formattedDate)}
+                        </div>
+                    </div>
+                    <button type="button" class="close-btn" onclick="closeJustifyAbsenceModal()" style="font-size: 22px; cursor: pointer; background: transparent; border: none; color: #64748B;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <form id="justify-absence-form" onsubmit="event.preventDefault(); submitJustifyAbsence(${recordId}, '${escapeHtml(dateStr)}', ${employeeId}, '${escapeHtml(employeeCode)}');">
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                                Tipo de Justificación / Motivo:
+                            </label>
+                            <select id="justify-reason-select" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 13px;">
+                                <option value="Incapacidad médica">🏥 Incapacidad médica (IMSS / Certificado)</option>
+                                <option value="Permiso con goce de sueldo">📋 Permiso con goce de sueldo</option>
+                                <option value="Vacaciones autorizadas">🏖️ Vacaciones autorizadas</option>
+                                <option value="Asunto personal / Familiar">👨‍👩‍👧 Asunto personal o familiar</option>
+                                <option value="Causa de fuerza mayor">⚡ Causa de fuerza mayor / Clima</option>
+                                <option value="Comisión de trabajo">💼 Comisión laboral / Trabajo externo</option>
+                                <option value="Otro motivo">✍️ Otro motivo justificado</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                                Estado resultante en registro:
+                            </label>
+                            <select id="justify-status-select" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 13px;">
+                                <option value="excused" selected>✅ Justificada (excused - Descuenta de faltas activas)</option>
+                                <option value="on_leave">🏖️ Permiso / Licencia (on_leave)</option>
+                                <option value="absent">⚠️ Mantener como Falta con nota explicativa (absent)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                                Folio / Detalle o Comentario Adicional:
+                            </label>
+                            <textarea id="justify-notes-input" class="form-control" rows="3" placeholder="Ej: Folio médico #A-93821, o autorización de Dirección de Operaciones" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 13px; font-family: inherit;">${escapeHtml(currentNotes)}</textarea>
+                            <span style="font-size: 11px; color: #94A3B8; margin-top: 4px; display: block;">Se registrará automáticamente en el expediente de asistencia del empleado.</span>
+                        </div>
+
+                        <div id="justify-error-feedback" style="display: none; background: #FEF2F2; color: #991B1B; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 15px;"></div>
+                    </form>
+                </div>
+                <div class="modal-footer" style="background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 14px 20px; display: flex; justify-content: flex-end; gap: 10px; border-bottom-left-radius: 14px; border-bottom-right-radius: 14px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeJustifyAbsenceModal()" style="padding: 8px 16px; font-size: 13px; border-radius: 6px;">
+                        Cancelar
+                    </button>
+                    <button type="button" id="btn-save-justify" class="btn btn-primary" onclick="submitJustifyAbsence(${recordId}, '${escapeHtml(dateStr)}', ${employeeId}, '${escapeHtml(employeeCode)}')" style="padding: 8px 18px; font-size: 13px; border-radius: 6px; background: #2563EB; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                        <span>💾</span> Guardar Justificación
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const textarea = document.getElementById('justify-notes-input');
+    if (textarea) textarea.focus();
+}
+
+/**
+ * Cierra el micro-modal de justificación
+ */
+function closeJustifyAbsenceModal() {
+    const modal = document.getElementById('justify-absence-modal-container');
+    if (modal) modal.remove();
+}
+
+/**
+ * Envía la justificación a persistir en la base de datos (Data Science / Escritura ágil)
+ */
+async function submitJustifyAbsence(recordId, dateStr, employeeId, employeeCode) {
+    const reasonSelect = document.getElementById('justify-reason-select');
+    const statusSelect = document.getElementById('justify-status-select');
+    const notesInput = document.getElementById('justify-notes-input');
+    const saveBtn = document.getElementById('btn-save-justify');
+    const feedback = document.getElementById('justify-error-feedback');
+
+    if (!reasonSelect || !statusSelect || !notesInput) return;
+
+    const selectedReason = reasonSelect.value;
+    const selectedStatus = statusSelect.value || 'excused';
+    const detailNotes = notesInput.value.trim();
+
+    // Construir nota final concatenada
+    let finalNote = selectedReason;
+    if (detailNotes && detailNotes !== selectedReason) {
+        finalNote = `${selectedReason} - ${detailNotes}`;
+    }
+
+    try {
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span>⏳</span> Guardando...';
+        }
+
+        const payload = {
+            action: 'justify',
+            recordId: recordId > 0 ? recordId : undefined,
+            employeeId: employeeId > 0 ? employeeId : undefined,
+            date: dateStr,
+            notes: finalNote,
+            status: selectedStatus
+        };
+
+        const result = await window.attendance.getAttendanceRecords(payload);
+
+        if (result && result.success === false) {
+            throw new Error(result.message || 'Error al guardar la justificación');
+        }
+
+        showNotification(`Falta del ${dateStr} justificada con éxito`, 'success');
+        closeJustifyAbsenceModal();
+
+        // Refrescar vistas activas en tiempo real:
+        // 1. Si hay un contenedor de resultados en la pestaña de reportes, refrescarlo:
+        const resultsArea = document.getElementById('absence-history-results-area');
+        if (resultsArea && resultsArea.innerHTML.trim() !== '') {
+            onSearchEmployeeAbsences();
+        }
+
+        // 2. Si hay un modal abierto con el historial de faltas de este empleado:
+        const openHistoryModals = document.querySelectorAll('.modal.active');
+        if (openHistoryModals.length > 0) {
+            for (let m of openHistoryModals) {
+                if (m.id !== 'justify-absence-modal-container') {
+                    m.remove();
+                    showEmployeeAbsenceHistoryModal(employeeCode || employeeId);
+                    break;
+                }
+            }
+        }
+
+    } catch (err) {
+        logger.error('Error al justificar falta:', err);
+        if (feedback) {
+            feedback.textContent = `Error: ${err.message || 'No se pudo guardar la justificación'}`;
+            feedback.style.display = 'block';
+        }
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span>💾</span> Guardar Justificación';
+        }
     }
 }
 
@@ -5038,4 +5217,7 @@ Object.assign(window, {
     exportQAToPDF,
     printQAResult,
     downloadFile,
+    openJustifyAbsenceModal,
+    closeJustifyAbsenceModal,
+    submitJustifyAbsence,
 });

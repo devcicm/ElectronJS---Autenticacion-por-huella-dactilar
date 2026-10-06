@@ -6,6 +6,7 @@ import { DatabaseManager } from '../database/init.js';
 import {
     AttendanceRecord,
     AttendanceRecordCreate,
+    AttendanceUpdate,
     AttendanceWithDetails,
     AttendanceFilters,
     DailyAttendanceSummary,
@@ -347,5 +348,92 @@ export class AttendanceModel {
         );
 
         return result.changes;
+    }
+
+    /**
+     * Actualizar un registro de asistencia existente (idempotente y seguro)
+     */
+    update(id: number, data: Partial<AttendanceUpdate>): AttendanceRecord | undefined {
+        const recId = safeParseInt(id, 0);
+        if (recId <= 0) return undefined;
+
+        const existing = this.getById(recId);
+        if (!existing) return undefined;
+
+        const updates: string[] = [];
+        const params: any[] = [];
+
+        if (data.status !== undefined) {
+            updates.push('status = ?');
+            params.push(data.status);
+        }
+
+        if (data.notes !== undefined) {
+            updates.push('notes = ?');
+            params.push(data.notes ? String(data.notes).trim() : null);
+        }
+
+        if (data.check_in_time !== undefined) {
+            updates.push('check_in_time = ?');
+            params.push(data.check_in_time ? String(data.check_in_time).trim() : null);
+        }
+
+        if (data.check_out_time !== undefined) {
+            updates.push('check_out_time = ?');
+            params.push(data.check_out_time ? String(data.check_out_time).trim() : null);
+        }
+
+        if (data.minutes_late !== undefined) {
+            updates.push('minutes_late = ?');
+            params.push(safeParseInt(data.minutes_late, 0));
+        }
+
+        if (data.minutes_overtime !== undefined) {
+            updates.push('minutes_overtime = ?');
+            params.push(safeParseInt(data.minutes_overtime, 0));
+        }
+
+        if (updates.length === 0) return existing;
+
+        updates.push("updated_at = datetime('now')");
+        params.push(recId);
+
+        this.db.execute(
+            `UPDATE attendance_records SET ${updates.join(', ')} WHERE id = ?`,
+            params
+        );
+
+        return this.getById(recId);
+    }
+
+    /**
+     * Justificar una falta / inasistencia
+     */
+    justifyAbsence(id: number, notes: string, status: AttendanceStatus = 'excused'): AttendanceRecord | undefined {
+        return this.update(id, { status, notes });
+    }
+
+    /**
+     * Justificar o registrar una inasistencia justificada por empleado y fecha
+     */
+    justifyOrUpsertAbsence(employeeId: number, date: string, notes: string, status: AttendanceStatus = 'excused'): AttendanceRecord {
+        const empId = safeParseInt(employeeId, 0);
+        if (empId <= 0) throw new Error('ID de empleado inválido');
+        const existing = this.getByEmployeeAndDate(empId, date);
+        if (existing) {
+            const updated = this.justifyAbsence(existing.id, notes, status);
+            if (!updated) throw new Error('No se pudo actualizar el registro de asistencia');
+            return updated;
+        }
+
+        return this.create({
+            employee_id: empId,
+            date,
+            status,
+            notes,
+            minutes_late: 0,
+            minutes_overtime: 0,
+            fingerprint_verified: false
+        });
     }
 }

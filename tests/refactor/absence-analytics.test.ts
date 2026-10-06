@@ -266,3 +266,22 @@ test('exportAbsenceHistoryToCSV y exportQAResultToCSV: generan formato CSV con B
     assert.ok(csvQA.includes('RANKING DE AUSENTISMO'));
     assert.ok(csvQA.includes('Juan Pérez'));
 });
+
+test('calculateEmployeeAbsenceHistory preserva id y employeeId en los días de falta', () => {
+    const employee: EmployeeInfoLike = {
+        id: 7,
+        employee_code: 'EMP-007',
+        first_name: 'James',
+        last_name: 'Bond'
+    };
+    const records: AbsenceRecordLike[] = [
+        { id: 101, employee_id: 7, date: '2026-02-16', status: 'absent', notes: 'Misión especial' }
+    ];
+    const history = calculateEmployeeAbsenceHistory(records, employee);
+    assert.equal(history.totalAbsences, 1);
+    const dayItem = history.months[0].weeks[0].days[0];
+    assert.equal(dayItem.id, 101);
+    assert.equal(dayItem.employeeId, 7);
+    assert.equal(dayItem.notes, 'Misión especial');
+});
+
