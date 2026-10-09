@@ -91,6 +91,16 @@ clásicos no usan CORS y sí cargan. Con F1+F2+F3 corregidos: `setup-nav` ata 8 
 | Spawn `node` (BUGS #4) | Resuelto vía B5 | |
 | C1-C5 CANDIDATE | siguen en investigación | |
 
+## Pasada DRY, Ergonomía UI, Parámetros y Seguridad WAF
+
+| Paso | Criterio | Qué cambió | Paridad | Custodia |
+|---|---|---|---|---|
+| DRY-1 | Reducción de duplicidad backend | Centralización de `timeToMinutes` en `date-utils.ts`, `buildUpdateClause` en `object-utils.ts`, `getValidActiveEmployee` y `getTodayAttendance` en `AttendanceService.ts`. Unificados updates de empleados, departamentos y turnos. | ✅ gm1-gm5 | `22c7d03` |
+| DRY-2 & UI | Ergonomía y Componentes UI | Fábricas modales funcionales puras en `app.js` (`createModalShell`, `renderDepartmentForm`, `renderShiftForm`, `renderEmployeeForm`, `renderReportModalShell`), pipelines `confirmAndDeleteEntity` y `withSubmitState`. Clases CSS utilitarias (`.btn-cancel`, `.td-nowrap`, `.banner-gradient`, etc.). Rebalanceo ergonómico (`max-width: 1380px`) y split layout en Check-in. | ✅ gm4 | `bd36dbf` |
+| CFG-1 | Prevención de colisiones | Candados reactivos en interfaz y backend entre `require_biometric` y `allow_manual_attendance`. Exposición y sincronización en SQLite de `cooldown_seconds`, `audio_feedback`, `success_duration`, `grace_period_minutes`. | ✅ gm2, gm3 | `bd36dbf` |
+| SEC-1 | WAF Perimetral (Engine) | Ocultamiento `X-Powered-By`, cabeceras estrictas (CSP, nosniff, DENY, COOP, CORP), Host Header Guard (anti-DNS Rebinding), whitelist de métodos (GET, POST, DELETE, OPTIONS, HEAD), límite DoS JSON 2MB, manejador de errores anti-leak y sanitizador recursivo contra Prototype Pollution. | ✅ gm1, gm5 | `61ef7ea` (submódulo) |
+| SEC-2 | Deserialización e IPC | Deserialización segura con `safeParseJson` en eventos SSE (`TouchModeService.ts`). Sanitización profunda de argumentos IPC con `safeClone` en `safeHandle` (`main.ts`). Protección contra Path Traversal y límite 5MB en `trace:dump`. Guards de navegación y bloqueo de popups (`setWindowOpenHandler`). Suite con 6 tests de seguridad automatizados (`security-waf.test.ts`). | ✅ gm1-gm5 (99 tests pass) | `44a975f` |
+
 ## Líneas rojas respetadas
 
 - ❌ No se reescribió desde cero
