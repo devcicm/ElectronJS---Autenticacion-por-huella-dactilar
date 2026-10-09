@@ -255,21 +255,14 @@ msbuild EdgeBridge.csproj /p:Configuration=Release
 
 MIT
 
-## Notas Importantes
+## Arquitectura y Persistencia
 
-- El sistema NO incluye base de datos - las plantillas se almacenan en RAM
-- Al cerrar la aplicación, se pierden todas las plantillas enroladas
-- Para almacenamiento permanente, implementa integración con base de datos externa
-- El sistema está listo para agregar funcionalidad de control de asistencia en el futuro
+- **Base de Datos SQLite**: Integrada mediante `better-sqlite3` con persistencia permanente en disco de empleados, huellas dactilares, asistencias, departamentos y turnos.
+- **Modo Continuo (Touch Mode)**: Escucha continua de huellas para marcaje automático instantáneo 1:N sin selección previa en pantalla.
+- **Captura Fotográfica**: Soporte para captura de fotografía facial desde cámara web vinculada al registro del empleado.
+- **Analítica de Ausencias y Consultas de Dominio**: Motor de análisis de faltas por períodos/semanas y procesador de preguntas en lenguaje natural sobre asistencia.
+- **Reportes y Exportación**: Generación de reportes e impresión directa, así como exportación a formatos CSV (Excel) y PDF.
+- **Garantía de Calidad y Seguridad**: Suite de 99 pruebas unitarias y de integración automáticas con WAF perimetral, deserialización segura y verificación continua de contratos Golden Master.
 
-## Próximos Pasos
+Para documentación completa del engine biométrico, consulta: `biometric-engine/README.md`
 
-Una vez que el sistema de captura esté funcionando correctamente, se puede:
-
-1. Agregar base de datos SQLite para almacenamiento permanente
-2. Implementar sistema de control de asistencia
-3. Agregar gestión de empleados
-4. Crear reportes de asistencia
-5. Integrar con sistemas externos
-
-Para documentación completa del engine, consulta: `biometric-engine/README.md`

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
 import { BIOMETRIC_PORT } from '../sistema-asistencia/shared/biometric-config.js';
 import { logger } from '../sistema-asistencia/shared/logger.js';
-import { safeParseInt, safeParseBoolean, safeParseJson } from '../sistema-asistencia/shared/object-utils.js';
+import { safeParseInt, safeParseBoolean, safeParseJson, safeClone } from '../sistema-asistencia/shared/object-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +47,24 @@ function createWindow() {
     const fns = ['debug', 'info', 'warn', 'error'] as const;
     const fn = fns[level] || 'info';
     (logger as any)[fn](`[Renderer] ${message}`);
+  });
+
+  // Bloquear apertura de ventanas secundarias no autorizadas (previene phishing/popup exploits)
+  mainWindow.webContents.setWindowOpenHandler(() => {
+    return { action: 'deny' };
+  });
+
+  // Prevenir navegación no intencionada fuera de la app
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    try {
+      const parsed = new URL(navigationUrl);
+      if (parsed.protocol !== 'file:') {
+        event.preventDefault();
+        logger.warn(`[Security] Bloqueada navegación externa no autorizada hacia: ${navigationUrl}`);
+      }
+    } catch {
+      event.preventDefault();
+    }
   });
 
   // Crash detection: si el renderer muere, log + intentar notificar
@@ -207,7 +225,8 @@ function initIpcHandlers() {
   const safeHandle = (channel: string, fn: (...args: any[]) => Promise<any> | any) => {
     ipcMain.handle(channel, async (event, ...args) => {
         try {
-            return await fn(event, ...args);
+            const sanitizedArgs = args.map(arg => safeClone(arg));
+            return await fn(event, ...sanitizedArgs);
         } catch (error: any) {
             logger.error(`[IPC ${channel}] failed:`, error);
             return { success: false, error: error.message || String(error) };
@@ -233,11 +252,17 @@ function initIpcHandlers() {
   // Observabilidad: handler que recibe el trace buffer del renderer y lo persiste
   safeHandle('trace:dump', (_event: any, json: string) => {
       try {
+          if (typeof json !== 'string') {
+              return { ok: false, error: 'Se esperaba una cadena JSON válida' };
+          }
+          if (json.length > 5 * 1024 * 1024) {
+              return { ok: false, error: 'El tamaño del trace excede el límite permitido (5MB)' };
+          }
           const dir = path.join(os.tmpdir(), 'electron-fingerprint-traces');
           if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          const ts = new Date().toISOString().replace(/[:.]/g, '-').replace(/[^a-zA-Z0-9_-]/g, '');
           const file = path.join(dir, `trace-electron-${ts}.json`);
-          fs.writeFileSync(file, json);
+          fs.writeFileSync(file, json, { encoding: 'utf8' });
           const events = safeParseJson<any>(json, null)?.events?.length || 0;
           logger.info(`[trace] dump OK → ${file} (${events} events)`);
           return { ok: true, path: file, events };
@@ -261,9 +286,38 @@ function initIpcHandlers() {
     return { isRunning };
   });
 
-  ipcMain.handle('config:get', () => {
+  ipcMain.handle('config:get', async (_event, updates?: Record<string, string>) => {
+    const systemConfig: Record<string, string> = {};
+    try {
+      const { getDatabaseManager } = await import('../sistema-asistencia/database/init.js');
+      const db = getDatabaseManager();
+      const rawDb = db.getDatabase();
+
+      if (updates && typeof updates === 'object' && Object.keys(updates).length > 0) {
+        const stmt = rawDb.prepare(
+          'INSERT INTO system_config (key, value, description) VALUES (?, ?, ?) ' +
+          'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime(\'now\')'
+        );
+        for (const [k, v] of Object.entries(updates)) {
+          if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+          if (!/^[a-zA-Z0-9_]{1,64}$/.test(k)) continue;
+          if (v !== undefined && v !== null) {
+            stmt.run(k, String(v).slice(0, 500), `Configuración: ${k}`);
+          }
+        }
+      }
+
+      const rows = db.query<{ key: string; value: string }>('SELECT key, value FROM system_config');
+      for (const row of rows) {
+        systemConfig[row.key] = row.value;
+      }
+    } catch (e: any) {
+      logger.error('Error al sincronizar system_config en config:get:', e?.message || e);
+    }
+
     return {
-      biometricPort: BIOMETRIC_PORT
+      biometricPort: BIOMETRIC_PORT,
+      systemConfig
     };
   });
 
@@ -347,7 +401,7 @@ function initIpcHandlers() {
   // Empleados
   ipcMain.handle('attendance:getEmployees', async (_event, filters?: any) => {
     const { employeeModel } = await getModels();
-    return employeeModel.getAllWithDetails(filters);
+    return employeeModel.getAllWithDetails(filters ? safeClone(filters) : undefined);
   });
 
   ipcMain.handle('attendance:getEmployeeById', async (_event, id: number) => {
@@ -360,46 +414,39 @@ function initIpcHandlers() {
     return service.getEmployeeDetails(safeParseInt(id, 0));
   });
 
+  function mapEmployeeSqliteError(error: any, fallbackMessage: string): string {
+    const msg = error?.message || '';
+    if (msg.includes('UNIQUE constraint failed: employees.email')) {
+      return 'Ya existe un empleado con ese correo electrónico';
+    }
+    if (msg.includes('UNIQUE constraint failed: employees.employee_code')) {
+      return 'Ya existe un empleado con ese código';
+    }
+    if (msg.includes('FOREIGN KEY constraint failed') || msg.includes('inválido')) {
+      return error?.message || 'Departamento o turno inválido';
+    }
+    return fallbackMessage;
+  }
+
   ipcMain.handle('attendance:createEmployee', async (_event, data: any) => {
     try {
       const { employeeModel } = await getModels();
-      const employee = employeeModel.create(data);
+      const employee = employeeModel.create(safeClone(data));
       return { success: true, data: employee, message: 'Empleado creado exitosamente' };
     } catch (error: any) {
       logger.error('Error creando empleado:', error);
-
-      // Parsear errores de SQLite para dar mensajes amigables
-      let message = 'Error al crear empleado';
-      if (error.message?.includes('UNIQUE constraint failed: employees.email')) {
-        message = 'Ya existe un empleado con ese correo electrónico';
-      } else if (error.message?.includes('UNIQUE constraint failed: employees.employee_code')) {
-        message = 'Ya existe un empleado con ese código';
-      } else if (error.message?.includes('FOREIGN KEY constraint failed') || error.message?.includes('inválido')) {
-        message = error.message || 'Departamento o turno inválido';
-      }
-
-      return { success: false, message };
+      return { success: false, message: mapEmployeeSqliteError(error, 'Error al crear empleado') };
     }
   });
 
   ipcMain.handle('attendance:updateEmployee', async (_event, data: any) => {
     try {
       const { employeeModel } = await getModels();
-      const employee = employeeModel.update(data);
+      const employee = employeeModel.update(safeClone(data));
       return { success: true, data: employee, message: 'Empleado actualizado exitosamente' };
     } catch (error: any) {
       logger.error('Error actualizando empleado:', error);
-
-      let message = 'Error al actualizar empleado';
-      if (error.message?.includes('UNIQUE constraint failed: employees.email')) {
-        message = 'Ya existe un empleado con ese correo electrónico';
-      } else if (error.message?.includes('UNIQUE constraint failed: employees.employee_code')) {
-        message = 'Ya existe un empleado con ese código';
-      } else if (error.message?.includes('FOREIGN KEY constraint failed') || error.message?.includes('inválido')) {
-        message = error.message || 'Departamento o turno inválido';
-      }
-
-      return { success: false, message };
+      return { success: false, message: mapEmployeeSqliteError(error, 'Error al actualizar empleado') };
     }
   });
 
@@ -411,7 +458,7 @@ function initIpcHandlers() {
   // Registros de asistencia
   ipcMain.handle('attendance:getAttendanceRecords', async (_event, filters?: any) => {
     const service = await getAttendanceService();
-    return service.getAttendanceRecords(filters);
+    return service.getAttendanceRecords(filters ? safeClone(filters) : undefined);
   });
 
   // Departamentos
@@ -422,12 +469,12 @@ function initIpcHandlers() {
 
   ipcMain.handle('attendance:createDepartment', async (_event, data: any) => {
     const { departmentModel } = await getModels();
-    return departmentModel.create(data);
+    return departmentModel.create(safeClone(data));
   });
 
   ipcMain.handle('attendance:updateDepartment', async (_event, data: any) => {
     const { departmentModel } = await getModels();
-    return departmentModel.update(data);
+    return departmentModel.update(safeClone(data));
   });
 
   ipcMain.handle('attendance:deleteDepartment', async (_event, id: number) => {
@@ -443,12 +490,12 @@ function initIpcHandlers() {
 
   ipcMain.handle('attendance:createShift', async (_event, data: any) => {
     const { shiftModel } = await getModels();
-    return shiftModel.create(data);
+    return shiftModel.create(safeClone(data));
   });
 
   ipcMain.handle('attendance:updateShift', async (_event, data: any) => {
     const { shiftModel } = await getModels();
-    return shiftModel.update(data);
+    return shiftModel.update(safeClone(data));
   });
 
   ipcMain.handle('attendance:deleteShift', async (_event, id: number) => {

@@ -12,7 +12,7 @@ import { AttendanceModel } from '../models/index.js';
 import { BIOMETRIC_SERVER, fetchJson } from '../shared/biometric-config.js';
 import { logger } from '../shared/logger.js';
 import { getLocalDateString } from '../shared/date-utils.js';
-import { safeParseInt } from '../shared/object-utils.js';
+import { safeParseInt, safeParseJson } from '../shared/object-utils.js';
 
 export type BiometricHardwareState =
     | 'IDLE'
@@ -362,7 +362,11 @@ export class TouchModeService {
 
         this.eventSource.onmessage = (event: any) => {
             try {
-                const data = JSON.parse(event.data);
+                const data = safeParseJson<any>(event.data, null);
+                if (!data) {
+                    logger.warn('[TouchModeService] Payload SSE descartado: JSON no válido o malicioso');
+                    return;
+                }
 
                 // Resetear contador de errores en eventos exitosos
                 if (this.consecutiveErrors > 0) {
