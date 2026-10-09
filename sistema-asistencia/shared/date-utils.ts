@@ -6,6 +6,7 @@
  * donde toISOString().split('T')[0] avanza al día siguiente mientras la hora local
  * sigue siendo del día actual.
  */
+import { safeParseInt } from './object-utils.js';
 
 /**
  * Retorna la fecha local en formato YYYY-MM-DD.
@@ -45,3 +46,16 @@ export function parseLocalDate(dateStr: string): Date {
     return Number.isNaN(fallback.getTime()) ? new Date() : fallback;
 }
 
+
+/**
+ * Convierte una hora en formato HH:MM (o HH:MM:SS) a minutos transcurridos desde medianoche.
+ * Maneja valores nulos, indefinidos, cadenas vacías o malformadas de forma segura devolviendo 0.
+ */
+export function timeToMinutes(time: string | null | undefined): number {
+    if (!time || typeof time !== 'string') return 0;
+    const parts = time.split(':');
+    if (parts.length < 2) return 0;
+    const hours = safeParseInt(parts[0], 0);
+    const minutes = safeParseInt(parts[1], 0);
+    return hours * 60 + minutes;
+}

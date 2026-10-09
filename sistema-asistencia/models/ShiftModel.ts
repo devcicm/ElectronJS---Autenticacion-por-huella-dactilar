@@ -4,7 +4,8 @@
 
 import { DatabaseManager } from '../database/init.js';
 import { Shift, ShiftCreate, ShiftUpdate } from '../types/index.js';
-import { safeParseInt } from '../shared/object-utils.js';
+import { safeParseInt, buildUpdateClause } from '../shared/object-utils.js';
+import { timeToMinutes } from '../shared/date-utils.js';
 
 export class ShiftModel {
     constructor(private db: DatabaseManager) {}
@@ -89,45 +90,34 @@ export class ShiftModel {
             throw new Error('ID de turno inválido');
         }
 
-        const updates: string[] = [];
-        const params: any[] = [];
+        const { setClause, params } = buildUpdateClause(data, {
+            name: (v) => {
+                const name = String(v).trim();
+                if (!name) throw new Error('El nombre no puede estar vacío');
+                return name;
+            },
+            start_time: (v) => {
+                const st = String(v).trim();
+                if (!st) throw new Error('La hora de inicio no puede estar vacía');
+                return st;
+            },
+            end_time: (v) => {
+                const et = String(v).trim();
+                if (!et) throw new Error('La hora de fin no puede estar vacía');
+                return et;
+            },
+            tolerance_minutes: (v) => Math.max(0, safeParseInt(v, 0)),
+            color: (v) => String(v).trim() || '#3B82F6'
+        });
 
-        if (data.name !== undefined) {
-            const name = String(data.name).trim();
-            if (!name) throw new Error('El nombre no puede estar vacío');
-            updates.push('name = ?');
-            params.push(name);
-        }
-        if (data.start_time !== undefined) {
-            const st = String(data.start_time).trim();
-            if (!st) throw new Error('La hora de inicio no puede estar vacía');
-            updates.push('start_time = ?');
-            params.push(st);
-        }
-        if (data.end_time !== undefined) {
-            const et = String(data.end_time).trim();
-            if (!et) throw new Error('La hora de fin no puede estar vacía');
-            updates.push('end_time = ?');
-            params.push(et);
-        }
-        if (data.tolerance_minutes !== undefined) {
-            const tol = Math.max(0, safeParseInt(data.tolerance_minutes, 0));
-            updates.push('tolerance_minutes = ?');
-            params.push(tol);
-        }
-        if (data.color !== undefined) {
-            updates.push('color = ?');
-            params.push(String(data.color).trim() || '#3B82F6');
-        }
-
-        if (updates.length === 0) {
+        if (!setClause) {
             throw new Error('No hay datos para actualizar');
         }
 
         params.push(id);
 
         this.db.execute(
-            `UPDATE shifts SET ${updates.join(', ')} WHERE id = ?`,
+            `UPDATE shifts SET ${setClause} WHERE id = ?`,
             params
         );
 
@@ -187,10 +177,9 @@ export class ShiftModel {
     }
 
     /**
-     * Convertir tiempo HH:MM a minutos
+     * Convertir tiempo HH:MM a minutos (delega a date-utils)
      */
     private timeToMinutes(time: string): number {
-        const [hours, minutes] = time.split(':').map(Number);
-        return hours * 60 + minutes;
+        return timeToMinutes(time);
     }
 }

@@ -152,3 +152,52 @@ export function safeConstruct<T extends object>(base: T, overrides?: Partial<T> 
     }
     return cleanBase;
 }
+
+export type FieldTransformFn = (val: any) => any;
+
+export interface UpdateFieldConfig {
+    column?: string;
+    transform?: FieldTransformFn;
+}
+
+export type UpdateFieldMapping = string | FieldTransformFn | UpdateFieldConfig;
+
+/**
+ * Construye de manera genérica y segura una cláusula SET parametrizada para sentencias UPDATE en SQL.
+ * Itera sobre las llaves definidas en los mappings que existan en el objeto (distintas de undefined),
+ * aplica validaciones o transformaciones y genera los placeholders seguros (?) evitando concatenación directa.
+ */
+export function buildUpdateClause<T extends Record<string, any>>(
+    data: T,
+    mappings: Partial<Record<keyof T, UpdateFieldMapping>>
+): { setClause: string; params: any[] } {
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    for (const [key, rawMapping] of Object.entries(mappings)) {
+        const val = data[key as keyof T];
+        if (val === undefined) continue;
+
+        let col = key;
+        let transform: FieldTransformFn | undefined;
+
+        if (typeof rawMapping === 'string') {
+            col = rawMapping;
+        } else if (typeof rawMapping === 'function') {
+            transform = rawMapping as FieldTransformFn;
+        } else if (rawMapping && typeof rawMapping === 'object') {
+            const cfg = rawMapping as UpdateFieldConfig;
+            if (cfg.column) col = cfg.column;
+            if (cfg.transform) transform = cfg.transform;
+        }
+
+        const finalVal = transform ? transform(val) : val;
+        updates.push(`${col} = ?`);
+        params.push(finalVal);
+    }
+
+    return {
+        setClause: updates.join(', '),
+        params
+    };
+}

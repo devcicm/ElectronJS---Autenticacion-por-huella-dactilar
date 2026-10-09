@@ -12,7 +12,7 @@ import {
     DailyAttendanceSummary,
     AttendanceStatus
 } from '../types/index.js';
-import { getLocalDateString, getLocalTimeString } from '../shared/date-utils.js';
+import { getLocalDateString, getLocalTimeString, timeToMinutes } from '../shared/date-utils.js';
 import { safeParseInt, safeParseBoolean } from '../shared/object-utils.js';
 
 export class AttendanceModel {
@@ -63,8 +63,8 @@ export class AttendanceModel {
         }
 
         if (filters?.department_id) {
-            sql += ' AND department_id = ?';
-            params.push(filters?.department_id);
+            sql += ' AND employee_id IN (SELECT id FROM employees WHERE department_id = ?)';
+            params.push(filters.department_id);
         }
 
         if (filters?.start_date) {
@@ -272,14 +272,10 @@ export class AttendanceModel {
     }
 
     /**
-     * Convertir tiempo HH:MM a minutos
+     * Convertir tiempo HH:MM a minutos (delega a date-utils)
      */
     private timeToMinutes(time: string): number {
-        if (!time || typeof time !== 'string') return 0;
-        const parts = time.split(':');
-        const hours = safeParseInt(parts[0], 0);
-        const minutes = safeParseInt(parts[1], 0);
-        return hours * 60 + minutes;
+        return timeToMinutes(time);
     }
 
     /**

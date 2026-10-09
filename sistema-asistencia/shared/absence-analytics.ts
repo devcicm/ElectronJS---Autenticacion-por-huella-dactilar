@@ -10,6 +10,7 @@
  */
 
 import { groupToMap, countToMap, summarizeAttendance, type AttendanceRecordLike } from './fp-utils.js';
+import { timeToMinutes } from './date-utils.js';
 
 export interface AbsenceDayItem {
     readonly id?: number;              // ID del registro attendance_records
@@ -775,12 +776,7 @@ export function answerDomainQuery(
 // ============================================================================
 
 function diffInMinutes(startHHMM: string, endHHMM: string): number {
-    const sParts = startHHMM.split(':');
-    const eParts = endHHMM.split(':');
-    if (sParts.length < 2 || eParts.length < 2) return 0;
-    const sMin = parseInt(sParts[0], 10) * 60 + parseInt(sParts[1], 10);
-    const eMin = parseInt(eParts[0], 10) * 60 + parseInt(eParts[1], 10);
-    return Math.max(0, eMin - sMin);
+    return Math.max(0, timeToMinutes(endHHMM) - timeToMinutes(startHHMM));
 }
 
 function getMostFrequentDay(dist: Record<string, number>): string {

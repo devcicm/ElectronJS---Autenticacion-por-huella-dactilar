@@ -42,6 +42,27 @@ export class AttendanceService {
     }
 
     /**
+     * Valida y obtiene un empleado activo. Retorna el empleado o un mensaje de error.
+     */
+    private getValidActiveEmployee(employeeId: number): { employee?: Employee; error?: string } {
+        const empId = safeParseInt(employeeId, 0);
+        if (empId <= 0) return { error: 'ID de empleado inválido' };
+
+        const employee = this.employeeModel.getById(empId);
+        if (!employee) return { error: 'Empleado no encontrado' };
+        if (employee.status !== 'active') return { error: 'El empleado no está activo' };
+
+        return { employee };
+    }
+
+    /**
+     * Obtiene el registro de asistencia de un empleado para la fecha de hoy.
+     */
+    private getTodayAttendance(employeeId: number): AttendanceRecord | undefined {
+        return this.attendanceModel.getByEmployeeAndDate(employeeId, getLocalDateString());
+    }
+
+    /**
      * Marcar entrada con verificación biométrica (Idempotente)
      */
     async checkInWithFingerprint(employeeId: number, fingerprintVerified: boolean = true): Promise<{
@@ -52,25 +73,15 @@ export class AttendanceService {
         alreadyCheckedIn?: boolean;
     }> {
         try {
-            const empId = safeParseInt(employeeId, 0);
-            if (empId <= 0) {
-                return { success: false, message: 'ID de empleado inválido' };
+            const { employee, error } = this.getValidActiveEmployee(employeeId);
+            if (error || !employee) {
+                return { success: false, message: error || 'Error de validación' };
             }
+
             const isVerified = safeParseBoolean(fingerprintVerified, true);
 
-            // Verificar que el empleado existe y está activo
-            const employee = this.employeeModel.getById(empId);
-            if (!employee) {
-                return { success: false, message: 'Empleado no encontrado' };
-            }
-
-            if (employee.status !== 'active') {
-                return { success: false, message: 'El empleado no está activo' };
-            }
-
             // Verificación de idempotencia: Si ya registró entrada hoy, devolver éxito con el registro existente
-            const today = getLocalDateString();
-            const existing = this.attendanceModel.getByEmployeeAndDate(empId, today);
+            const existing = this.getTodayAttendance(employee.id);
             if (existing && existing.check_in_time) {
                 return {
                     success: true,
@@ -82,7 +93,7 @@ export class AttendanceService {
             }
 
             // Marcar entrada
-            const record = this.attendanceModel.checkIn(empId, isVerified);
+            const record = this.attendanceModel.checkIn(employee.id, isVerified);
 
             let message = `Entrada registrada correctamente`;
             if (record.status === 'late') {
@@ -125,8 +136,7 @@ export class AttendanceService {
             }
 
             // Verificación de idempotencia: Si ya registró salida hoy, devolver éxito con el registro existente
-            const today = getLocalDateString();
-            const existing = this.attendanceModel.getByEmployeeAndDate(empId, today);
+            const existing = this.getTodayAttendance(empId);
             if (existing && existing.check_out_time) {
                 return {
                     success: true,
@@ -276,10 +286,10 @@ export class AttendanceService {
         todayAttendance: AttendanceRecord | undefined;
         fingerprints: number;
     } {
-        const employee = this.employeeModel.getByIdWithDetails(employeeId);
-        const today = getLocalDateString();
-        const todayAttendance = this.attendanceModel.getByEmployeeAndDate(employeeId, today);
-        const fingerprints = this.fingerprintModel.countByEmployee(employeeId);
+        const empId = safeParseInt(employeeId, 0);
+        const employee = this.employeeModel.getByIdWithDetails(empId);
+        const todayAttendance = this.getTodayAttendance(empId);
+        const fingerprints = this.fingerprintModel.countByEmployee(empId);
 
         return {
             employee,
@@ -295,24 +305,12 @@ export class AttendanceService {
         can: boolean;
         reason?: string;
     } {
-        const empId = safeParseInt(employeeId, 0);
-        if (empId <= 0) {
-            return { can: false, reason: 'ID de empleado inválido' };
+        const { employee, error } = this.getValidActiveEmployee(employeeId);
+        if (error || !employee) {
+            return { can: false, reason: error === 'El empleado no está activo' ? 'Empleado no activo' : error };
         }
 
-        const employee = this.employeeModel.getById(empId);
-
-        if (!employee) {
-            return { can: false, reason: 'Empleado no encontrado' };
-        }
-
-        if (employee.status !== 'active') {
-            return { can: false, reason: 'Empleado no activo' };
-        }
-
-        const today = getLocalDateString();
-        const existing = this.attendanceModel.getByEmployeeAndDate(empId, today);
-
+        const existing = this.getTodayAttendance(employee.id);
         if (existing) {
             return { can: false, reason: 'Ya tiene registro de entrada hoy' };
         }
@@ -333,14 +331,11 @@ export class AttendanceService {
         }
 
         const employee = this.employeeModel.getById(empId);
-
         if (!employee) {
             return { can: false, reason: 'Empleado no encontrado' };
         }
 
-        const today = getLocalDateString();
-        const existing = this.attendanceModel.getByEmployeeAndDate(empId, today);
-
+        const existing = this.getTodayAttendance(empId);
         if (!existing) {
             return { can: false, reason: 'No hay registro de entrada hoy' };
         }

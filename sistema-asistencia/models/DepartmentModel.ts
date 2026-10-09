@@ -4,7 +4,7 @@
 
 import { DatabaseManager } from '../database/init.js';
 import { Department, DepartmentCreate, DepartmentUpdate } from '../types/index.js';
-import { safeParseInt } from '../shared/object-utils.js';
+import { safeParseInt, buildUpdateClause } from '../shared/object-utils.js';
 
 export class DepartmentModel {
     constructor(private db: DatabaseManager) {}
@@ -86,34 +86,27 @@ export class DepartmentModel {
             throw new Error('ID de departamento inválido');
         }
 
-        const updates: string[] = [];
-        const params: any[] = [];
+        const { setClause, params } = buildUpdateClause(data, {
+            name: (v) => {
+                const name = String(v).trim();
+                if (!name) throw new Error('El nombre no puede estar vacío');
+                return name;
+            },
+            description: (v) => (v ? String(v).trim() : null),
+            manager_id: (v) => {
+                const mIdRaw = v !== null ? safeParseInt(v, 0) : null;
+                return mIdRaw && mIdRaw > 0 ? mIdRaw : null;
+            }
+        });
 
-        if (data.name !== undefined) {
-            const name = String(data.name).trim();
-            if (!name) throw new Error('El nombre no puede estar vacío');
-            updates.push('name = ?');
-            params.push(name);
-        }
-        if (data.description !== undefined) {
-            updates.push('description = ?');
-            params.push(data.description ? String(data.description).trim() : null);
-        }
-        if (data.manager_id !== undefined) {
-            const mIdRaw = data.manager_id !== null ? safeParseInt(data.manager_id, 0) : null;
-            const mId = mIdRaw && mIdRaw > 0 ? mIdRaw : null;
-            updates.push('manager_id = ?');
-            params.push(mId);
-        }
-
-        if (updates.length === 0) {
+        if (!setClause) {
             throw new Error('No hay datos para actualizar');
         }
 
         params.push(id);
 
         this.db.execute(
-            `UPDATE departments SET ${updates.join(', ')} WHERE id = ?`,
+            `UPDATE departments SET ${setClause} WHERE id = ?`,
             params
         );
 

@@ -10,7 +10,7 @@ import {
     EmployeeWithDetails,
     EmployeeFilters
 } from '../types/index.js';
-import { safeParseInt } from '../shared/object-utils.js';
+import { safeParseInt, buildUpdateClause } from '../shared/object-utils.js';
 
 export class EmployeeModel {
     constructor(private db: DatabaseManager) {}
@@ -186,74 +186,41 @@ export class EmployeeModel {
             throw new Error('ID de empleado inválido');
         }
 
-        const updates: string[] = [];
-        const params: any[] = [];
+        const { setClause, params } = buildUpdateClause(data, {
+            employee_code: (v) => String(v).trim(),
+            first_name: (v) => String(v).trim(),
+            last_name: (v) => String(v).trim(),
+            email: (v) => String(v).trim().toLowerCase(),
+            phone: (v) => (v ? String(v).trim() : null),
+            department_id: (v) => {
+                const deptId = safeParseInt(v, 0);
+                if (deptId <= 0) throw new Error('Departamento inválido');
+                return deptId;
+            },
+            shift_id: (v) => {
+                const shiftId = safeParseInt(v, 0);
+                if (shiftId <= 0) throw new Error('Turno inválido');
+                return shiftId;
+            },
+            status: (v) => v,
+            photo_url: (v) => v,
+            enrollment_mode: (v) => v,
+            position: (v) => v,
+            hire_date: (v) => v
+        });
 
-        if (data.employee_code !== undefined) {
-            updates.push('employee_code = ?');
-            params.push(String(data.employee_code).trim());
-        }
-        if (data.first_name !== undefined) {
-            updates.push('first_name = ?');
-            params.push(String(data.first_name).trim());
-        }
-        if (data.last_name !== undefined) {
-            updates.push('last_name = ?');
-            params.push(String(data.last_name).trim());
-        }
-        if (data.email !== undefined) {
-            updates.push('email = ?');
-            params.push(String(data.email).trim().toLowerCase());
-        }
-        if (data.phone !== undefined) {
-            updates.push('phone = ?');
-            params.push(data.phone ? String(data.phone).trim() : null);
-        }
-        if (data.department_id !== undefined) {
-            const deptId = safeParseInt(data.department_id, 0);
-            if (deptId <= 0) throw new Error('Departamento inválido');
-            updates.push('department_id = ?');
-            params.push(deptId);
-        }
-        if (data.shift_id !== undefined) {
-            const shiftId = safeParseInt(data.shift_id, 0);
-            if (shiftId <= 0) throw new Error('Turno inválido');
-            updates.push('shift_id = ?');
-            params.push(shiftId);
-        }
-        if (data.status !== undefined) {
-            updates.push('status = ?');
-            params.push(data.status);
-        }
-        if (data.photo_url !== undefined) {
-            updates.push('photo_url = ?');
-            params.push(data.photo_url);
-        }
-        if (data.enrollment_mode !== undefined) {
-            updates.push('enrollment_mode = ?');
-            params.push(data.enrollment_mode);
-        }
-        if (data.position !== undefined) {
-            updates.push('position = ?');
-            params.push(data.position);
-        }
-        if (data.hire_date !== undefined) {
-            updates.push('hire_date = ?');
-            params.push(data.hire_date);
-        }
-
-        if (updates.length === 0) {
+        if (!setClause) {
             throw new Error('No hay datos para actualizar');
         }
 
-        params.push(data.id);
+        params.push(id);
 
         this.db.execute(
-            `UPDATE employees SET ${updates.join(', ')} WHERE id = ?`,
+            `UPDATE employees SET ${setClause} WHERE id = ?`,
             params
         );
 
-        const employee = this.getById(data.id);
+        const employee = this.getById(id);
         if (!employee) {
             throw new Error('Empleado no encontrado después de actualizar');
         }

@@ -7,7 +7,8 @@ import {
     safeParseJson,
     safeClone,
     safeDestructure,
-    safeConstruct
+    safeConstruct,
+    buildUpdateClause
 } from '../../dist/sistema-asistencia/shared/object-utils.js';
 import {
     getLocalDateString,
@@ -139,4 +140,55 @@ test('date-utils: resiliencia ante inputs nulos, strings ISO o inválidos', () =
 
     const strTime = getLocalTimeString(invalidDate);
     assert.match(strTime, /^\d{2}:\d{2}:\d{2}$/);
+});
+
+test('buildUpdateClause: genera cláusula SET y params ignorando propiedades undefined', () => {
+    const input = {
+        name: 'Operaciones',
+        description: 'Área de operaciones',
+        manager_id: undefined
+    };
+    const { setClause, params } = buildUpdateClause(input, {
+        name: (v) => String(v).trim(),
+        description: (v) => String(v).trim(),
+        manager_id: (v) => v
+    });
+
+    assert.equal(setClause, 'name = ?, description = ?');
+    assert.deepEqual(params, ['Operaciones', 'Área de operaciones']);
+});
+
+test('buildUpdateClause: propaga excepciones de validación en los transformadores', () => {
+    const input = { name: '   ' };
+    assert.throws(() => {
+        buildUpdateClause(input, {
+            name: (v) => {
+                const trimmed = String(v).trim();
+                if (!trimmed) throw new Error('El nombre no puede estar vacío');
+                return trimmed;
+            }
+        });
+    }, /El nombre no puede estar vacío/);
+});
+
+test('buildUpdateClause: retorna setClause vacía cuando no hay campos para actualizar', () => {
+    const input = { id: 10, other: 'ignorada' };
+    const { setClause, params } = buildUpdateClause(input, {
+        name: (v) => v
+    });
+    assert.equal(setClause, '');
+    assert.deepEqual(params, []);
+});
+
+test('buildUpdateClause: soporta configuración con alias de columna y valores null', () => {
+    const input = {
+        aliasProp: null,
+        count: 5
+    };
+    const { setClause, params } = buildUpdateClause(input, {
+        aliasProp: { column: 'db_column_name', transform: (v) => v },
+        count: (v) => v
+    });
+    assert.equal(setClause, 'db_column_name = ?, count = ?');
+    assert.deepEqual(params, [null, 5]);
 });

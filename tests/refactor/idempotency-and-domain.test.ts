@@ -413,3 +413,97 @@ test('Justificación de faltas: AttendanceModel y AttendanceService actualizan s
     assert.equal(resUpsert.record.notes, 'Comisión de trabajo - Conferencia CDMX');
 });
 
+// ----------------------------------------------------------------------------
+// 8. FILTRADO POR DEPARTAMENTO EN ATTENDANCE MODEL (PARIDAD CON VISTA SQLITE)
+// ----------------------------------------------------------------------------
+test('AttendanceModel: getAllWithDetails filtra por department_id sin error de columna faltante', async () => {
+    const { AttendanceModel } = await import('../../dist/sistema-asistencia/models/AttendanceModel.js');
+    const { EmployeeModel } = await import('../../dist/sistema-asistencia/models/EmployeeModel.js');
+    const db = createTestDb();
+
+    const empModel = new EmployeeModel(db as any);
+    const attModel = new AttendanceModel(db as any);
+
+    // Empleado 1 en Dept 1 (Recursos Humanos)
+    const emp1 = empModel.create({
+        employee_code: 'EMP-DEPT-1',
+        first_name: 'Ana',
+        last_name: 'Gómez',
+        email: 'ana@empresa.com',
+        department_id: 1,
+        shift_id: 1,
+        position: 'Generalista RRHH',
+        hire_date: '2025-01-01'
+    });
+
+    // Empleado 2 en Dept 2 (Tecnología)
+    const emp2 = empModel.create({
+        employee_code: 'EMP-DEPT-2',
+        first_name: 'Carlos',
+        last_name: 'Paredes',
+        email: 'carlos@empresa.com',
+        department_id: 2,
+        shift_id: 1,
+        position: 'Desarrollador',
+        hire_date: '2025-01-01'
+    });
+
+    // Registrar asistencia para ambos
+    attModel.markAbsentees('2026-03-01');
+
+    // Filtrar por Dept 1
+    const dept1Records = attModel.getAllWithDetails({ department_id: 1 });
+    assert.ok(dept1Records.length > 0);
+    assert.ok(dept1Records.every(r => r.department_name === 'Recursos Humanos'));
+    assert.ok(dept1Records.some(r => r.employee_code === 'EMP-DEPT-1'));
+    assert.ok(!dept1Records.some(r => r.employee_code === 'EMP-DEPT-2'));
+
+    // Filtrar por Dept 2
+    const dept2Records = attModel.getAllWithDetails({ department_id: 2 });
+    assert.ok(dept2Records.length > 0);
+    assert.ok(dept2Records.every(r => r.department_name === 'Tecnología'));
+    assert.ok(dept2Records.some(r => r.employee_code === 'EMP-DEPT-2'));
+    assert.ok(!dept2Records.some(r => r.employee_code === 'EMP-DEPT-1'));
+});
+
+// ----------------------------------------------------------------------------
+// 9. PERSISTENCIA Y SINCRONIZACIÓN DE SYSTEM_CONFIG EN SQLITE
+// ----------------------------------------------------------------------------
+test('system_config: soporta actualización, persistencia y valores por defecto', () => {
+    const db = createTestDb();
+
+    // 1. Verificar valores iniciales sembrados
+    const initialRows = db.query<{ key: string; value: string }>('SELECT key, value FROM system_config');
+    assert.ok(initialRows.length >= 5);
+    const absentRow = initialRows.find(r => r.key === 'auto_mark_absent_time');
+    assert.equal(absentRow?.value, '09:00');
+
+    // 2. Actualizar valor existente mediante ON CONFLICT DO UPDATE
+    db.execute(
+        'INSERT INTO system_config (key, value, description) VALUES (?, ?, ?) ' +
+        'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime(\'now\')',
+        ['auto_mark_absent_time', '09:45', 'Hora personalizada']
+    );
+
+    const updatedRow = db.queryOne<{ key: string; value: string }>(
+        'SELECT key, value FROM system_config WHERE key = ?',
+        ['auto_mark_absent_time']
+    );
+    assert.equal(updatedRow?.value, '09:45');
+
+    // 3. Insertar nueva clave de configuración sin error
+    db.execute(
+        'INSERT INTO system_config (key, value, description) VALUES (?, ?, ?) ' +
+        'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime(\'now\')',
+        ['touch_mode_enabled', '1', 'Modo touch activo']
+    );
+
+    const newKeyRow = db.queryOne<{ key: string; value: string }>(
+        'SELECT key, value FROM system_config WHERE key = ?',
+        ['touch_mode_enabled']
+    );
+    assert.equal(newKeyRow?.value, '1');
+});
+
+
+
