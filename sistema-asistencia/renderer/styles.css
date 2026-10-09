@@ -1,5 +1,14 @@
 /**
- * Estilos del Sistema de Asistencia
+ * ============================================================================
+ * ARCHIVO DE REFERENCIA: ESTILOS DEL SISTEMA DE ASISTENCIA
+ * ============================================================================
+ * AVISO ARQUITECTÓNICO:
+ * En tiempo de ejecución Electron bajo protocolo file://, por contrato Golden
+ * Master GM4 (stylesheets: []), los estilos de producción residen inline dentro
+ * de la etiqueta <style> en `sistema-asistencia/renderer/index.html`.
+ * Este archivo se mantiene como fuente de referencia modular. Toda modificación
+ * visual debe reflejarse en el bloque <style> de `index.html`.
+ * ============================================================================
  */
 
 /* ==================== VARIABLES ==================== */
@@ -140,7 +149,31 @@ body {
 
 .content-section.active {
     display: block;
+    max-width: 1380px;
+    margin: 0 auto;
+    width: 100%;
     animation: fadeIn 0.3s;
+}
+
+/* ==================== SPLIT LAYOUT ASISTENCIA ==================== */
+#check-in-section.active {
+    display: grid;
+    grid-template-columns: minmax(320px, 400px) 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+#check-in-section > .card {
+    margin-bottom: 0 !important;
+}
+
+@media (max-width: 980px) {
+    #check-in-section.active {
+        display: block;
+    }
+    #check-in-section > .card {
+        margin-bottom: 1.5rem !important;
+    }
 }
 
 @keyframes fadeIn {
@@ -157,35 +190,50 @@ body {
 /* ==================== STATS CARDS ==================== */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1120px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .stat-card {
     background: white;
     border-radius: 12px;
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
     box-shadow: var(--shadow-md);
+    border: 1px solid rgba(229, 231, 235, 0.7);
     display: flex;
     align-items: center;
     gap: 1rem;
-    transition: transform 0.2s;
+    min-height: 94px;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .stat-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
 }
 
 .stat-icon {
-    width: 60px;
-    height: 60px;
+    width: 52px;
+    height: 52px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.75rem;
+    font-size: 1.5rem;
+    flex-shrink: 0;
 }
 
 .stat-icon.success {
@@ -216,9 +264,10 @@ body {
 }
 
 .stat-value {
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: 1.75rem;
+    font-weight: 800;
     color: var(--gray-900);
+    line-height: 1.1;
 }
 
 /* ==================== TABLES ==================== */
@@ -273,6 +322,31 @@ body {
 .table-container tbody tr:hover,
 .data-table tbody tr:hover {
     background: var(--gray-50);
+}
+
+/* Ponderación ergonómica de columnas en la tabla de registros de hoy */
+#today-records-table th:nth-child(1),
+#today-records-table td:nth-child(1) {
+    width: 110px;
+    font-weight: 600;
+    font-family: monospace;
+    white-space: nowrap;
+}
+
+#today-records-table th:nth-child(4),
+#today-records-table td:nth-child(4),
+#today-records-table th:nth-child(5),
+#today-records-table td:nth-child(5) {
+    width: 120px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+#today-records-table th:nth-child(6),
+#today-records-table td:nth-child(6) {
+    width: 140px;
+    text-align: center;
+    white-space: nowrap;
 }
 
 /* ==================== BADGES & PÍLDORAS (ANTI-MOCHADO) ==================== */
@@ -702,4 +776,58 @@ body {
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
+}
+
+/* ==================== CLASES UTILITARIAS DRY ==================== */
+.btn-cancel {
+    background: #6B7280 !important;
+    color: white !important;
+}
+
+.btn-cancel:hover {
+    background: #4B5563 !important;
+}
+
+.td-nowrap {
+    white-space: nowrap;
+}
+
+.td-center {
+    text-align: center;
+}
+
+.td-center-nowrap {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.banner-gradient {
+    padding: 20px;
+    border-radius: 12px;
+    color: white;
+    margin-bottom: 25px;
+}
+
+.metric-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.metric-box {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.metric-box-title {
+    font-size: 12px;
+    color: #4B5563;
+}
+
+.metric-box-value {
+    font-size: 24px;
+    font-weight: 800;
 }

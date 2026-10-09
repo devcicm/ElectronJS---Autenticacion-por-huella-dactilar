@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Exponer API de configuración
 contextBridge.exposeInMainWorld('config', {
-  get: () => ipcRenderer.invoke('config:get')
+  get: (updates?: any) => ipcRenderer.invoke('config:get', updates)
 });
 
 // Exponer API de control del servidor biométrico

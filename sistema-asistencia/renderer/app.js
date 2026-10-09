@@ -303,12 +303,12 @@ function updateTodayRecordsTable(records) {
 
     tbody.innerHTML = records.map(record => `
         <tr>
-            <td style="white-space: nowrap;">${escapeHtml(record.employee_code) || '-'}</td>
-            <td style="white-space: nowrap; font-weight: 500;">${escapeHtml(record.employee_name) || '-'}</td>
+            <td class="td-nowrap">${escapeHtml(record.employee_code) || '-'}</td>
+            <td class="td-nowrap" style="font-weight: 500;">${escapeHtml(record.employee_name) || '-'}</td>
             <td>${escapeHtml(record.department_name) || '-'}</td>
-            <td style="white-space: nowrap;">${escapeHtml(record.check_in_time) || '-'}</td>
-            <td style="white-space: nowrap;">${escapeHtml(record.check_out_time) || '-'}</td>
-            <td style="text-align: center; white-space: nowrap;"><span class="badge badge-${getStatusBadgeClass(record.status)}">${escapeHtml(getStatusLabel(record.status))}</span></td>
+            <td class="td-nowrap">${escapeHtml(record.check_in_time) || '-'}</td>
+            <td class="td-nowrap">${escapeHtml(record.check_out_time) || '-'}</td>
+            <td class="td-center-nowrap">${renderStatusBadge(record.status)}</td>
         </tr>
     `).join('');
 }
@@ -337,11 +337,30 @@ function getStatusBadgeClass(status) {
     return classes[status] || 'info';
 }
 
+function renderStatusBadge(status) {
+    return `<span class="badge badge-${getStatusBadgeClass(status)}">${escapeHtml(getStatusLabel(status))}</span>`;
+}
+
 // ==================== CHECK-IN SECTION ====================
 // ==================== CHECK-IN SECTION ====================
 async function loadCheckInSection() {
     const employeesList = document.getElementById('employees-list');
     if (!employeesList) return;
+
+    const settings = loadSavedSettings();
+    if (!settings.allowManual) {
+        employeesList.innerHTML = `
+            <div style="padding: 35px 20px; text-align: center; background: #F8FAFC; border: 2px dashed #CBD5E1; border-radius: 12px;">
+                <div style="font-size: 36px; margin-bottom: 10px;">🔒</div>
+                <h4 style="margin: 0 0 8px; color: #1E293B; font-size: 16px;">Marcación Manual Deshabilitada</h4>
+                <p style="margin: 0; color: #64748B; font-size: 13px; max-width: 460px; margin: 0 auto; line-height: 1.5;">
+                    La directiva de seguridad del sistema exige verificación biométrica exclusiva.
+                    Por favor utilice el sensor biométrico <strong>DP4500</strong> en el panel de Modo Automático.
+                </p>
+            </div>
+        `;
+        return;
+    }
 
     if (employees.length === 0) {
         employeesList.innerHTML = '<p style="text-align:center; padding: 2rem; color: #666;">No hay empleados activos</p>';
@@ -473,7 +492,7 @@ async function selectEmployeeForCheckIn(employeeId) {
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
+                    <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -482,8 +501,38 @@ async function selectEmployeeForCheckIn(employeeId) {
     document.body.insertAdjacentHTML('beforeend', modalContent);
 }
 
+// ==================== ATTENDANCE COOLDOWN (ANTI-DOUBLE CHECK-IN) ====================
+const attendanceCooldownMap = new Map();
+
+function checkAttendanceCooldown(employeeId) {
+    const settings = loadSavedSettings();
+    const cooldownSec = safeParseInt(settings.cooldownSeconds, 0);
+    if (cooldownSec <= 0) return { allowed: true };
+    const last = attendanceCooldownMap.get(employeeId);
+    if (!last) return { allowed: true };
+    const elapsedSec = (Date.now() - last) / 1000;
+    if (elapsedSec < cooldownSec) {
+        const remaining = Math.ceil(cooldownSec - elapsedSec);
+        return { allowed: false, remaining };
+    }
+    return { allowed: true };
+}
+
+function recordAttendanceCooldown(employeeId) {
+    if (employeeId) {
+        attendanceCooldownMap.set(employeeId, Date.now());
+    }
+}
+
 async function performCheckIn() {
     if (!selectedEmployeeId) return;
+
+    const cd = checkAttendanceCooldown(selectedEmployeeId);
+    if (!cd.allowed) {
+        playNotificationSound('error');
+        showNotification(`Marcación muy reciente: espere ${cd.remaining}s antes de registrar nuevamente`, 'warning');
+        return;
+    }
 
     const actionBtns = document.querySelectorAll('.modal.active button');
     actionBtns.forEach(btn => btn.disabled = true);
@@ -507,10 +556,20 @@ async function performCheckIn() {
             }
         }
 
+        const settings = loadSavedSettings();
+        if (settings.requireBiometric && !fingerprintVerified) {
+            playNotificationSound('error');
+            showNotification('Acceso denegado: La política del sistema exige verificación biométrica obligatoria.', 'error');
+            actionBtns.forEach(btn => btn.disabled = false);
+            return;
+        }
+
         // Marcar entrada
         const result = await window.attendance.checkIn(selectedEmployeeId, fingerprintVerified);
 
         if (result.success) {
+            recordAttendanceCooldown(selectedEmployeeId);
+            playNotificationSound('check-in');
             showNotification(result.message, 'success');
             closeModal();
             if (currentSection === 'dashboard') {
@@ -519,11 +578,13 @@ async function performCheckIn() {
                 loadCheckInSection();
             }
         } else {
+            playNotificationSound('error');
             showNotification(result.message, 'error');
             actionBtns.forEach(btn => btn.disabled = false);
         }
     } catch (error) {
         logger.error('Error en check-in:', error);
+        playNotificationSound('error');
         showNotification('Error al registrar entrada', 'error');
         actionBtns.forEach(btn => btn.disabled = false);
     }
@@ -532,6 +593,13 @@ async function performCheckIn() {
 async function performCheckOut() {
     if (!selectedEmployeeId) return;
 
+    const cd = checkAttendanceCooldown(selectedEmployeeId);
+    if (!cd.allowed) {
+        playNotificationSound('error');
+        showNotification(`Marcación muy reciente: espere ${cd.remaining}s antes de registrar nuevamente`, 'warning');
+        return;
+    }
+
     const actionBtns = document.querySelectorAll('.modal.active button');
     actionBtns.forEach(btn => btn.disabled = true);
 
@@ -539,6 +607,8 @@ async function performCheckOut() {
         const result = await window.attendance.checkOut(selectedEmployeeId);
 
         if (result.success) {
+            recordAttendanceCooldown(selectedEmployeeId);
+            playNotificationSound('check-out');
             showNotification(result.message, 'success');
             closeModal();
             if (currentSection === 'dashboard') {
@@ -547,11 +617,13 @@ async function performCheckOut() {
                 loadCheckInSection();
             }
         } else {
+            playNotificationSound('error');
             showNotification(result.message, 'error');
             actionBtns.forEach(btn => btn.disabled = false);
         }
     } catch (error) {
         logger.error('Error en check-out:', error);
+        playNotificationSound('error');
         showNotification('Error al registrar salida', 'error');
         actionBtns.forEach(btn => btn.disabled = false);
     }
@@ -563,6 +635,325 @@ function closeModal() {
     }
     document.querySelectorAll('.modal').forEach(modal => modal.remove());
     selectedEmployeeId = null;
+}
+
+// ==================== REUSABLE UI COMPONENT FACTORIES (DRY) ====================
+
+function createModalShell({ title, bodyHTML, footerHTML = '', maxWidth = '700px' }) {
+    return `
+        <div class="modal active" onclick="if(event.target === this) closeModal()">
+            <div class="modal-content" style="max-width: ${maxWidth};">
+                <div class="modal-header">
+                    <h3>${title}</h3>
+                    <button class="close-btn" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    ${bodyHTML}
+                </div>
+                ${footerHTML ? `<div class="modal-footer">${footerHTML}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function openModalShell(options) {
+    const modalHTML = createModalShell(options);
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function renderDepartmentForm(dept = null) {
+    const isEdit = !!dept;
+    const prefix = isEdit ? 'edit-dept-' : 'dept-';
+    const formId = isEdit ? 'edit-department-form' : 'add-department-form';
+    const submitAction = isEdit ? `updateDepartment(${dept.id})` : 'saveDepartment()';
+    const nameVal = dept ? escapeHtml(dept.name) : '';
+    const descVal = dept && dept.description ? escapeHtml(dept.description) : '';
+    const mgrVal = dept ? dept.manager_id : null;
+
+    return `
+        <form id="${formId}" onsubmit="event.preventDefault(); ${submitAction};">
+            <div class="form-group">
+                <label>Nombre del Departamento *</label>
+                <input type="text" id="${prefix}name" class="form-control" value="${nameVal}" required>
+            </div>
+            <div class="form-group">
+                <label>Descripción</label>
+                <textarea id="${prefix}description" class="form-control" rows="3" placeholder="Descripción opcional del departamento">${descVal}</textarea>
+            </div>
+            <div class="form-group">
+                <label>Responsable / Gerente (Opcional)</label>
+                <select id="${prefix}manager" class="form-control">
+                    <option value="">Sin asignar</option>
+                    ${employees.map(emp => `<option value="${emp.id}" ${mgrVal === emp.id ? 'selected' : ''}>${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>`).join('')}
+                </select>
+            </div>
+        </form>
+    `;
+}
+
+function renderShiftForm(shift = null) {
+    const isEdit = !!shift;
+    const prefix = isEdit ? 'edit-shift-' : 'shift-';
+    const formId = isEdit ? 'edit-shift-form' : 'add-shift-form';
+    const submitAction = isEdit ? `updateShift(${shift.id})` : 'saveShift()';
+    const nameVal = shift ? escapeHtml(shift.name) : '';
+    const startVal = shift ? shift.start_time : '';
+    const endVal = shift ? shift.end_time : '';
+    const tolVal = shift ? shift.tolerance_minutes : 10;
+    const colorVal = shift ? (shift.color || '#3B82F6') : '#3B82F6';
+
+    return `
+        <form id="${formId}" onsubmit="event.preventDefault(); ${submitAction};">
+            <div class="form-group">
+                <label>Nombre del Turno *</label>
+                <input type="text" id="${prefix}name" class="form-control" required placeholder="Ej: Turno Matutino" value="${nameVal}">
+            </div>
+            <div class="form-group">
+                <label>Hora de Inicio *</label>
+                <input type="time" id="${prefix}start-time" class="form-control" required value="${startVal}">
+            </div>
+            <div class="form-group">
+                <label>Hora de Fin *</label>
+                <input type="time" id="${prefix}end-time" class="form-control" required value="${endVal}">
+            </div>
+            <div class="form-group">
+                <label>Tolerancia (minutos) *</label>
+                <input type="number" id="${prefix}tolerance" class="form-control" min="0" max="60" value="${tolVal}" required>
+                <small style="color: #6B7280;">Tiempo de gracia para llegadas tarde sin penalización</small>
+            </div>
+            <div class="form-group">
+                <label>Color del Turno</label>
+                <input type="color" id="${prefix}color" class="form-control" value="${colorVal}" style="height: 50px;">
+            </div>
+        </form>
+    `;
+}
+
+function renderEmployeeForm(employee = null) {
+    const isEdit = !!employee;
+    const prefix = isEdit ? 'edit-emp-' : 'emp-';
+    const formId = isEdit ? 'edit-employee-form' : 'add-employee-form';
+    const submitAction = isEdit ? `updateEmployee(${employee.id})` : 'saveNewEmployee()';
+    const photoUrl = employee ? escapeHtml(employee.photo_url || '') : '';
+    const hasPhoto = Boolean(employee && employee.photo_url);
+
+    return `
+        <form id="${formId}" onsubmit="event.preventDefault(); ${submitAction};">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <!-- Fotografía del Empleado (Cámara / Archivo) -->
+                <div class="form-group" style="grid-column: 1 / -1; background: #F9FAFB; padding: 12px; border-radius: 8px; border: 1px dashed #D1D5DB;">
+                    <label style="font-weight: 600; margin-bottom: 8px; display: block; font-size: 13px;">Fotografía del Empleado (Cámara Web / Archivo)</label>
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <div id="${prefix}photo-preview-container" style="width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #E5E7EB; border: 2px solid #9CA3AF; display: flex; align-items: center; justify-content: center;">
+                            <img id="${prefix}photo-preview" src="${photoUrl}" style="width: 100%; height: 100%; object-fit: cover; ${hasPhoto ? '' : 'display: none;'}" alt="Vista previa">
+                            <span id="${prefix}photo-placeholder" style="font-size: 26px; ${hasPhoto ? 'display: none;' : ''}">👤</span>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="btn" style="background: #2563EB; color: white; padding: 6px 12px; font-size: 12px;" onclick="openCameraModal('${prefix}photo-data', '${prefix}photo-preview', '${prefix}photo-placeholder', '${prefix}photo-clear-btn')">
+                                📷 Tomar Foto
+                            </button>
+                            <label class="btn" style="background: #4B5563; color: white; padding: 6px 12px; font-size: 12px; cursor: pointer; margin: 0; display: inline-flex; align-items: center;">
+                                📁 Subir Archivo
+                                <input type="file" accept="image/*" style="display: none;" onchange="handlePhotoFileUpload(event, '${prefix}photo-data', '${prefix}photo-preview', '${prefix}photo-placeholder', '${prefix}photo-clear-btn')">
+                            </label>
+                            <button type="button" id="${prefix}photo-clear-btn" class="btn" style="background: #EF4444; color: white; padding: 6px 12px; font-size: 12px; ${hasPhoto ? '' : 'display: none;'}" onclick="clearEmployeePhoto('${prefix}photo-data', '${prefix}photo-preview', '${prefix}photo-placeholder', '${prefix}photo-clear-btn')">
+                                🗑️ Quitar
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="${prefix}photo-data" value="${photoUrl}">
+                </div>
+
+                <div class="form-group">
+                    <label>Código de Empleado *</label>
+                    <input type="text" id="${prefix}code" class="form-control" value="${employee ? escapeHtml(employee.employee_code) : ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Fecha de Contratación *</label>
+                    <input type="date" id="${prefix}hire-date" class="form-control" value="${employee ? escapeHtml(employee.hire_date) : ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre(s) *</label>
+                    <input type="text" id="${prefix}firstname" class="form-control" value="${employee ? escapeHtml(employee.first_name) : ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Apellido(s) *</label>
+                    <input type="text" id="${prefix}lastname" class="form-control" value="${employee ? escapeHtml(employee.last_name) : ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="${prefix}email" class="form-control" value="${employee ? escapeHtml(employee.email) : ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="tel" id="${prefix}phone" class="form-control" value="${employee && employee.phone ? escapeHtml(employee.phone) : ''}">
+                </div>
+                <div class="form-group">
+                    <label>Departamento *</label>
+                    <select id="${prefix}department" class="form-control" required>
+                        <option value="">Seleccione...</option>
+                        ${departments.map(dept => `<option value="${dept.id}" ${employee && dept.id === employee.department_id ? 'selected' : ''}>${escapeHtml(dept.name)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Turno *</label>
+                    <select id="${prefix}shift" class="form-control" required>
+                        <option value="">Seleccione...</option>
+                        ${shifts.map(shift => `<option value="${shift.id}" ${employee && shift.id === employee.shift_id ? 'selected' : ''}>${escapeHtml(shift.name)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Puesto *</label>
+                    <input type="text" id="${prefix}position" class="form-control" value="${employee ? escapeHtml(employee.position) : ''}" required>
+                </div>
+                ${isEdit ? `
+                <div class="form-group">
+                    <label>Estado *</label>
+                    <select id="edit-emp-status" class="form-control" required>
+                        <option value="active" ${employee.status === 'active' ? 'selected' : ''}>Activo</option>
+                        <option value="inactive" ${employee.status === 'inactive' ? 'selected' : ''}>Inactivo</option>
+                        <option value="suspended" ${employee.status === 'suspended' ? 'selected' : ''}>Suspendido</option>
+                    </select>
+                </div>
+                ` : ''}
+                <div class="form-group" style="${isEdit ? 'grid-column: 1 / -1;' : ''}">
+                    <label>Modo de Captura de Huella</label>
+                    <select id="${prefix}enrollment-mode" class="form-control">
+                        <option value="simple" ${!employee || employee.enrollment_mode === 'simple' ? 'selected' : ''}>Simple (1 huella recomendada)</option>
+                        <option value="advanced" ${employee && employee.enrollment_mode === 'advanced' ? 'selected' : ''}>Avanzado (10 huellas)</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+    `;
+}
+
+function renderReportModalShell({ title, gradientBackground, bannerContentHTML, bodyContentHTML, maxWidth = '900px' }) {
+    return createModalShell({
+        title,
+        maxWidth,
+        bodyHTML: `
+            <div class="banner-gradient" style="background: ${gradientBackground};">
+                ${bannerContentHTML}
+            </div>
+            ${bodyContentHTML}
+        `,
+        footerHTML: `
+            <button class="btn btn-cancel" onclick="closeModal()">Cerrar</button>
+            <button class="btn btn-primary" onclick="printReport()">🖨️ Imprimir</button>
+        `
+    });
+}
+
+// ==================== DRY UI & PIPELINE HELPERS ====================
+
+/**
+ * Helper para renderizar botones de exportación (Excel, PDF, Imprimir).
+ */
+function renderExportButtonsHTML({
+    onExcel = 'exportQAToExcel()',
+    onPDF = 'exportQAToPDF()',
+    onPrint = null,
+    isSmall = false
+} = {}) {
+    const pad = isSmall ? '6px 12px' : '8px 14px';
+    const fsize = isSmall ? '12px' : '13px';
+    const gap = isSmall ? '4px' : '6px';
+    const printBtn = onPrint ? `
+        <button class="btn btn-secondary" onclick="${onPrint}" style="padding: ${pad}; font-size: ${fsize}; display: inline-flex; align-items: center; gap: ${gap};" title="Imprimir directamente">
+            <span>🖨️</span> Imprimir
+        </button>
+    ` : '';
+
+    return `
+        ${printBtn}
+        <button class="btn btn-success" onclick="${onExcel}" style="padding: ${pad}; font-size: ${fsize}; background: #10B981; color: white; display: inline-flex; align-items: center; gap: ${gap};" title="Guardar en Microsoft Excel (.csv)">
+            <span>📊</span> Guardar en Excel
+        </button>
+        <button class="btn btn-danger" onclick="${onPDF}" style="padding: ${pad}; font-size: ${fsize}; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: ${gap};" title="Guardar como documento PDF">
+            <span>📄</span> Guardar en PDF
+        </button>
+    `;
+}
+
+/**
+ * Pipeline estandarizado para confirmación y eliminación de entidades con manejo de bloqueos, feedback y recarga.
+ */
+async function confirmAndDeleteEntity({
+    entity,
+    entityName,
+    confirmMessage,
+    blockReason,
+    deleteFn,
+    onSuccess,
+    successMessage = `${entityName} eliminado exitosamente`
+}) {
+    if (!entity) {
+        showNotification(`${entityName} no encontrado`, 'error');
+        return;
+    }
+
+    if (blockReason) {
+        showNotification(blockReason, 'warning');
+        return;
+    }
+
+    const message = typeof confirmMessage === 'function' ? confirmMessage(entity) : confirmMessage;
+    if (!confirm(message)) {
+        return;
+    }
+
+    try {
+        const result = await deleteFn();
+        const isSuccess = typeof result === 'object' && result !== null ? Boolean(result.success) : Boolean(result);
+
+        if (isSuccess) {
+            showNotification(successMessage, 'success');
+            if (typeof onSuccess === 'function') {
+                await onSuccess();
+            }
+        } else {
+            const errDetail = typeof result === 'object' && result?.message ? result.message : `Error al eliminar ${entityName.toLowerCase()}`;
+            showNotification(errDetail, 'error');
+        }
+    } catch (error) {
+        logger.error(`Error eliminando ${entityName.toLowerCase()}:`, error);
+        showNotification(error?.message || `Error al eliminar ${entityName.toLowerCase()}`, 'error');
+    }
+}
+
+/**
+ * Ejecutor asíncrono para formularios con control automático de estado del botón de envío (loading/disable).
+ */
+async function withSubmitState(optionsOrAction, maybeAction) {
+    let submitBtn;
+    let loadingText = 'Guardando...';
+    let actionFn;
+
+    if (typeof optionsOrAction === 'function') {
+        submitBtn = document.querySelector('.modal.active .btn-primary');
+        actionFn = optionsOrAction;
+    } else {
+        const btn = optionsOrAction?.btn || optionsOrAction?.btnSelector || '.modal.active .btn-primary';
+        submitBtn = typeof btn === 'string' ? document.querySelector(btn) : btn;
+        loadingText = optionsOrAction?.loadingText || 'Guardando...';
+        actionFn = optionsOrAction?.actionFn || maybeAction;
+    }
+
+    const originalText = submitBtn ? submitBtn.textContent : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = loadingText;
+    }
+
+    try {
+        return await actionFn(submitBtn);
+    } finally {
+        if (submitBtn && submitBtn.isConnected) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    }
 }
 
 // ==================== EMPLOYEES SECTION ====================
@@ -589,15 +980,15 @@ async function loadEmployeesSection() {
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="white-space: nowrap; width: 1%;">Código</th>
+                        <th class="td-nowrap" style="width: 1%;">Código</th>
                         <th>Nombre</th>
                         <th>Email</th>
                         <th>Departamento</th>
-                        <th style="white-space: nowrap;">Turno</th>
-                        <th style="text-align: center; white-space: nowrap; width: 1%;">Huellas</th>
-                        <th style="text-align: center; white-space: nowrap; width: 1%; min-width: 110px;">Modo</th>
-                        <th style="text-align: center; white-space: nowrap; width: 1%;">Estado</th>
-                        <th style="text-align: center; white-space: nowrap; width: 1%;">Acciones</th>
+                        <th class="td-nowrap">Turno</th>
+                        <th class="td-center-nowrap" style="width: 1%;">Huellas</th>
+                        <th class="td-center-nowrap" style="width: 1%; min-width: 110px;">Modo</th>
+                        <th class="td-center-nowrap" style="width: 1%;">Estado</th>
+                        <th class="td-center-nowrap" style="width: 1%;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="employees-table-body">
@@ -625,7 +1016,7 @@ function renderEmployeeRow(emp) {
 
     return `
     <tr>
-        <td style="white-space: nowrap;"><strong>${escapeHtml(emp.employee_code || '')}</strong></td>
+        <td class="td-nowrap"><strong>${escapeHtml(emp.employee_code || '')}</strong></td>
         <td>
             <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
                 ${avatarHtml}
@@ -634,15 +1025,15 @@ function renderEmployeeRow(emp) {
         </td>
         <td>${escapeHtml(emp.email || '')}</td>
         <td>${escapeHtml(emp.department_name || '')}</td>
-        <td style="white-space: nowrap;">${escapeHtml(emp.shift_name || '')}</td>
-        <td style="text-align: center; white-space: nowrap;">${emp.fingerprints_count || 0}/10</td>
-        <td style="text-align: center; white-space: nowrap;">
+        <td class="td-nowrap">${escapeHtml(emp.shift_name || '')}</td>
+        <td class="td-center-nowrap">${emp.fingerprints_count || 0}/10</td>
+        <td class="td-center-nowrap">
             <span class="badge badge-mode" style="background: ${enrollmentColor}; color: white; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
                 ${enrollmentText}
             </span>
         </td>
-        <td style="text-align: center; white-space: nowrap;"><span class="badge badge-${statusClass}">${escapeHtml(statusText)}</span></td>
-        <td style="text-align: center; white-space: nowrap;">
+        <td class="td-center-nowrap"><span class="badge badge-${statusClass}">${escapeHtml(statusText)}</span></td>
+        <td class="td-center-nowrap">
             <div class="table-actions" style="display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap;">
                 <button class="btn" onclick="showEmployeeDetails(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #3B82F6; color: white; display: inline-flex; align-items: center; justify-content: center;" title="Ver detalles">👁️</button>
                 <button class="btn" onclick="showEditEmployeeModal(${emp.id})" style="padding: 5px 10px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; justify-content: center;" title="Editar">✏️</button>
@@ -866,104 +1257,21 @@ function clearEmployeePhoto(targetDataId, previewImgId, placeholderId, clearBtnI
 
 // Mostrar modal para agregar empleado
 function showAddEmployeeModal() {
-    const modalHTML = `
-        <div class="modal active" onclick="if(event.target === this) closeModal()">
-            <div class="modal-content" style="max-width: 700px;">
-                <div class="modal-header">
-                    <h3>Agregar Nuevo Empleado</h3>
-                    <button class="close-btn" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="add-employee-form" onsubmit="event.preventDefault(); saveNewEmployee();">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                            <!-- Fotografía del Empleado (Cámara / Archivo) -->
-                            <div class="form-group" style="grid-column: 1 / -1; background: #F9FAFB; padding: 12px; border-radius: 8px; border: 1px dashed #D1D5DB;">
-                                <label style="font-weight: 600; margin-bottom: 8px; display: block; font-size: 13px;">Fotografía del Empleado (Cámara Web / Archivo)</label>
-                                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                                    <div id="emp-photo-preview-container" style="width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #E5E7EB; border: 2px solid #9CA3AF; display: flex; align-items: center; justify-content: center;">
-                                        <img id="emp-photo-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="Vista previa">
-                                        <span id="emp-photo-placeholder" style="font-size: 26px;">👤</span>
-                                    </div>
-                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                        <button type="button" class="btn" style="background: #2563EB; color: white; padding: 6px 12px; font-size: 12px;" onclick="openCameraModal('emp-photo-data', 'emp-photo-preview', 'emp-photo-placeholder', 'emp-photo-clear-btn')">
-                                            📷 Tomar Foto
-                                        </button>
-                                        <label class="btn" style="background: #4B5563; color: white; padding: 6px 12px; font-size: 12px; cursor: pointer; margin: 0; display: inline-flex; align-items: center;">
-                                            📁 Subir Archivo
-                                            <input type="file" accept="image/*" style="display: none;" onchange="handlePhotoFileUpload(event, 'emp-photo-data', 'emp-photo-preview', 'emp-photo-placeholder', 'emp-photo-clear-btn')">
-                                        </label>
-                                        <button type="button" id="emp-photo-clear-btn" class="btn" style="background: #EF4444; color: white; padding: 6px 12px; font-size: 12px; display: none;" onclick="clearEmployeePhoto('emp-photo-data', 'emp-photo-preview', 'emp-photo-placeholder', 'emp-photo-clear-btn')">
-                                            🗑️ Quitar
-                                        </button>
-                                    </div>
-                                </div>
-                                <input type="hidden" id="emp-photo-data" value="">
-                            </div>
-
-                            <div class="form-group">
-                                <label>Código de Empleado *</label>
-                                <input type="text" id="emp-code" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Fecha de Contratación *</label>
-                                <input type="date" id="emp-hire-date" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Nombre(s) *</label>
-                                <input type="text" id="emp-firstname" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Apellido(s) *</label>
-                                <input type="text" id="emp-lastname" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Email *</label>
-                                <input type="email" id="emp-email" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Teléfono</label>
-                                <input type="tel" id="emp-phone" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>Departamento *</label>
-                                <select id="emp-department" class="form-control" required>
-                                    <option value="">Seleccione...</option>
-                                    ${departments.map(dept => `<option value="${dept.id}">${escapeHtml(dept.name)}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Turno *</label>
-                                <select id="emp-shift" class="form-control" required>
-                                    <option value="">Seleccione...</option>
-                                    ${shifts.map(shift => `<option value="${shift.id}">${escapeHtml(shift.name)}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Puesto *</label>
-                                <input type="text" id="emp-position" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Modo de Captura de Huella</label>
-                                <select id="emp-enrollment-mode" class="form-control">
-                                    <option value="simple" selected>Simple (1 huella recomendada)</option>
-                                    <option value="advanced">Avanzado (10 huellas)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
-                    <button class="btn btn-primary" onclick="saveNewEmployee()">Guardar Empleado</button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    openModalShell({
+        title: 'Agregar Nuevo Empleado',
+        maxWidth: '700px',
+        bodyHTML: renderEmployeeForm(null),
+        footerHTML: `
+            <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveNewEmployee()">Guardar Empleado</button>
+        `
+    });
 
     // Establecer fecha de hoy por defecto
-    document.getElementById('emp-hire-date').valueAsDate = new Date();
+    const hireDateInput = document.getElementById('emp-hire-date');
+    if (hireDateInput && !hireDateInput.value) {
+        hireDateInput.valueAsDate = new Date();
+    }
 }
 
 // Guardar nuevo empleado
@@ -1031,35 +1339,23 @@ async function saveNewEmployee() {
         enrollment_mode: document.getElementById('emp-enrollment-mode')?.value || 'simple'
     };
 
-    const submitBtn = document.querySelector('.modal.active .btn-primary');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Guardando...';
-    }
+    await withSubmitState({ loadingText: 'Guardando...' }, async () => {
+        try {
+            const result = await window.attendance.createEmployee(data);
 
-    try {
-        const result = await window.attendance.createEmployee(data);
-
-        if (result.success) {
-            showNotification(result.message || 'Empleado creado exitosamente', 'success');
-            closeModal();
-            await loadInitialData();
-            loadEmployeesSection();
-        } else {
-            showNotification(result.message || 'Error al crear empleado', 'error');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Guardar Empleado';
+            if (result.success) {
+                showNotification(result.message || 'Empleado creado exitosamente', 'success');
+                closeModal();
+                await loadInitialData();
+                loadEmployeesSection();
+            } else {
+                showNotification(result.message || 'Error al crear empleado', 'error');
             }
+        } catch (error) {
+            logger.error('Error creando empleado:', error);
+            showNotification(error.message || 'Error al crear empleado', 'error');
         }
-    } catch (error) {
-        logger.error('Error creando empleado:', error);
-        showNotification(error.message || 'Error al crear empleado', 'error');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Guardar Empleado';
-        }
-    }
+    });
 }
 
 // Mostrar modal para editar empleado
@@ -1070,107 +1366,15 @@ function showEditEmployeeModal(employeeId) {
         return;
     }
 
-    const modalHTML = `
-        <div class="modal active" onclick="if(event.target === this) closeModal()">
-            <div class="modal-content" style="max-width: 700px;">
-                <div class="modal-header">
-                    <h3>Editar Empleado</h3>
-                    <button class="close-btn" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="edit-employee-form" onsubmit="event.preventDefault(); updateEmployee(${employeeId});">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                            <!-- Fotografía del Empleado (Cámara / Archivo) -->
-                            <div class="form-group" style="grid-column: 1 / -1; background: #F9FAFB; padding: 12px; border-radius: 8px; border: 1px dashed #D1D5DB;">
-                                <label style="font-weight: 600; margin-bottom: 8px; display: block; font-size: 13px;">Fotografía del Empleado (Cámara Web / Archivo)</label>
-                                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                                    <div id="edit-emp-photo-preview-container" style="width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #E5E7EB; border: 2px solid #9CA3AF; display: flex; align-items: center; justify-content: center;">
-                                        <img id="edit-emp-photo-preview" src="${escapeHtml(employee.photo_url || '')}" style="width: 100%; height: 100%; object-fit: cover; ${employee.photo_url ? '' : 'display: none;'}" alt="Vista previa">
-                                        <span id="edit-emp-photo-placeholder" style="font-size: 26px; ${employee.photo_url ? 'display: none;' : ''}">👤</span>
-                                    </div>
-                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                        <button type="button" class="btn" style="background: #2563EB; color: white; padding: 6px 12px; font-size: 12px;" onclick="openCameraModal('edit-emp-photo-data', 'edit-emp-photo-preview', 'edit-emp-photo-placeholder', 'edit-emp-photo-clear-btn')">
-                                            📷 Tomar Foto
-                                        </button>
-                                        <label class="btn" style="background: #4B5563; color: white; padding: 6px 12px; font-size: 12px; cursor: pointer; margin: 0; display: inline-flex; align-items: center;">
-                                            📁 Subir Archivo
-                                            <input type="file" accept="image/*" style="display: none;" onchange="handlePhotoFileUpload(event, 'edit-emp-photo-data', 'edit-emp-photo-preview', 'edit-emp-photo-placeholder', 'edit-emp-photo-clear-btn')">
-                                        </label>
-                                        <button type="button" id="edit-emp-photo-clear-btn" class="btn" style="background: #EF4444; color: white; padding: 6px 12px; font-size: 12px; ${employee.photo_url ? '' : 'display: none;'}" onclick="clearEmployeePhoto('edit-emp-photo-data', 'edit-emp-photo-preview', 'edit-emp-photo-placeholder', 'edit-emp-photo-clear-btn')">
-                                            🗑️ Quitar
-                                        </button>
-                                    </div>
-                                </div>
-                                <input type="hidden" id="edit-emp-photo-data" value="${escapeHtml(employee.photo_url || '')}">
-                            </div>
-
-                            <div class="form-group">
-                                <label>Código de Empleado *</label>
-                                <input type="text" id="edit-emp-code" class="form-control" value="${escapeHtml(employee.employee_code)}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Fecha de Contratación *</label>
-                                <input type="date" id="edit-emp-hire-date" class="form-control" value="${escapeHtml(employee.hire_date)}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Nombre(s) *</label>
-                                <input type="text" id="edit-emp-firstname" class="form-control" value="${escapeHtml(employee.first_name)}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Apellido(s) *</label>
-                                <input type="text" id="edit-emp-lastname" class="form-control" value="${escapeHtml(employee.last_name)}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Email *</label>
-                                <input type="email" id="edit-emp-email" class="form-control" value="${escapeHtml(employee.email)}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Teléfono</label>
-                                <input type="tel" id="edit-emp-phone" class="form-control" value="${employee.phone ? escapeHtml(employee.phone) : ''}">
-                            </div>
-                            <div class="form-group">
-                                <label>Departamento *</label>
-                                <select id="edit-emp-department" class="form-control" required>
-                                    ${departments.map(dept => `<option value="${dept.id}" ${dept.id === employee.department_id ? 'selected' : ''}>${escapeHtml(dept.name)}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Turno *</label>
-                                <select id="edit-emp-shift" class="form-control" required>
-                                    ${shifts.map(shift => `<option value="${shift.id}" ${shift.id === employee.shift_id ? 'selected' : ''}>${escapeHtml(shift.name)}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Puesto *</label>
-                                <input type="text" id="edit-emp-position" class="form-control" value="${escapeHtml(employee.position)}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Estado *</label>
-                                <select id="edit-emp-status" class="form-control" required>
-                                    <option value="active" ${employee.status === 'active' ? 'selected' : ''}>Activo</option>
-                                    <option value="inactive" ${employee.status === 'inactive' ? 'selected' : ''}>Inactivo</option>
-                                    <option value="suspended" ${employee.status === 'suspended' ? 'selected' : ''}>Suspendido</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="grid-column: 1 / -1;">
-                                <label>Modo de Captura de Huella</label>
-                                <select id="edit-emp-enrollment-mode" class="form-control">
-                                    <option value="simple" ${employee.enrollment_mode === 'simple' ? 'selected' : ''}>Simple (1 huella recomendada)</option>
-                                    <option value="advanced" ${employee.enrollment_mode === 'advanced' ? 'selected' : ''}>Avanzado (10 huellas)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
-                    <button class="btn btn-primary" onclick="updateEmployee(${employeeId})">Actualizar Empleado</button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    openModalShell({
+        title: 'Editar Empleado',
+        maxWidth: '700px',
+        bodyHTML: renderEmployeeForm(employee),
+        footerHTML: `
+            <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="updateEmployee(${employeeId})">Actualizar Empleado</button>
+        `
+    });
 }
 
 // Actualizar empleado
@@ -1244,66 +1448,44 @@ async function updateEmployee(employeeId) {
         enrollment_mode: document.getElementById('edit-emp-enrollment-mode')?.value || 'simple'
     };
 
-    try {
-        const result = await window.attendance.updateEmployee(data);
+    await withSubmitState({ loadingText: 'Actualizando...' }, async () => {
+        try {
+            const result = await window.attendance.updateEmployee(data);
 
-        if (result.success) {
-            showNotification(result.message || 'Empleado actualizado exitosamente', 'success');
-            closeModal();
-            await loadInitialData();
-            loadEmployeesSection();
-        } else {
-            showNotification(result.message || 'Error al actualizar empleado', 'error');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Actualizar Empleado';
+            if (result.success) {
+                showNotification(result.message || 'Empleado actualizado exitosamente', 'success');
+                closeModal();
+                await loadInitialData();
+                loadEmployeesSection();
+            } else {
+                showNotification(result.message || 'Error al actualizar empleado', 'error');
             }
+        } catch (error) {
+            logger.error('Error actualizando empleado:', error);
+            showNotification(error.message || 'Error al actualizar empleado', 'error');
         }
-    } catch (error) {
-        logger.error('Error actualizando empleado:', error);
-        showNotification(error.message || 'Error al actualizar empleado', 'error');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Actualizar Empleado';
-        }
-    }
+    });
 }
 
 // Eliminar empleado
 async function deleteEmployee(employeeId) {
     const employee = employees.find(e => e.id === employeeId);
-    if (!employee) {
-        showNotification('Empleado no encontrado', 'error');
-        return;
-    }
-
-    const confirmDelete = confirm(
-        `¿Está seguro de que desea eliminar al empleado?\n\n` +
-        `${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)} (${escapeHtml(employee.employee_code)})\n\n` +
-        `Esta acción NO se puede deshacer. Se eliminarán también:\n` +
-        `- Todos sus registros de asistencia\n` +
-        `- Todas sus huellas registradas\n\n` +
-        `¿Desea continuar?`
-    );
-
-    if (!confirmDelete) {
-        return;
-    }
-
-    try {
-        const result = await window.attendance.deleteEmployee(employeeId);
-
-        if (result) {
-            showNotification('Empleado eliminado exitosamente', 'success');
+    await confirmAndDeleteEntity({
+        entity: employee,
+        entityName: 'Empleado',
+        confirmMessage: (emp) =>
+            `¿Está seguro de que desea eliminar al empleado?\n\n` +
+            `${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})\n\n` +
+            `Esta acción NO se puede deshacer. Se eliminarán también:\n` +
+            `- Todos sus registros de asistencia\n` +
+            `- Todas sus huellas registradas\n\n` +
+            `¿Desea continuar?`,
+        deleteFn: () => window.attendance.deleteEmployee(employeeId),
+        onSuccess: async () => {
             await loadInitialData();
             loadEmployeesSection();
-        } else {
-            showNotification('Error al eliminar empleado', 'error');
         }
-    } catch (error) {
-        logger.error('Error eliminando empleado:', error);
-        showNotification(error.message || 'Error al eliminar empleado', 'error');
-    }
+    });
 }
 
 // Mostrar detalles de empleado
@@ -1428,7 +1610,7 @@ async function showEmployeeDetails(employeeId) {
                 <div class="modal-footer">
                     <button class="btn btn-danger" onclick="closeModal(); showEmployeeAbsenceHistoryModal('${employee.employee_code || employeeId}')" style="background: #EF4444; color: white;">📅 Historial de Faltas</button>
                     <button class="btn btn-primary" onclick="closeModal(); showEnrollFingerprintModal(${employeeId})">Registrar Huella</button>
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
+                    <button class="btn btn-cancel" onclick="closeModal()">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -1569,7 +1751,7 @@ async function showEnrollFingerprintModal(employeeId) {
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn" onclick="window.FingerprintEnroller.disconnect(); closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
+                    <button class="btn btn-cancel" onclick="window.FingerprintEnroller.disconnect(); closeModal()">Cancelar</button>
                     <button class="btn btn-primary" onclick="startFingerprintEnrollment(${employeeId})" id="start-enroll-btn">
                         Iniciar Captura
                     </button>
@@ -1929,27 +2111,27 @@ async function loadAttendanceSection(filters = {}) {
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th style="white-space: nowrap; width: 1%;">Fecha</th>
+                            <th class="td-nowrap" style="width: 1%;">Fecha</th>
                             <th>Empleado</th>
                             <th>Departamento</th>
-                            <th style="white-space: nowrap; width: 1%;">Entrada</th>
-                            <th style="white-space: nowrap; width: 1%;">Salida</th>
-                            <th style="text-align: center; white-space: nowrap; width: 1%;">Estado</th>
-                            <th style="text-align: center; white-space: nowrap; width: 1%;">Retraso</th>
-                            <th style="text-align: center; white-space: nowrap; width: 1%;">Verificado</th>
+                            <th class="td-nowrap" style="width: 1%;">Entrada</th>
+                            <th class="td-nowrap" style="width: 1%;">Salida</th>
+                            <th class="td-center-nowrap" style="width: 1%;">Estado</th>
+                            <th class="td-center-nowrap" style="width: 1%;">Retraso</th>
+                            <th class="td-center-nowrap" style="width: 1%;">Verificado</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${records.length > 0 ? records.map(rec => `
                             <tr>
-                                <td style="white-space: nowrap;">${escapeHtml(rec.date)}</td>
-                                <td style="white-space: nowrap; font-weight: 500;">${escapeHtml(rec.employee_name)}</td>
+                                <td class="td-nowrap">${escapeHtml(rec.date)}</td>
+                                <td class="td-nowrap" style="font-weight: 500;">${escapeHtml(rec.employee_name)}</td>
                                 <td>${escapeHtml(rec.department_name)}</td>
-                                <td style="white-space: nowrap;">${escapeHtml(rec.check_in_time || '-')}</td>
-                                <td style="white-space: nowrap;">${escapeHtml(rec.check_out_time || '-')}</td>
-                                <td style="text-align: center; white-space: nowrap;"><span class="badge badge-${getStatusBadgeClass(rec.status)}">${escapeHtml(getStatusLabel(rec.status))}</span></td>
-                                <td style="text-align: center; white-space: nowrap;">${rec.minutes_late ? rec.minutes_late + ' min' : '-'}</td>
-                                <td style="text-align: center; white-space: nowrap;">${rec.fingerprint_verified ? '✓' : '-'}</td>
+                                <td class="td-nowrap">${escapeHtml(rec.check_in_time || '-')}</td>
+                                <td class="td-nowrap">${escapeHtml(rec.check_out_time || '-')}</td>
+                                <td class="td-center-nowrap">${renderStatusBadge(rec.status)}</td>
+                                <td class="td-center-nowrap">${rec.minutes_late ? rec.minutes_late + ' min' : '-'}</td>
+                                <td class="td-center-nowrap">${rec.fingerprint_verified ? '✓' : '-'}</td>
                             </tr>
                         `).join('') : `
                             <tr>
@@ -2040,40 +2222,15 @@ function loadDepartmentsSection() {
 
 // Mostrar modal para agregar departamento
 function showAddDepartmentModal() {
-    const modalHTML = `
-        <div class="modal active" onclick="if(event.target === this) closeModal()">
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h3>Agregar Departamento</h3>
-                    <button class="close-btn" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="add-department-form" onsubmit="event.preventDefault(); saveDepartment();">
-                        <div class="form-group">
-                            <label>Nombre del Departamento *</label>
-                            <input type="text" id="dept-name" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Descripción</label>
-                            <textarea id="dept-description" class="form-control" rows="3" placeholder="Descripción opcional del departamento"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Responsable / Gerente (Opcional)</label>
-                            <select id="dept-manager" class="form-control">
-                                <option value="">Sin asignar</option>
-                                ${employees.map(emp => `<option value="${emp.id}">${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>`).join('')}
-                            </select>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
-                    <button class="btn btn-primary" onclick="saveDepartment()">Guardar</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    openModalShell({
+        title: 'Agregar Departamento',
+        maxWidth: '500px',
+        bodyHTML: renderDepartmentForm(null),
+        footerHTML: `
+            <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveDepartment()">Guardar</button>
+        `
+    });
 }
 
 // Guardar departamento
@@ -2091,35 +2248,23 @@ async function saveDepartment() {
         return;
     }
 
-    const submitBtn = document.querySelector('.modal.active .btn-primary');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Guardando...';
-    }
+    await withSubmitState({ loadingText: 'Guardando...' }, async () => {
+        try {
+            const result = await window.attendance.createDepartment({ name, description, manager_id });
 
-    try {
-        const result = await window.attendance.createDepartment({ name, description, manager_id });
-
-        if (result) {
-            showNotification('Departamento creado exitosamente', 'success');
-            closeModal();
-            await loadInitialData();
-            loadDepartmentsSection();
-        } else {
-            showNotification('Error al crear departamento', 'error');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Guardar';
+            if (result) {
+                showNotification('Departamento creado exitosamente', 'success');
+                closeModal();
+                await loadInitialData();
+                loadDepartmentsSection();
+            } else {
+                showNotification('Error al crear departamento', 'error');
             }
+        } catch (error) {
+            logger.error('Error creando departamento:', error);
+            showNotification(error.message || 'Error al crear departamento', 'error');
         }
-    } catch (error) {
-        logger.error('Error creando departamento:', error);
-        showNotification(error.message || 'Error al crear departamento', 'error');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Guardar';
-        }
-    }
+    });
 }
 
 // Mostrar modal para editar departamento
@@ -2130,40 +2275,15 @@ function showEditDepartmentModal(deptId) {
         return;
     }
 
-    const modalHTML = `
-        <div class="modal active" onclick="if(event.target === this) closeModal()">
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h3>Editar Departamento</h3>
-                    <button class="close-btn" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="edit-department-form" onsubmit="event.preventDefault(); updateDepartment(${deptId});">
-                        <div class="form-group">
-                            <label>Nombre del Departamento *</label>
-                            <input type="text" id="edit-dept-name" class="form-control" value="${escapeHtml(dept.name)}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Descripción</label>
-                            <textarea id="edit-dept-description" class="form-control" rows="3">${dept.description ? escapeHtml(dept.description) : ''}</textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Responsable / Gerente (Opcional)</label>
-                            <select id="edit-dept-manager" class="form-control">
-                                <option value="">Sin asignar</option>
-                                ${employees.map(emp => `<option value="${emp.id}" ${dept.manager_id === emp.id ? 'selected' : ''}>${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>`).join('')}
-                            </select>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
-                    <button class="btn btn-primary" onclick="updateDepartment(${deptId})">Actualizar</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    openModalShell({
+        title: 'Editar Departamento',
+        maxWidth: '500px',
+        bodyHTML: renderDepartmentForm(dept),
+        footerHTML: `
+            <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="updateDepartment(${deptId})">Actualizar</button>
+        `
+    });
 }
 
 // Actualizar departamento
@@ -2181,85 +2301,52 @@ async function updateDepartment(deptId) {
         return;
     }
 
-    const submitBtn = document.querySelector('.modal.active .btn-primary');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Actualizando...';
-    }
+    await withSubmitState({ loadingText: 'Actualizando...' }, async () => {
+        try {
+            const result = await window.attendance.updateDepartment({
+                id: deptId,
+                name,
+                description,
+                manager_id
+            });
 
-    try {
-        const result = await window.attendance.updateDepartment({
-            id: deptId,
-            name,
-            description,
-            manager_id
-        });
-
-        if (result) {
-            showNotification('Departamento actualizado exitosamente', 'success');
-            closeModal();
-            await loadInitialData();
-            loadDepartmentsSection();
-        } else {
-            showNotification('Error al actualizar departamento', 'error');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Actualizar';
+            if (result) {
+                showNotification('Departamento actualizado exitosamente', 'success');
+                closeModal();
+                await loadInitialData();
+                loadDepartmentsSection();
+            } else {
+                showNotification('Error al actualizar departamento', 'error');
             }
+        } catch (error) {
+            logger.error('Error actualizando departamento:', error);
+            showNotification(error.message || 'Error al actualizar departamento', 'error');
         }
-    } catch (error) {
-        logger.error('Error actualizando departamento:', error);
-        showNotification(error.message || 'Error al actualizar departamento', 'error');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Actualizar';
-        }
-    }
+    });
 }
 
 // Eliminar departamento
 async function deleteDepartment(deptId) {
     const dept = departments.find(d => d.id === deptId);
-    if (!dept) {
-        showNotification('Departamento no encontrado', 'error');
-        return;
-    }
+    const employeesInDept = dept ? employees.filter(e => e.department_id === deptId) : [];
+    const blockReason = employeesInDept.length > 0
+        ? `No se puede eliminar el departamento "${escapeHtml(dept.name)}" porque tiene ${employeesInDept.length} empleado(s) asignado(s). Por favor, reasigne los empleados a otro departamento primero.`
+        : undefined;
 
-    const employeesInDept = employees.filter(e => e.department_id === deptId);
-
-    if (employeesInDept.length > 0) {
-        showNotification(
-            `No se puede eliminar el departamento "${escapeHtml(dept.name)}" porque tiene ${employeesInDept.length} empleado(s) asignado(s). ` +
-            `Por favor, reasigne los empleados a otro departamento primero.`,
-            'warning'
-        );
-        return;
-    }
-
-    const confirmDelete = confirm(
-        `¿Está seguro de que desea eliminar el departamento?\n\n` +
-        `${escapeHtml(dept.name)}\n\n` +
-        `Esta acción NO se puede deshacer.`
-    );
-
-    if (!confirmDelete) {
-        return;
-    }
-
-    try {
-        const result = await window.attendance.deleteDepartment(deptId);
-
-        if (result) {
-            showNotification('Departamento eliminado exitosamente', 'success');
+    await confirmAndDeleteEntity({
+        entity: dept,
+        entityName: 'Departamento',
+        blockReason,
+        confirmMessage: (d) =>
+            `¿Está seguro de que desea eliminar el departamento?\n\n` +
+            `${escapeHtml(d.name)}\n\n` +
+            `Esta acción NO se puede deshacer.`,
+        deleteFn: () => window.attendance.deleteDepartment(deptId),
+        onSuccess: async () => {
             await loadInitialData();
             loadDepartmentsSection();
-        } else {
-            showNotification('Error al eliminar departamento', 'error');
         }
-    } catch (error) {
-        logger.error('Error eliminando departamento:', error);
-        showNotification(error.message || 'Error al eliminar departamento', 'error');
-    }
+    });
 }
 
 // ==================== SHIFTS SECTION ====================
@@ -2325,46 +2412,15 @@ function loadShiftsSection() {
 
 // Mostrar modal para agregar turno
 function showAddShiftModal() {
-    const modalHTML = `
-        <div class="modal active" onclick="if(event.target === this) closeModal()">
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h3>Agregar Turno</h3>
-                    <button class="close-btn" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="add-shift-form" onsubmit="event.preventDefault(); saveShift();">
-                        <div class="form-group">
-                            <label>Nombre del Turno *</label>
-                            <input type="text" id="shift-name" class="form-control" required placeholder="Ej: Turno Matutino">
-                        </div>
-                        <div class="form-group">
-                            <label>Hora de Inicio *</label>
-                            <input type="time" id="shift-start-time" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Hora de Fin *</label>
-                            <input type="time" id="shift-end-time" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Tolerancia (minutos) *</label>
-                            <input type="number" id="shift-tolerance" class="form-control" min="0" max="60" value="10" required>
-                            <small style="color: #6B7280;">Tiempo de gracia para llegadas tarde sin penalización</small>
-                        </div>
-                        <div class="form-group">
-                            <label>Color del Turno</label>
-                            <input type="color" id="shift-color" class="form-control" value="#3B82F6" style="height: 50px;">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
-                    <button class="btn btn-primary" onclick="saveShift()">Guardar</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    openModalShell({
+        title: 'Agregar Turno',
+        maxWidth: '500px',
+        bodyHTML: renderShiftForm(null),
+        footerHTML: `
+            <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveShift()">Guardar</button>
+        `
+    });
 }
 
 // Guardar turno
@@ -2384,41 +2440,29 @@ async function saveShift() {
         return;
     }
 
-    const submitBtn = document.querySelector('.modal.active .btn-primary');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Guardando...';
-    }
+    await withSubmitState({ loadingText: 'Guardando...' }, async () => {
+        try {
+            const result = await window.attendance.createShift({
+                name,
+                start_time: startTime,
+                end_time: endTime,
+                tolerance_minutes: tolerance,
+                color
+            });
 
-    try {
-        const result = await window.attendance.createShift({
-            name,
-            start_time: startTime,
-            end_time: endTime,
-            tolerance_minutes: tolerance,
-            color
-        });
-
-        if (result) {
-            showNotification('Turno creado exitosamente', 'success');
-            closeModal();
-            await loadInitialData();
-            loadShiftsSection();
-        } else {
-            showNotification('Error al crear turno', 'error');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Guardar';
+            if (result) {
+                showNotification('Turno creado exitosamente', 'success');
+                closeModal();
+                await loadInitialData();
+                loadShiftsSection();
+            } else {
+                showNotification('Error al crear turno', 'error');
             }
+        } catch (error) {
+            logger.error('Error creando turno:', error);
+            showNotification(error.message || 'Error al crear turno', 'error');
         }
-    } catch (error) {
-        logger.error('Error creando turno:', error);
-        showNotification(error.message || 'Error al crear turno', 'error');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Guardar';
-        }
-    }
+    });
 }
 
 // Mostrar modal para editar turno
@@ -2429,45 +2473,15 @@ function showEditShiftModal(shiftId) {
         return;
     }
 
-    const modalHTML = `
-        <div class="modal active" onclick="if(event.target === this) closeModal()">
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h3>Editar Turno</h3>
-                    <button class="close-btn" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="edit-shift-form" onsubmit="event.preventDefault(); updateShift(${shiftId});">
-                        <div class="form-group">
-                            <label>Nombre del Turno *</label>
-                            <input type="text" id="edit-shift-name" class="form-control" value="${escapeHtml(shift.name)}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Hora de Inicio *</label>
-                            <input type="time" id="edit-shift-start-time" class="form-control" value="${shift.start_time}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Hora de Fin *</label>
-                            <input type="time" id="edit-shift-end-time" class="form-control" value="${shift.end_time}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Tolerancia (minutos) *</label>
-                            <input type="number" id="edit-shift-tolerance" class="form-control" min="0" max="60" value="${shift.tolerance_minutes}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Color del Turno</label>
-                            <input type="color" id="edit-shift-color" class="form-control" value="${shift.color || '#3B82F6'}" style="height: 50px;">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
-                    <button class="btn btn-primary" onclick="updateShift(${shiftId})">Actualizar</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    openModalShell({
+        title: 'Editar Turno',
+        maxWidth: '500px',
+        bodyHTML: renderShiftForm(shift),
+        footerHTML: `
+            <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="updateShift(${shiftId})">Actualizar</button>
+        `
+    });
 }
 
 // Actualizar turno
@@ -2487,87 +2501,54 @@ async function updateShift(shiftId) {
         return;
     }
 
-    const submitBtn = document.querySelector('.modal.active .btn-primary');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Actualizando...';
-    }
+    await withSubmitState({ loadingText: 'Actualizando...' }, async () => {
+        try {
+            const result = await window.attendance.updateShift({
+                id: shiftId,
+                name,
+                start_time: startTime,
+                end_time: endTime,
+                tolerance_minutes: tolerance,
+                color
+            });
 
-    try {
-        const result = await window.attendance.updateShift({
-            id: shiftId,
-            name,
-            start_time: startTime,
-            end_time: endTime,
-            tolerance_minutes: tolerance,
-            color
-        });
-
-        if (result) {
-            showNotification('Turno actualizado exitosamente', 'success');
-            closeModal();
-            await loadInitialData();
-            loadShiftsSection();
-        } else {
-            showNotification('Error al actualizar turno', 'error');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Actualizar';
+            if (result) {
+                showNotification('Turno actualizado exitosamente', 'success');
+                closeModal();
+                await loadInitialData();
+                loadShiftsSection();
+            } else {
+                showNotification('Error al actualizar turno', 'error');
             }
+        } catch (error) {
+            logger.error('Error actualizando turno:', error);
+            showNotification(error.message || 'Error al actualizar turno', 'error');
         }
-    } catch (error) {
-        logger.error('Error actualizando turno:', error);
-        showNotification(error.message || 'Error al actualizar turno', 'error');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Actualizar';
-        }
-    }
+    });
 }
 
 // Eliminar turno
 async function deleteShift(shiftId) {
     const shift = shifts.find(s => s.id === shiftId);
-    if (!shift) {
-        showNotification('Turno no encontrado', 'error');
-        return;
-    }
+    const employeesInShift = shift ? employees.filter(e => e.shift_id === shiftId) : [];
+    const blockReason = employeesInShift.length > 0
+        ? `No se puede eliminar el turno "${escapeHtml(shift.name)}" porque tiene ${employeesInShift.length} empleado(s) asignado(s). Por favor, reasigne los empleados a otro turno primero.`
+        : undefined;
 
-    const employeesInShift = employees.filter(e => e.shift_id === shiftId);
-
-    if (employeesInShift.length > 0) {
-        showNotification(
-            `No se puede eliminar el turno "${escapeHtml(shift.name)}" porque tiene ${employeesInShift.length} empleado(s) asignado(s). ` +
-            `Por favor, reasigne los empleados a otro turno primero.`,
-            'warning'
-        );
-        return;
-    }
-
-    const confirmDelete = confirm(
-        `¿Está seguro de que desea eliminar el turno?\n\n` +
-        `${escapeHtml(shift.name)} (${shift.start_time} - ${shift.end_time})\n\n` +
-        `Esta acción NO se puede deshacer.`
-    );
-
-    if (!confirmDelete) {
-        return;
-    }
-
-    try {
-        const result = await window.attendance.deleteShift(shiftId);
-
-        if (result) {
-            showNotification('Turno eliminado exitosamente', 'success');
+    await confirmAndDeleteEntity({
+        entity: shift,
+        entityName: 'Turno',
+        blockReason,
+        confirmMessage: (s) =>
+            `¿Está seguro de que desea eliminar el turno?\n\n` +
+            `${escapeHtml(s.name)} (${s.start_time} - ${s.end_time})\n\n` +
+            `Esta acción NO se puede deshacer.`,
+        deleteFn: () => window.attendance.deleteShift(shiftId),
+        onSuccess: async () => {
             await loadInitialData();
             loadShiftsSection();
-        } else {
-            showNotification('Error al eliminar turno', 'error');
         }
-    } catch (error) {
-        logger.error('Error eliminando turno:', error);
-        showNotification(error.message || 'Error al eliminar turno', 'error');
-    }
+    });
 }
 
 // ==================== REPORTS SECTION & ANALYTICS EXPLORER ====================
@@ -3168,15 +3149,12 @@ function renderAbsenceHistoryHTMLClient(history) {
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button class="btn btn-secondary" onclick="printAbsenceHistory()" style="padding: 8px 14px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;" title="Imprimir directamente">
-                        <span>🖨️</span> Imprimir
-                    </button>
-                    <button class="btn btn-success" onclick="exportAbsenceHistoryToExcel()" style="padding: 8px 14px; font-size: 13px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 6px;" title="Guardar en Microsoft Excel (.csv)">
-                        <span>📊</span> Guardar en Excel
-                    </button>
-                    <button class="btn btn-danger" onclick="exportAbsenceHistoryToPDF()" style="padding: 8px 14px; font-size: 13px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 6px;" title="Guardar como documento PDF">
-                        <span>📄</span> Guardar en PDF
-                    </button>
+                    ${renderExportButtonsHTML({
+                        onExcel: 'exportAbsenceHistoryToExcel()',
+                        onPDF: 'exportAbsenceHistoryToPDF()',
+                        onPrint: 'printAbsenceHistory()',
+                        isSmall: false
+                    })}
                 </div>
             </div>
 
@@ -3296,26 +3274,18 @@ async function showEmployeeAbsenceHistoryModal(employeeCodeOrId) {
         const records = await window.attendance.getAttendanceRecords({ employee_id: emp.id });
         const history = calcEmployeeAbsenceHistoryClient(records, emp);
 
-        const modalHTML = `
-            <div class="modal active" onclick="if(event.target === this) closeModal()">
-                <div class="modal-content" style="max-width: 950px;">
-                    <div class="modal-header">
-                        <h3>📅 Historial de Faltas: ${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</h3>
-                        <button class="close-btn" onclick="closeModal()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        ${renderAbsenceHistoryHTMLClient(history)}
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="printAbsenceHistory()">🖨️ Imprimir</button>
-                        <button class="btn btn-success" onclick="exportAbsenceHistoryToExcel()" style="background: #10B981; color: white;">📊 Guardar en Excel</button>
-                        <button class="btn btn-danger" onclick="exportAbsenceHistoryToPDF()" style="background: #DC2626; color: white;">📄 Guardar en PDF</button>
-                        <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        const modalHTML = createModalShell({
+            title: `📅 Historial de Faltas: ${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})`,
+            maxWidth: '950px',
+            bodyHTML: renderAbsenceHistoryHTMLClient(history),
+            footerHTML: `
+                <button class="btn btn-secondary" onclick="printAbsenceHistory()">🖨️ Imprimir</button>
+                <button class="btn btn-success" onclick="exportAbsenceHistoryToExcel()" style="background: #10B981; color: white;">📊 Guardar en Excel</button>
+                <button class="btn btn-danger" onclick="exportAbsenceHistoryToPDF()" style="background: #DC2626; color: white;">📄 Guardar en PDF</button>
+                <button class="btn btn-cancel" onclick="closeModal()">Cerrar</button>
+            `
+        });
+        openModalShell(modalHTML);
     } catch (err) {
         logger.error('Error al abrir modal de faltas:', err);
         showNotification('Error al abrir el historial de faltas', 'error');
@@ -3600,15 +3570,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                         <span style="font-weight: 700; color: #374151; font-size: 14px;">Análisis de Impuntualidad</span>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary" onclick="printQAResult()" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Imprimir directamente">
-                                <span>🖨️</span> Imprimir
-                            </button>
-                            <button class="btn btn-success" onclick="exportQAToExcel()" style="padding: 6px 12px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Exportar a Microsoft Excel (.csv)">
-                                <span>📊</span> Guardar en Excel
-                            </button>
-                            <button class="btn btn-danger" onclick="exportQAToPDF()" style="padding: 6px 12px; font-size: 12px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Guardar como documento PDF">
-                                <span>📄</span> Guardar en PDF
-                            </button>
+                            ${renderExportButtonsHTML({ onPrint: 'printQAResult()', isSmall: true })}
                         </div>
                     </div>
                     <div style="background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
@@ -3663,15 +3625,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                         <span style="font-weight: 700; color: #374151; font-size: 14px;">Balance de Tiempo Laborado</span>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary" onclick="printQAResult()" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Imprimir directamente">
-                                <span>🖨️</span> Imprimir
-                            </button>
-                            <button class="btn btn-success" onclick="exportQAToExcel()" style="padding: 6px 12px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Exportar a Microsoft Excel (.csv)">
-                                <span>📊</span> Guardar en Excel
-                            </button>
-                            <button class="btn btn-danger" onclick="exportQAToPDF()" style="padding: 6px 12px; font-size: 12px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Guardar como documento PDF">
-                                <span>📄</span> Guardar en PDF
-                            </button>
+                            ${renderExportButtonsHTML({ onPrint: 'printQAResult()', isSmall: true })}
                         </div>
                     </div>
                     <div style="background: #ECFDF5; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
@@ -3680,7 +3634,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
                             ${escapeHtml(summary)}
                         </p>
                     </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                    <div class="metric-card-grid">
                         <div style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 24px; font-weight: 800; color: #16A34A;">${totalHours} hrs</div>
                             <div style="font-size: 12px; color: #15803D;">Tiempo Laborado</div>
@@ -3740,15 +3694,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                         <span style="font-weight: 700; color: #374151; font-size: 14px;">Ranking de Ausentismo</span>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary" onclick="printQAResult()" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Imprimir directamente">
-                                <span>🖨️</span> Imprimir
-                            </button>
-                            <button class="btn btn-success" onclick="exportQAToExcel()" style="padding: 6px 12px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Exportar a Microsoft Excel (.csv)">
-                                <span>📊</span> Guardar en Excel
-                            </button>
-                            <button class="btn btn-danger" onclick="exportQAToPDF()" style="padding: 6px 12px; font-size: 12px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Guardar como documento PDF">
-                                <span>📄</span> Guardar en PDF
-                            </button>
+                            ${renderExportButtonsHTML({ onPrint: 'printQAResult()', isSmall: true })}
                         </div>
                     </div>
                     <div style="background: #FEF2F2; border-left: 4px solid #EF4444; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
@@ -3802,15 +3748,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                     <span style="font-weight: 700; color: #374151; font-size: 14px;">Panorama General de Asistencia</span>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-secondary" onclick="printQAResult()" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Imprimir directamente">
-                            <span>🖨️</span> Imprimir
-                        </button>
-                        <button class="btn btn-success" onclick="exportQAToExcel()" style="padding: 6px 12px; font-size: 12px; background: #10B981; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Exportar a Microsoft Excel (.csv)">
-                            <span>📊</span> Guardar en Excel
-                        </button>
-                        <button class="btn btn-danger" onclick="exportQAToPDF()" style="padding: 6px 12px; font-size: 12px; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 4px;" title="Guardar como documento PDF">
-                            <span>📄</span> Guardar en PDF
-                        </button>
+                        ${renderExportButtonsHTML({ onPrint: 'printQAResult()', isSmall: true })}
                     </div>
                 </div>
                 <div style="background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
@@ -3819,8 +3757,8 @@ async function processAndRenderDomainQuestion(rawQuery) {
                         ${escapeHtml(summary)}
                     </p>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
-                    <div style="background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px; border-radius: 8px; text-align: center;">
+                <div class="metric-card-grid">
+                    <div class="metric-box">
                         <div style="font-size: 24px; font-weight: 800; color: #2563EB;">${employees.length}</div>
                         <div style="font-size: 12px; color: #4B5563;">Plantilla Total</div>
                     </div>
@@ -3864,91 +3802,85 @@ async function generateDailyReport(date) {
         showNotification('Generando reporte diario...', 'info');
         const report = await window.reports.generateDaily(date || undefined);
 
-        const modalHTML = `
-            <div class="modal active" onclick="if(event.target === this) closeModal()">
-                <div class="modal-content" style="max-width: 900px;">
-                    <div class="modal-header">
-                        <h3>📊 Reporte Diario de Asistencia</h3>
-                        <button class="close-btn" onclick="closeModal()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white; margin-bottom: 25px;">
-                            <h4 style="margin: 0 0 10px; font-size: 20px;">
-                                ${new Date(report.date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                            </h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px;">
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 28px; font-weight: 700;">${report.stats.present}</div>
-                                    <div style="font-size: 12px; opacity: 0.9;">Presentes</div>
-                                </div>
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 28px; font-weight: 700;">${report.stats.late}</div>
-                                    <div style="font-size: 12px; opacity: 0.9;">Tarde</div>
-                                </div>
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 28px; font-weight: 700;">${report.stats.absent}</div>
-                                    <div style="font-size: 12px; opacity: 0.9;">Ausentes</div>
-                                </div>
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 28px; font-weight: 700;">${report.stats.verified}</div>
-                                    <div style="font-size: 12px; opacity: 0.9;">Verificados</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom: 20px;">
-                            <h4 style="margin-bottom: 15px;">Estadísticas Generales</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                                    <div style="color: #6B7280; font-size: 13px;">Total Empleados Activos</div>
-                                    <div style="font-size: 24px; font-weight: 600; color: #1F2937;">${report.totalEmployees}</div>
-                                </div>
-                                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                                    <div style="color: #6B7280; font-size: 13px;">Promedio Retraso</div>
-                                    <div style="font-size: 24px; font-weight: 600; color: #1F2937;">${report.stats.avgLateMinutes} min</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        ${report.records.length > 0 ? `
-                            <div>
-                                <h4 style="margin-bottom: 15px;">Detalle de Asistencias (${report.records.length})</h4>
-                                <div style="max-height: 400px; overflow-y: auto;">
-                                    <table style="width: 100%; font-size: 13px;">
-                                        <thead style="position: sticky; top: 0; background: white;">
-                                            <tr>
-                                                <th>Empleado</th>
-                                                <th>Departamento</th>
-                                                <th>Entrada</th>
-                                                <th>Salida</th>
-                                                <th>Estado</th>
-                                                <th>Verificado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${report.records.map(rec => `
-                                                <tr>
-                                                    <td>${rec.employee_name}</td>
-                                                    <td>${rec.department_name || '-'}</td>
-                                                    <td>${rec.check_in_time || '-'}</td>
-                                                    <td>${rec.check_out_time || '-'}</td>
-                                                    <td><span class="badge badge-${getStatusBadgeClass(rec.status)}">${getStatusLabel(rec.status)}</span></td>
-                                                    <td style="text-align: center;">${rec.fingerprint_verified ? '✓' : '-'}</td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay registros para este día</p>'}
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
-                        <button class="btn btn-primary" onclick="printReport()">🖨️ Imprimir</button>
-                    </div>
+        const bannerContentHTML = `
+            <h4 style="margin: 0 0 10px; font-size: 20px;">
+                ${new Date(report.date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px;">
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 700;">${report.stats.present}</div>
+                    <div style="font-size: 12px; opacity: 0.9;">Presentes</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 700;">${report.stats.late}</div>
+                    <div style="font-size: 12px; opacity: 0.9;">Tarde</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 700;">${report.stats.absent}</div>
+                    <div style="font-size: 12px; opacity: 0.9;">Ausentes</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 700;">${report.stats.verified}</div>
+                    <div style="font-size: 12px; opacity: 0.9;">Verificados</div>
                 </div>
             </div>
         `;
+
+        const bodyContentHTML = `
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 15px;">Estadísticas Generales</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
+                        <div style="color: #6B7280; font-size: 13px;">Total Empleados Activos</div>
+                        <div style="font-size: 24px; font-weight: 600; color: #1F2937;">${report.totalEmployees}</div>
+                    </div>
+                    <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
+                        <div style="color: #6B7280; font-size: 13px;">Promedio Retraso</div>
+                        <div style="font-size: 24px; font-weight: 600; color: #1F2937;">${report.stats.avgLateMinutes} min</div>
+                    </div>
+                </div>
+            </div>
+
+            ${report.records.length > 0 ? `
+                <div>
+                    <h4 style="margin-bottom: 15px;">Detalle de Asistencias (${report.records.length})</h4>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table style="width: 100%; font-size: 13px;">
+                            <thead style="position: sticky; top: 0; background: white;">
+                                <tr>
+                                    <th>Empleado</th>
+                                    <th>Departamento</th>
+                                    <th>Entrada</th>
+                                    <th>Salida</th>
+                                    <th>Estado</th>
+                                    <th>Verificado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${report.records.map(rec => `
+                                    <tr>
+                                        <td>${rec.employee_name}</td>
+                                        <td>${rec.department_name || '-'}</td>
+                                        <td>${rec.check_in_time || '-'}</td>
+                                        <td>${rec.check_out_time || '-'}</td>
+                                        <td>${renderStatusBadge(rec.status)}</td>
+                                        <td style="text-align: center;">${rec.fingerprint_verified ? '✓' : '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay registros para este día</p>'}
+        `;
+
+        const modalHTML = renderReportModalShell({
+            title: '📊 Reporte Diario de Asistencia',
+            gradientBackground: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            bannerContentHTML,
+            bodyContentHTML,
+            maxWidth: '900px'
+        });
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
         logger.error('Error generando reporte diario:', error);
@@ -3961,96 +3893,90 @@ async function generateWeeklyReport(endDate) {
         showNotification('Generando reporte semanal...', 'info');
         const report = await window.reports.generateWeekly(endDate || undefined);
 
-        const modalHTML = `
-            <div class="modal active" onclick="if(event.target === this) closeModal()">
-                <div class="modal-content" style="max-width: 900px;">
-                    <div class="modal-header">
-                        <h3>📅 Reporte Semanal de Asistencia</h3>
-                        <button class="close-btn" onclick="closeModal()">&times;</button>
+        const bannerContentHTML = `
+            <h4 style="margin: 0 0 5px; font-size: 18px;">Período</h4>
+            <div style="font-size: 16px; opacity: 0.95;">
+                ${new Date(report.startDate).toLocaleDateString('es-ES')} - ${new Date(report.endDate).toLocaleDateString('es-ES')}
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9;">Total Registros</div>
+                        <div style="font-size: 28px; font-weight: 700;">${report.totalRecords}</div>
                     </div>
-                    <div class="modal-body">
-                        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; color: white; margin-bottom: 25px;">
-                            <h4 style="margin: 0 0 5px; font-size: 18px;">Período</h4>
-                            <div style="font-size: 16px; opacity: 0.95;">
-                                ${new Date(report.startDate).toLocaleDateString('es-ES')} - ${new Date(report.endDate).toLocaleDateString('es-ES')}
-                            </div>
-                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3);">
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                    <div>
-                                        <div style="font-size: 12px; opacity: 0.9;">Total Registros</div>
-                                        <div style="font-size: 28px; font-weight: 700;">${report.totalRecords}</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 12px; opacity: 0.9;">Promedio Diario</div>
-                                        <div style="font-size: 28px; font-weight: 700;">${Math.round(report.avgDailyAttendance)}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        ${report.dailyStats.length > 0 ? `
-                            <div style="margin-bottom: 25px;">
-                                <h4 style="margin-bottom: 15px;">Resumen Diario</h4>
-                                <table style="width: 100%;">
-                                    <thead>
-                                        <tr>
-                                            <th>Fecha</th>
-                                            <th>Total</th>
-                                            <th>Presentes</th>
-                                            <th>Tarde</th>
-                                            <th>Ausentes</th>
-                                            <th>Verificados</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${report.dailyStats.map(day => `
-                                            <tr>
-                                                <td>${new Date(day.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
-                                                <td><strong>${day.total}</strong></td>
-                                                <td><span class="badge badge-success">${day.present}</span></td>
-                                                <td><span class="badge badge-warning">${day.late}</span></td>
-                                                <td><span class="badge badge-danger">${day.absent}</span></td>
-                                                <td>${day.verified}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ` : ''}
-
-                        <div>
-                            <h4 style="margin-bottom: 15px;">Todos los Registros (${report.records.length})</h4>
-                            <div style="max-height: 300px; overflow-y: auto;">
-                                <table style="width: 100%; font-size: 13px;">
-                                    <thead style="position: sticky; top: 0; background: white;">
-                                        <tr>
-                                            <th>Fecha</th>
-                                            <th>Empleado</th>
-                                            <th>Entrada</th>
-                                            <th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${report.records.map(rec => `
-                                            <tr>
-                                                <td>${new Date(rec.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}</td>
-                                                <td>${rec.employee_name}</td>
-                                                <td>${rec.check_in_time || '-'}</td>
-                                                <td><span class="badge badge-${getStatusBadgeClass(rec.status)}">${getStatusLabel(rec.status)}</span></td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
-                        <button class="btn btn-primary" onclick="printReport()">🖨️ Imprimir</button>
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9;">Promedio Diario</div>
+                        <div style="font-size: 28px; font-weight: 700;">${Math.round(report.avgDailyAttendance)}</div>
                     </div>
                 </div>
             </div>
         `;
+
+        const bodyContentHTML = `
+            ${report.dailyStats.length > 0 ? `
+                <div style="margin-bottom: 25px;">
+                    <h4 style="margin-bottom: 15px;">Resumen Diario</h4>
+                    <table style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Total</th>
+                                <th>Presentes</th>
+                                <th>Tarde</th>
+                                <th>Ausentes</th>
+                                <th>Verificados</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${report.dailyStats.map(day => `
+                                <tr>
+                                    <td>${new Date(day.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
+                                    <td><strong>${day.total}</strong></td>
+                                    <td><span class="badge badge-success">${day.present}</span></td>
+                                    <td><span class="badge badge-warning">${day.late}</span></td>
+                                    <td><span class="badge badge-danger">${day.absent}</span></td>
+                                    <td>${day.verified}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            ` : ''}
+
+            <div>
+                <h4 style="margin-bottom: 15px;">Todos los Registros (${report.records.length})</h4>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <table style="width: 100%; font-size: 13px;">
+                        <thead style="position: sticky; top: 0; background: white;">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Empleado</th>
+                                <th>Entrada</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${report.records.map(rec => `
+                                <tr>
+                                    <td>${new Date(rec.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}</td>
+                                    <td>${rec.employee_name}</td>
+                                    <td>${rec.check_in_time || '-'}</td>
+                                    <td>${renderStatusBadge(rec.status)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        const modalHTML = renderReportModalShell({
+            title: '📅 Reporte Semanal de Asistencia',
+            gradientBackground: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            bannerContentHTML,
+            bodyContentHTML,
+            maxWidth: '900px'
+        });
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
         logger.error('Error generando reporte semanal:', error);
@@ -4063,87 +3989,81 @@ async function generateMonthlyReport(year, month) {
         showNotification('Generando reporte mensual...', 'info');
         const report = await window.reports.generateMonthly(year || undefined, month || undefined);
 
-        const modalHTML = `
-            <div class="modal active" onclick="if(event.target === this) closeModal()">
-                <div class="modal-content" style="max-width: 1000px;">
-                    <div class="modal-header">
-                        <h3>📈 Reporte Mensual de Asistencia</h3>
-                        <button class="close-btn" onclick="closeModal()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; color: white; margin-bottom: 25px;">
-                            <h4 style="margin: 0 0 15px; font-size: 20px;">${report.monthName}</h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;">
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.totalRecords}</div>
-                                    <div style="font-size: 11px; opacity: 0.9;">Total Registros</div>
-                                </div>
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.present}</div>
-                                    <div style="font-size: 11px; opacity: 0.9;">Presentes</div>
-                                </div>
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.late}</div>
-                                    <div style="font-size: 11px; opacity: 0.9;">Tarde</div>
-                                </div>
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.absent}</div>
-                                    <div style="font-size: 11px; opacity: 0.9;">Ausentes</div>
-                                </div>
-                                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.verified}</div>
-                                    <div style="font-size: 11px; opacity: 0.9;">Verificados</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        ${report.employeeStats.length > 0 ? `
-                            <div>
-                                <h4 style="margin-bottom: 15px;">Estadísticas por Empleado (${report.employeeStats.length})</h4>
-                                <div style="max-height: 500px; overflow-y: auto;">
-                                    <table style="width: 100%; font-size: 13px;">
-                                        <thead style="position: sticky; top: 0; background: white;">
-                                            <tr>
-                                                <th>Código</th>
-                                                <th>Empleado</th>
-                                                <th>Días</th>
-                                                <th>Presente</th>
-                                                <th>Tarde</th>
-                                                <th>Ausente</th>
-                                                <th>Retraso (min)</th>
-                                                <th>% Asistencia</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${report.employeeStats.map(emp => {
-                                                const attendanceRate = safeParseFloat(emp.attendanceRate, 0);
-                                                const rateColor = attendanceRate >= 95 ? '#10B981' : attendanceRate >= 80 ? '#F59E0B' : '#EF4444';
-                                                return `
-                                                <tr>
-                                                    <td>${emp.employeeCode}</td>
-                                                    <td>${emp.employeeName}</td>
-                                                    <td><strong>${emp.totalDays}</strong></td>
-                                                    <td><span class="badge badge-success">${emp.presentDays}</span></td>
-                                                    <td><span class="badge badge-warning">${emp.lateDays}</span></td>
-                                                    <td><span class="badge badge-danger">${emp.absentDays}</span></td>
-                                                    <td>${emp.totalLateMinutes}</td>
-                                                    <td><span style="color: ${rateColor}; font-weight: 600;">${emp.attendanceRate}%</span></td>
-                                                </tr>
-                                                `;
-                                            }).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay datos para este mes</p>'}
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
-                        <button class="btn btn-primary" onclick="printReport()">🖨️ Imprimir</button>
-                    </div>
+        const bannerContentHTML = `
+            <h4 style="margin: 0 0 15px; font-size: 20px;">${report.monthName}</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;">
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.totalRecords}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Total Registros</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.present}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Presentes</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.late}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Tarde</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.absent}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Ausentes</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.verified}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Verificados</div>
                 </div>
             </div>
         `;
+
+        const bodyContentHTML = `
+            ${report.employeeStats.length > 0 ? `
+                <div>
+                    <h4 style="margin-bottom: 15px;">Estadísticas por Empleado (${report.employeeStats.length})</h4>
+                    <div style="max-height: 500px; overflow-y: auto;">
+                        <table style="width: 100%; font-size: 13px;">
+                            <thead style="position: sticky; top: 0; background: white;">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Empleado</th>
+                                    <th>Días</th>
+                                    <th>Presente</th>
+                                    <th>Tarde</th>
+                                    <th>Ausente</th>
+                                    <th>Retraso (min)</th>
+                                    <th>% Asistencia</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${report.employeeStats.map(emp => {
+                                    const attendanceRate = safeParseFloat(emp.attendanceRate, 0);
+                                    const rateColor = attendanceRate >= 95 ? '#10B981' : attendanceRate >= 80 ? '#F59E0B' : '#EF4444';
+                                    return `
+                                    <tr>
+                                        <td>${emp.employeeCode}</td>
+                                        <td>${emp.employeeName}</td>
+                                        <td><strong>${emp.totalDays}</strong></td>
+                                        <td><span class="badge badge-success">${emp.presentDays}</span></td>
+                                        <td><span class="badge badge-warning">${emp.lateDays}</span></td>
+                                        <td><span class="badge badge-danger">${emp.absentDays}</span></td>
+                                        <td>${emp.totalLateMinutes}</td>
+                                        <td><span style="color: ${rateColor}; font-weight: 600;">${emp.attendanceRate}%</span></td>
+                                    </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay datos para este mes</p>'}
+        `;
+
+        const modalHTML = renderReportModalShell({
+            title: '📈 Reporte Mensual de Asistencia',
+            gradientBackground: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            bannerContentHTML,
+            bodyContentHTML,
+            maxWidth: '1000px'
+        });
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
         logger.error('Error generando reporte mensual:', error);
@@ -4153,42 +4073,37 @@ async function generateMonthlyReport(year, month) {
 
 async function generateEmployeeReport() {
     // Mostrar selector de empleado y período
-    const modalHTML = `
-        <div class="modal active" onclick="if(event.target === this) closeModal()">
-            <div class="modal-content" style="max-width: 600px;">
-                <div class="modal-header">
-                    <h3>👤 Seleccionar Empleado y Período</h3>
-                    <button class="close-btn" onclick="closeModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>Seleccione el empleado *:</label>
-                        <select id="report-employee-select" class="form-control" required>
-                            <option value="">Seleccione...</option>
-                            ${employees.map(emp => `
-                                <option value="${emp.id}">${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>
-                            `).join('')}
-                        </select>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                        <div class="form-group">
-                            <label>Fecha Desde (Opcional):</label>
-                            <input type="date" id="report-emp-start" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha Hasta (Opcional):</label>
-                            <input type="date" id="report-emp-end" class="form-control">
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cancelar</button>
-                    <button class="btn btn-primary" onclick="showEmployeeReportDetails()">Generar Reporte</button>
-                </div>
+    const bodyHTML = `
+        <div class="form-group">
+            <label>Seleccione el empleado *:</label>
+            <select id="report-employee-select" class="form-control" required>
+                <option value="">Seleccione...</option>
+                ${employees.map(emp => `
+                    <option value="${emp.id}">${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})</option>
+                `).join('')}
+            </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+            <div class="form-group">
+                <label>Fecha Desde (Opcional):</label>
+                <input type="date" id="report-emp-start" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Fecha Hasta (Opcional):</label>
+                <input type="date" id="report-emp-end" class="form-control">
             </div>
         </div>
     `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const footerHTML = `
+        <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="showEmployeeReportDetails()">Generar Reporte</button>
+    `;
+    openModalShell(createModalShell({
+        title: '👤 Seleccionar Empleado y Período',
+        maxWidth: '600px',
+        bodyHTML,
+        footerHTML
+    }));
 }
 
 async function showEmployeeReportDetails() {
@@ -4205,110 +4120,104 @@ async function showEmployeeReportDetails() {
         showNotification('Generando reporte del empleado...', 'info');
         const report = await window.reports.generateEmployee(safeParseInt(employeeId, 0), startDate, endDate);
 
-        const modalHTML = `
-            <div class="modal active" onclick="if(event.target === this) closeModal()">
-                <div class="modal-content" style="max-width: 900px;">
-                    <div class="modal-header">
-                        <h3>👤 Reporte Individual de Empleado</h3>
-                        <button class="close-btn" onclick="closeModal()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); padding: 20px; border-radius: 12px; color: white; margin-bottom: 25px;">
-                            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
-                                <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700;">
-                                    ${getInitials(report.employee.first_name, report.employee.last_name)}
-                                </div>
-                                <div>
-                                    <h3 style="margin: 0; font-size: 24px;">${report.employee.first_name} ${report.employee.last_name}</h3>
-                                    <div style="opacity: 0.95; font-size: 14px; margin-top: 5px;">
-                                        ${report.employee.employee_code} • ${report.employee.department_name}
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 15px; font-size: 14px; opacity: 0.95;">
-                                Período: ${new Date(report.period.startDate).toLocaleDateString('es-ES')} - ${new Date(report.period.endDate).toLocaleDateString('es-ES')}
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
-                            <div style="padding: 15px; background: #F0FDF4; border-radius: 8px; border-left: 4px solid #10B981;">
-                                <div style="color: #065F46; font-size: 12px; margin-bottom: 5px;">Días Trabajados</div>
-                                <div style="font-size: 28px; font-weight: 700; color: #10B981;">${report.stats.totalDays}</div>
-                            </div>
-                            <div style="padding: 15px; background: #FFFBEB; border-radius: 8px; border-left: 4px solid #F59E0B;">
-                                <div style="color: #92400E; font-size: 12px; margin-bottom: 5px;">Días Tarde</div>
-                                <div style="font-size: 28px; font-weight: 700; color: #F59E0B;">${report.stats.lateDays}</div>
-                            </div>
-                            <div style="padding: 15px; background: #FEF2F2; border-radius: 8px; border-left: 4px solid #EF4444;">
-                                <div style="color: #991B1B; font-size: 12px; margin-bottom: 5px;">Días Ausente</div>
-                                <div style="font-size: 28px; font-weight: 700; color: #EF4444;">${report.stats.absentDays}</div>
-                            </div>
-                            <div style="padding: 15px; background: #EFF6FF; border-radius: 8px; border-left: 4px solid #3B82F6;">
-                                <div style="color: #1E40AF; font-size: 12px; margin-bottom: 5px;">% Asistencia</div>
-                                <div style="font-size: 28px; font-weight: 700; color: #3B82F6;">${report.stats.attendanceRate}%</div>
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
-                            <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                                <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Retraso Promedio</div>
-                                <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.avgLateMinutes} minutos</div>
-                                <div style="color: #9CA3AF; font-size: 12px; margin-top: 5px;">Total: ${report.stats.totalLateMinutes} min</div>
-                            </div>
-                            <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                                <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Tiempo Extra Promedio</div>
-                                <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.avgOvertimeMinutes} minutos</div>
-                                <div style="color: #9CA3AF; font-size: 12px; margin-top: 5px;">Total: ${report.stats.totalOvertimeMinutes} min</div>
-                            </div>
-                            <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                                <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Verificaciones Biométricas</div>
-                                <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.verifiedDays}/${report.stats.totalDays}</div>
-                            </div>
-                            <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                                <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Huellas Registradas</div>
-                                <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.fingerprints}/10</div>
-                            </div>
-                        </div>
-
-                        ${report.records.length > 0 ? `
-                            <div>
-                                <h4 style="margin-bottom: 15px;">Historial de Asistencia (${report.records.length} registros)</h4>
-                                <div style="max-height: 350px; overflow-y: auto;">
-                                    <table style="width: 100%; font-size: 13px;">
-                                        <thead style="position: sticky; top: 0; background: white;">
-                                            <tr>
-                                                <th>Fecha</th>
-                                                <th>Entrada</th>
-                                                <th>Salida</th>
-                                                <th>Estado</th>
-                                                <th>Retraso</th>
-                                                <th>Verificado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${report.records.map(rec => `
-                                                <tr>
-                                                    <td>${new Date(rec.date).toLocaleDateString('es-ES')}</td>
-                                                    <td>${rec.check_in_time || '-'}</td>
-                                                    <td>${rec.check_out_time || '-'}</td>
-                                                    <td><span class="badge badge-${getStatusBadgeClass(rec.status)}">${getStatusLabel(rec.status)}</span></td>
-                                                    <td>${rec.minutes_late ? rec.minutes_late + ' min' : '-'}</td>
-                                                    <td style="text-align: center;">${rec.fingerprint_verified ? '✓' : '-'}</td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay registros en el período seleccionado</p>'}
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn" onclick="closeModal()" style="background: #6B7280; color: white;">Cerrar</button>
-                        <button class="btn btn-primary" onclick="printReport()">🖨️ Imprimir</button>
+        const bannerContentHTML = `
+            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+                <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700;">
+                    ${getInitials(report.employee.first_name, report.employee.last_name)}
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 24px;">${report.employee.first_name} ${report.employee.last_name}</h3>
+                    <div style="opacity: 0.95; font-size: 14px; margin-top: 5px;">
+                        ${report.employee.employee_code} • ${report.employee.department_name}
                     </div>
                 </div>
             </div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 15px; font-size: 14px; opacity: 0.95;">
+                Período: ${new Date(report.period.startDate).toLocaleDateString('es-ES')} - ${new Date(report.period.endDate).toLocaleDateString('es-ES')}
+            </div>
         `;
+
+        const bodyContentHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                <div style="padding: 15px; background: #F0FDF4; border-radius: 8px; border-left: 4px solid #10B981;">
+                    <div style="color: #065F46; font-size: 12px; margin-bottom: 5px;">Días Trabajados</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #10B981;">${report.stats.totalDays}</div>
+                </div>
+                <div style="padding: 15px; background: #FFFBEB; border-radius: 8px; border-left: 4px solid #F59E0B;">
+                    <div style="color: #92400E; font-size: 12px; margin-bottom: 5px;">Días Tarde</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #F59E0B;">${report.stats.lateDays}</div>
+                </div>
+                <div style="padding: 15px; background: #FEF2F2; border-radius: 8px; border-left: 4px solid #EF4444;">
+                    <div style="color: #991B1B; font-size: 12px; margin-bottom: 5px;">Días Ausente</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #EF4444;">${report.stats.absentDays}</div>
+                </div>
+                <div style="padding: 15px; background: #EFF6FF; border-radius: 8px; border-left: 4px solid #3B82F6;">
+                    <div style="color: #1E40AF; font-size: 12px; margin-bottom: 5px;">% Asistencia</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #3B82F6;">${report.stats.attendanceRate}%</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
+                    <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Retraso Promedio</div>
+                    <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.avgLateMinutes} minutos</div>
+                    <div style="color: #9CA3AF; font-size: 12px; margin-top: 5px;">Total: ${report.stats.totalLateMinutes} min</div>
+                </div>
+                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
+                    <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Tiempo Extra Promedio</div>
+                    <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.avgOvertimeMinutes} minutos</div>
+                    <div style="color: #9CA3AF; font-size: 12px; margin-top: 5px;">Total: ${report.stats.totalOvertimeMinutes} min</div>
+                </div>
+                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
+                    <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Verificaciones Biométricas</div>
+                    <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.verifiedDays}/${report.stats.totalDays}</div>
+                </div>
+                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
+                    <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Huellas Registradas</div>
+                    <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.fingerprints}/10</div>
+                </div>
+            </div>
+
+            ${report.records.length > 0 ? `
+                <div>
+                    <h4 style="margin-bottom: 15px;">Historial de Asistencia (${report.records.length} registros)</h4>
+                    <div style="max-height: 350px; overflow-y: auto;">
+                        <table style="width: 100%; font-size: 13px;">
+                            <thead style="position: sticky; top: 0; background: white;">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Entrada</th>
+                                    <th>Salida</th>
+                                    <th>Estado</th>
+                                    <th>Retraso</th>
+                                    <th>Verificado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${report.records.map(rec => `
+                                    <tr>
+                                        <td>${new Date(rec.date).toLocaleDateString('es-ES')}</td>
+                                        <td>${rec.check_in_time || '-'}</td>
+                                        <td>${rec.check_out_time || '-'}</td>
+                                        <td>${renderStatusBadge(rec.status)}</td>
+                                        <td>${rec.minutes_late ? rec.minutes_late + ' min' : '-'}</td>
+                                        <td style="text-align: center;">${rec.fingerprint_verified ? '✓' : '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay registros en el período seleccionado</p>'}
+        `;
+
+        const modalHTML = renderReportModalShell({
+            title: '👤 Reporte Individual de Empleado',
+            gradientBackground: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+            bannerContentHTML,
+            bodyContentHTML,
+            maxWidth: '900px'
+        });
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
         logger.error('Error generando reporte de empleado:', error);
@@ -4321,147 +4230,238 @@ function printReport() {
 }
 
 // ==================== SETTINGS SECTION ====================
+
+function handleBiometricPolicyChange(checked) {
+    const manualCheckbox = document.getElementById('setting-allow-manual');
+    const notice = document.getElementById('biometric-policy-notice');
+    if (manualCheckbox) {
+        if (checked) {
+            manualCheckbox.checked = false;
+            manualCheckbox.disabled = true;
+            if (notice) notice.style.display = 'block';
+        } else {
+            manualCheckbox.disabled = false;
+            if (notice) notice.style.display = 'none';
+        }
+    }
+}
+
+function handleNotificationMasterChange(checked) {
+    const lateAlerts = document.getElementById('setting-late-alerts');
+    const bioFailAlerts = document.getElementById('setting-biometric-fail-alerts');
+    const subContainer = document.getElementById('sub-alerts-container');
+    if (lateAlerts) lateAlerts.disabled = !checked;
+    if (bioFailAlerts) bioFailAlerts.disabled = !checked;
+    if (subContainer) subContainer.style.opacity = checked ? '1' : '0.5';
+}
+
 async function loadSettingsSection() {
     const container = document.querySelector('#settings-section .card-body');
     if (!container) return;
 
+    // Sincronizar con SQLite (system_config) si está disponible en window.config
+    try {
+        if (window.config && typeof window.config.get === 'function') {
+            const cfg = await window.config.get();
+            if (cfg && cfg.systemConfig && Object.keys(cfg.systemConfig).length > 0) {
+                const sc = cfg.systemConfig;
+                const current = loadSavedSettings();
+                const merged = {
+                    ...current,
+                    absentTime: sc.auto_mark_absent_time || current.absentTime,
+                    gracePeriodMinutes: sc.grace_period_minutes ? safeParseInt(sc.grace_period_minutes, 10) : current.gracePeriodMinutes,
+                    requireCheckout: sc.require_checkout !== undefined ? sc.require_checkout === '1' : current.requireCheckout,
+                    allowManual: sc.allow_manual_entry !== undefined ? sc.allow_manual_entry === '1' : current.allowManual,
+                    requireBiometric: sc.require_biometric !== undefined ? sc.require_biometric === '1' : current.requireBiometric,
+                    cooldownSeconds: sc.cooldown_seconds ? safeParseInt(sc.cooldown_seconds, 60) : current.cooldownSeconds,
+                    captureTimeoutSeconds: sc.capture_timeout_seconds ? safeParseInt(sc.capture_timeout_seconds, 20) : current.captureTimeoutSeconds,
+                    audioFeedback: sc.audio_feedback !== undefined ? sc.audio_feedback === '1' : current.audioFeedback,
+                    successDuration: sc.success_duration ? safeParseInt(sc.success_duration, 4) : current.successDuration,
+                    enableNotifications: sc.notification_enabled !== undefined ? sc.notification_enabled === '1' : current.enableNotifications,
+                    lateAlerts: sc.late_alerts !== undefined ? sc.late_alerts === '1' : current.lateAlerts,
+                    biometricFailAlerts: sc.biometric_fail_alerts !== undefined ? sc.biometric_fail_alerts === '1' : current.biometricFailAlerts,
+                    autoStartListening: sc.auto_start_listening !== undefined ? sc.auto_start_listening === '1' : current.autoStartListening
+                };
+                localStorage.setItem('attendance_settings', JSON.stringify(merged));
+            }
+        }
+    } catch (e) {
+        logger.warn('No se pudo sincronizar configuración desde SQLite:', e);
+    }
+
     // Cargar configuración guardada
     const settings = loadSavedSettings();
+    const isBioReq = !!settings.requireBiometric;
+    const isNotifOn = !!settings.enableNotifications;
 
     container.innerHTML = `
-        <div style="max-width: 700px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white; margin-bottom: 25px;">
-                <h3 style="margin: 0 0 10px;">⚙️ Configuración del Sistema</h3>
-                <p style="margin: 0; opacity: 0.9; font-size: 14px;">Configure las preferencias del sistema de asistencia</p>
+        <div style="max-width: 800px; margin: 0 auto;">
+            <div class="banner-gradient" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); margin-bottom: 24px;">
+                <h3 style="margin: 0 0 6px; font-size: 20px;">⚙️ Configuración del Sistema</h3>
+                <p style="margin: 0; opacity: 0.9; font-size: 14px;">Administre las directivas de control de asistencia, hardware biométrico y experiencia operativa.</p>
             </div>
 
+            <!-- Card 1: Asistencia y Políticas -->
             <div class="card" style="margin-bottom: 20px;">
                 <div class="card-header">
-                    <h4 style="margin: 0;">Configuración de Asistencia</h4>
+                    <h4 style="margin: 0;">📋 Políticas de Asistencia</h4>
                 </div>
                 <div class="card-body">
-                    <div class="form-group">
-                        <label><strong>Hora para marcar ausencias automáticas</strong></label>
-                        <input type="time" id="setting-absent-time" class="form-control" value="${settings.absentTime}">
-                        <small style="color: #6B7280;">Los empleados sin registro de entrada serán marcados como ausentes después de esta hora</small>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label><strong>Hora para ausencias automáticas</strong></label>
+                            <input type="time" id="setting-absent-time" class="form-control" value="${escapeHtml(settings.absentTime)}">
+                            <small style="color: #6B7280; font-size: 12px;">Hora a partir de la cual se computa falta para quienes no marcaron.</small>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label><strong>Tolerancia de retardo (minutos)</strong></label>
+                            <input type="number" id="setting-grace-period" class="form-control" min="0" max="60" value="${settings.gracePeriodMinutes}">
+                            <small style="color: #6B7280; font-size: 12px;">Margen de cortesía antes de registrar retardo (SQLite: grace_period_minutes).</small>
+                        </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 15px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                             <input type="checkbox" id="setting-require-checkout" ${settings.requireCheckout ? 'checked' : ''}>
-                            <span><strong>Requiere marcar salida</strong></span>
+                            <span><strong>Requiere registrar salida</strong></span>
                         </label>
-                        <small style="color: #6B7280; margin-left: 30px; display: block;">Los empleados deben registrar su salida al finalizar el día</small>
+                        <small style="color: #6B7280; margin-left: 28px; display: block;">Los empleados deben fichar tanto su entrada como su salida de jornada.</small>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 15px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <input type="checkbox" id="setting-allow-manual" ${settings.allowManual ? 'checked' : ''}>
-                            <span><strong>Permitir entrada manual de asistencia</strong></span>
+                            <input type="checkbox" id="setting-require-biometric" ${isBioReq ? 'checked' : ''}
+                                   onchange="handleBiometricPolicyChange(this.checked)">
+                            <span><strong>Verificación biométrica obligatoria (Política estricta)</strong></span>
                         </label>
-                        <small style="color: #6B7280; margin-left: 30px; display: block;">Permitir registro de asistencia sin verificación biométrica</small>
+                        <small style="color: #6B7280; margin-left: 28px; display: block;">Bloquea cualquier registro si la huella no coincide o el lector no está disponible.</small>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 10px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <input type="checkbox" id="setting-require-biometric" ${settings.requireBiometric ? 'checked' : ''}>
-                            <span><strong>Verificación biométrica obligatoria</strong></span>
+                            <input type="checkbox" id="setting-allow-manual" ${settings.allowManual && !isBioReq ? 'checked' : ''} ${isBioReq ? 'disabled' : ''}>
+                            <span><strong>Permitir marcación manual en pantalla</strong></span>
                         </label>
-                        <small style="color: #6B7280; margin-left: 30px; display: block;">Requiere verificación de huella para marcar asistencia</small>
+                        <small style="color: #6B7280; margin-left: 28px; display: block;">Permite a los empleados seleccionar su nombre desde la lista en pantalla.</small>
+                    </div>
+
+                    <div id="biometric-policy-notice" style="display: ${isBioReq ? 'block' : 'none'}; padding: 12px 14px; background: #EFF6FF; border-left: 4px solid #3B82F6; border-radius: 6px; font-size: 13px; color: #1E40AF; margin-top: 10px;">
+                        ℹ️ <strong>Candado de seguridad activo:</strong> La marcación manual se encuentra deshabilitada automáticamente porque la verificación biométrica es obligatoria.
                     </div>
                 </div>
             </div>
 
+            <!-- Card 2: Lector Biométrico DP4500 -->
             <div class="card" style="margin-bottom: 20px;">
                 <div class="card-header">
-                    <h4 style="margin: 0;">Lector de Huellas - Modo Automático</h4>
+                    <h4 style="margin: 0;">🎧 Lector de Huellas (DP4500) y Operación</h4>
                 </div>
                 <div class="card-body">
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 15px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                             <input type="checkbox" id="setting-auto-start-listening" ${settings.autoStartListening ? 'checked' : ''}>
-                            <span><strong>Iniciar modo de escucha continua automáticamente</strong></span>
+                            <span><strong>Iniciar escucha continua automáticamente al arrancar</strong></span>
                         </label>
-                        <small style="color: #6B7280; margin-left: 30px; display: block;">
-                            El lector estará activo y registrará asistencias automáticamente al detectar huellas
-                        </small>
+                        <small style="color: #6B7280; margin-left: 28px; display: block;">El lector DP4500 se activa de inmediato en segundo plano para identificar huellas.</small>
                     </div>
 
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label><strong>Tiempo de espera por captura (inactividad)</strong></label>
-                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                            <input type="number" id="setting-capture-timeout" class="form-control" style="width: 100px;" min="10" max="60" value="${settings.captureTimeoutSeconds || 20}">
-                            <span style="color: #4B5563;">segundos (predeterminado: 20s)</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label><strong>Tiempo de espera por captura</strong></label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="number" id="setting-capture-timeout" class="form-control" style="width: 100px;" min="10" max="60" value="${settings.captureTimeoutSeconds || 20}">
+                                <span style="color: #4B5563; font-size: 13px;">segundos</span>
+                            </div>
+                            <small style="color: #6B7280; font-size: 12px;">Espera máxima para apoyar el dedo antes de cancelar.</small>
                         </div>
-                        <small style="color: #6B7280; display: block; margin-top: 4px;">
-                            Tiempo máximo que el lector esperará a que el empleado coloque el dedo antes de cancelar por inactividad.
-                        </small>
+
+                        <div class="form-group">
+                            <label><strong>Tiempo anti-doble marcación (Cooldown)</strong></label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="number" id="setting-cooldown-seconds" class="form-control" style="width: 100px;" min="0" max="300" value="${settings.cooldownSeconds || 60}">
+                                <span style="color: #4B5563; font-size: 13px;">segundos</span>
+                            </div>
+                            <small style="color: #6B7280; font-size: 12px;">Margen de espera entre marcaciones consecutivas del mismo empleado.</small>
+                        </div>
                     </div>
 
-                    <div style="padding: 15px; background: #EFF6FF; border-radius: 8px; border-left: 4px solid #3B82F6; margin-top: 15px;">
-                        <div style="font-size: 13px; color: #1E40AF;">
-                            <strong>ℹ️ Información:</strong> El modo automático permite que los empleados marquen su asistencia
-                            simplemente colocando su dedo en el lector, sin necesidad de buscar su nombre en el sistema.
-                        </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="setting-audio-feedback" ${settings.audioFeedback ? 'checked' : ''}>
+                            <span><strong>Confirmación auditiva (Beep de asistencia)</strong></span>
+                        </label>
+                        <small style="color: #6B7280; margin-left: 28px; display: block;">Emite un tono acústico armónico al validar la huella o un tono grave de alerta si falla.</small>
                     </div>
                 </div>
             </div>
 
+            <!-- Card 3: Notificaciones y Pantalla -->
             <div class="card" style="margin-bottom: 20px;">
                 <div class="card-header">
-                    <h4 style="margin: 0;">Notificaciones y Alertas</h4>
+                    <h4 style="margin: 0;">🔔 Notificaciones y Pantalla</h4>
                 </div>
                 <div class="card-body">
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 15px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <input type="checkbox" id="setting-notifications" ${settings.enableNotifications ? 'checked' : ''}>
-                            <span><strong>Activar notificaciones del sistema</strong></span>
+                            <input type="checkbox" id="setting-notifications" ${isNotifOn ? 'checked' : ''}
+                                   onchange="handleNotificationMasterChange(this.checked)">
+                            <span><strong>Activar notificaciones del sistema (Maestro)</strong></span>
                         </label>
                     </div>
 
-                    <div class="form-group">
+                    <div id="sub-alerts-container" style="opacity: ${isNotifOn ? '1' : '0.5'}; transition: opacity 0.2s; margin-left: 28px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <input type="checkbox" id="setting-late-alerts" ${settings.lateAlerts ? 'checked' : ''}>
-                            <span><strong>Alertar cuando un empleado llega tarde</strong></span>
+                            <input type="checkbox" id="setting-late-alerts" ${settings.lateAlerts ? 'checked' : ''} ${!isNotifOn ? 'disabled' : ''}>
+                            <span>Alertar cuando un empleado llega tarde</span>
+                        </label>
+
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="setting-biometric-fail-alerts" ${settings.biometricFailAlerts ? 'checked' : ''} ${!isNotifOn ? 'disabled' : ''}>
+                            <span>Alertar cuando falla la verificación biométrica</span>
                         </label>
                     </div>
 
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <input type="checkbox" id="setting-biometric-fail-alerts" ${settings.biometricFailAlerts ? 'checked' : ''}>
-                            <span><strong>Alertar cuando falla la verificación biométrica</strong></span>
-                        </label>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label><strong>Duración de mensaje en pantalla</strong></label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="number" id="setting-success-duration" class="form-control" style="width: 100px;" min="2" max="10" value="${settings.successDuration || 4}">
+                            <span style="color: #4B5563; font-size: 13px;">segundos (predeterminado: 4s)</span>
+                        </div>
+                        <small style="color: #6B7280; font-size: 12px;">Tiempo de permanencia del banner de confirmación en pantalla.</small>
                     </div>
                 </div>
             </div>
 
+            <!-- Card 4: Información del Sistema -->
             <div class="card" style="margin-bottom: 20px;">
                 <div class="card-header">
-                    <h4 style="margin: 0;">Información del Sistema</h4>
+                    <h4 style="margin: 0;">ℹ️ Información del Sistema</h4>
                 </div>
                 <div class="card-body">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div style="padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <div style="color: #6B7280; font-size: 12px;">Versión del Sistema</div>
-                            <div style="font-size: 16px; font-weight: 600; color: #1F2937;">1.0.0</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
+                        <div class="metric-box">
+                            <div class="metric-box-title">Versión del Sistema</div>
+                            <div class="metric-box-value" style="font-size: 18px; color: #1F2937;">1.0.0</div>
                         </div>
-                        <div style="padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <div style="color: #6B7280; font-size: 12px;">Total Empleados Activos</div>
-                            <div style="font-size: 16px; font-weight: 600; color: #1F2937;">${employees.length}</div>
+                        <div class="metric-box">
+                            <div class="metric-box-title">Empleados Activos</div>
+                            <div class="metric-box-value" style="font-size: 18px; color: #1F2937;">${employees.length}</div>
                         </div>
-                        <div style="padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <div style="color: #6B7280; font-size: 12px;">Total Departamentos</div>
-                            <div style="font-size: 16px; font-weight: 600; color: #1F2937;">${departments.length}</div>
+                        <div class="metric-box">
+                            <div class="metric-box-title">Departamentos</div>
+                            <div class="metric-box-value" style="font-size: 18px; color: #1F2937;">${departments.length}</div>
                         </div>
-                        <div style="padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <div style="color: #6B7280; font-size: 12px;">Total Turnos</div>
-                            <div style="font-size: 16px; font-weight: 600; color: #1F2937;">${shifts.length}</div>
+                        <div class="metric-box">
+                            <div class="metric-box-title">Turnos Registrados</div>
+                            <div class="metric-box-value" style="font-size: 18px; color: #1F2937;">${shifts.length}</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="card" style="margin-bottom: 20px; border: 2px solid #FEE2E2;">
+            <!-- Card 5: Gestión de Datos (Zona de Peligro) -->
+            <div class="card" style="margin-bottom: 24px; border: 2px solid #FEE2E2;">
                 <div class="card-header" style="background: #FEE2E2;">
                     <h4 style="margin: 0; color: #991B1B;">🗑️ Gestión de Datos</h4>
                 </div>
@@ -4475,8 +4475,7 @@ async function loadSettingsSection() {
                     <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #E5E7EB;">
                         <h5 style="margin: 0 0 8px; color: #1F2937;">Resetear Base de Datos</h5>
                         <p style="margin: 0 0 15px; font-size: 14px; color: #6B7280;">
-                            Elimina todos los datos del sistema incluyendo empleados, departamentos, turnos,
-                            registros de asistencia y huellas dactilares. Esta acción es irreversible.
+                            Elimina los datos personalizados del sistema conservando la estructura base. Esta acción es irreversible.
                         </p>
                         <button class="btn" onclick="resetDatabase()"
                                 style="background: #DC2626; color: white; font-weight: 600;">
@@ -4486,8 +4485,8 @@ async function loadSettingsSection() {
                 </div>
             </div>
 
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button class="btn" onclick="resetSettings()" style="background: #EF4444; color: white;">
+            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-bottom: 30px;">
+                <button class="btn btn-cancel" onclick="resetSettings()">
                     Restaurar Valores Predeterminados
                 </button>
                 <button class="btn btn-primary" onclick="saveSettings()">
@@ -4501,14 +4500,18 @@ async function loadSettingsSection() {
 function loadSavedSettings() {
     const defaultSettings = {
         absentTime: '09:00',
+        gracePeriodMinutes: 10,
         requireCheckout: true,
         allowManual: true,
         requireBiometric: false,
+        cooldownSeconds: 60,
         captureTimeoutSeconds: 20,
+        audioFeedback: true,
+        successDuration: 4,
         enableNotifications: true,
         lateAlerts: true,
         biometricFailAlerts: false,
-        autoStartListening: true  // Modo automático habilitado por defecto
+        autoStartListening: true
     };
 
     try {
@@ -4523,12 +4526,19 @@ function loadSavedSettings() {
 async function saveSettings() {
     try {
         const oldSettings = loadSavedSettings();
+        const reqBio = safeParseBoolean(document.getElementById('setting-require-biometric')?.checked, false);
+        const allowMan = reqBio ? false : safeParseBoolean(document.getElementById('setting-allow-manual')?.checked, true);
+
         const newSettings = {
             absentTime: document.getElementById('setting-absent-time')?.value || '09:00',
+            gracePeriodMinutes: safeParseInt(document.getElementById('setting-grace-period')?.value, 10),
             requireCheckout: safeParseBoolean(document.getElementById('setting-require-checkout')?.checked, true),
-            allowManual: safeParseBoolean(document.getElementById('setting-allow-manual')?.checked, true),
-            requireBiometric: safeParseBoolean(document.getElementById('setting-require-biometric')?.checked, false),
+            allowManual: allowMan,
+            requireBiometric: reqBio,
+            cooldownSeconds: safeParseInt(document.getElementById('setting-cooldown-seconds')?.value, 60),
             captureTimeoutSeconds: safeParseInt(document.getElementById('setting-capture-timeout')?.value, 20),
+            audioFeedback: safeParseBoolean(document.getElementById('setting-audio-feedback')?.checked, true),
+            successDuration: safeParseInt(document.getElementById('setting-success-duration')?.value, 4),
             enableNotifications: safeParseBoolean(document.getElementById('setting-notifications')?.checked, true),
             lateAlerts: safeParseBoolean(document.getElementById('setting-late-alerts')?.checked, true),
             biometricFailAlerts: safeParseBoolean(document.getElementById('setting-biometric-fail-alerts')?.checked, false),
@@ -4537,12 +4547,34 @@ async function saveSettings() {
 
         localStorage.setItem('attendance_settings', JSON.stringify(newSettings));
 
+        // Sincronizar simultáneamente con la base de datos SQLite (system_config)
+        if (window.config && typeof window.config.get === 'function') {
+            try {
+                await window.config.get({
+                    auto_mark_absent_time: newSettings.absentTime,
+                    grace_period_minutes: String(newSettings.gracePeriodMinutes),
+                    require_checkout: newSettings.requireCheckout ? '1' : '0',
+                    allow_manual_entry: newSettings.allowManual ? '1' : '0',
+                    require_biometric: newSettings.requireBiometric ? '1' : '0',
+                    cooldown_seconds: String(newSettings.cooldownSeconds),
+                    capture_timeout_seconds: String(newSettings.captureTimeoutSeconds),
+                    audio_feedback: newSettings.audioFeedback ? '1' : '0',
+                    success_duration: String(newSettings.successDuration),
+                    notification_enabled: newSettings.enableNotifications ? '1' : '0',
+                    late_alerts: newSettings.lateAlerts ? '1' : '0',
+                    biometric_fail_alerts: newSettings.biometricFailAlerts ? '1' : '0',
+                    auto_start_listening: newSettings.autoStartListening ? '1' : '0'
+                });
+            } catch (e) {
+                logger.warn('Error sincronizando configuración a SQLite:', e);
+            }
+        }
+
         // Si cambió la configuración de auto-start, aplicar cambio inmediatamente
         if (oldSettings.autoStartListening !== newSettings.autoStartListening && window.touchMode) {
             const state = await window.touchMode.getLocalState();
 
             if (newSettings.autoStartListening && !state.isActive) {
-                // Iniciar modo automático
                 const result = await window.touchMode.start();
                 if (result.success) {
                     showNotification('Configuración guardada y modo automático iniciado', 'success');
@@ -4550,7 +4582,6 @@ async function saveSettings() {
                     showNotification(`Configuración guardada. ${result.message}`, 'warning');
                 }
             } else if (!newSettings.autoStartListening && state.isActive) {
-                // Detener modo automático
                 const result = await window.touchMode.stop();
                 if (result.success) {
                     showNotification('Configuración guardada y modo automático detenido', 'success');
@@ -4564,6 +4595,11 @@ async function saveSettings() {
             showNotification('Configuración guardada exitosamente', 'success');
         }
 
+        // Si la sección activa es check-in, recargar para reflejar cambios en allowManual
+        if (currentSection === 'check-in') {
+            loadCheckInSection();
+        }
+
         logger.info('Configuración guardada:', newSettings);
     } catch (error) {
         logger.error('Error guardando configuración:', error);
@@ -4571,11 +4607,35 @@ async function saveSettings() {
     }
 }
 
-function resetSettings() {
+async function resetSettings() {
     if (confirm('¿Está seguro de que desea restaurar los valores predeterminados? Esta acción no se puede deshacer.')) {
         localStorage.removeItem('attendance_settings');
+        if (window.config && typeof window.config.get === 'function') {
+            try {
+                await window.config.get({
+                    auto_mark_absent_time: '09:00',
+                    grace_period_minutes: '10',
+                    require_checkout: '1',
+                    allow_manual_entry: '1',
+                    require_biometric: '0',
+                    cooldown_seconds: '60',
+                    capture_timeout_seconds: '20',
+                    audio_feedback: '1',
+                    success_duration: '4',
+                    notification_enabled: '1',
+                    late_alerts: '1',
+                    biometric_fail_alerts: '0',
+                    auto_start_listening: '1'
+                });
+            } catch (e) {
+                logger.warn('Error restableciendo configuración en SQLite:', e);
+            }
+        }
         showNotification('Configuración restaurada a valores predeterminados', 'success');
         loadSettingsSection();
+        if (currentSection === 'check-in') {
+            loadCheckInSection();
+        }
     }
 }
 
@@ -4615,6 +4675,7 @@ async function resetDatabase() {
 
         if (result.success) {
             showNotification('✅ Base de datos reseteada completamente', 'success');
+            localStorage.removeItem('attendance_settings');
 
             // Recargar todos los datos iniciales
             await loadInitialData();
@@ -5071,9 +5132,10 @@ function loadRecordsSection() {
  * Reproducir sonido de notificación
  */
 function playNotificationSound(type) {
+    const settings = loadSavedSettings();
+    if (!settings.audioFeedback) return;
+
     try {
-        const audio = new Audio();
-        // Frecuencia y duración según el tipo
         const context = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = context.createOscillator();
         const gainNode = context.createGain();
@@ -5082,16 +5144,18 @@ function playNotificationSound(type) {
         gainNode.connect(context.destination);
 
         if (type === 'check-in' || type === 'check-out') {
-            // Sonido de éxito
-            oscillator.frequency.value = 800;
-            gainNode.gain.setValueAtTime(0.3, context.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.2);
+            // Sonido de éxito armónico
+            oscillator.frequency.setValueAtTime(587.33, context.currentTime);
+            oscillator.frequency.setValueAtTime(880, context.currentTime + 0.08);
+            gainNode.gain.setValueAtTime(0.2, context.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.25);
             oscillator.start(context.currentTime);
-            oscillator.stop(context.currentTime + 0.2);
+            oscillator.stop(context.currentTime + 0.25);
         } else if (type === 'error' || type === 'not-identified') {
-            // Sonido de error
-            oscillator.frequency.value = 200;
-            gainNode.gain.setValueAtTime(0.3, context.currentTime);
+            // Sonido de advertencia/error
+            oscillator.frequency.setValueAtTime(220, context.currentTime);
+            oscillator.frequency.setValueAtTime(196, context.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.2, context.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.3);
             oscillator.start(context.currentTime);
             oscillator.stop(context.currentTime + 0.3);
@@ -5181,13 +5245,15 @@ function showNotification(message, type = 'info') {
         }
     `;
     document.head.appendChild(style);
-
     document.body.appendChild(notification);
+
+    const settings = loadSavedSettings();
+    const duration = Math.max(2, safeParseInt(settings.successDuration, 4)) * 1000;
 
     setTimeout(() => {
         notification.style.animation = 'slideIn 0.3s ease-out reverse';
         setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    }, duration);
 }
 
 // ==================== UTILIDADES ====================
@@ -5261,4 +5327,6 @@ Object.assign(window, {
     submitJustifyAbsence,
     filterCheckInEmployees,
     renderCheckInCards,
+    handleBiometricPolicyChange,
+    handleNotificationMasterChange,
 });
