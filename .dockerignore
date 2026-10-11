@@ -16,9 +16,11 @@ build
 .env.local
 .env.*.local
 
-# IDE
+# IDE & AI local data
 .vscode
 .idea
+.claude
+vault-*/
 *.swp
 *.swo
 *~
@@ -28,8 +30,9 @@ build
 Thumbs.db
 desktop.ini
 
-# Git
+# Git & CI
 .git
+.github
 .gitignore
 .gitattributes
 
@@ -38,14 +41,17 @@ doc
 docs
 *.md
 
-# Database (se montará como volumen)
-sistema-asistencia/database/*.db
-sistema-asistencia/database/*.db-shm
-sistema-asistencia/database/*.db-wal
+# Database (runtime, se montará como volumen — nunca empaquetar en imagen)
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.db-journal
+**/*.sqlite
+**/*.sqlite3
 
 # Logs
 logs
-*.log
+**/*.log
 
 # Test
 coverage
@@ -55,6 +61,7 @@ coverage
 tmp
 temp
 nul
+_nul
 
 # Bridge binaries (Windows específicos)
 bridge-csharp/bin
@@ -62,4 +69,4 @@ bridge-csharp/obj
 bridge-csharp/packages
 *.dll
 *.exe
-*.pdb
+**/*.pdb

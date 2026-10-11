@@ -1,4 +1,4 @@
-name: CI - Build, Test & Parity Verification
+name: CI/CD - Security Gate, Build, Test & Parity
 
 on:
   push:
@@ -12,12 +12,59 @@ on:
       - master
   workflow_dispatch:
 
+# Principio de mínimo privilegio para GITHUB_TOKEN
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  security-and-hygiene:
+    name: Security & Repository Hygiene Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Code Safely
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify Zero Forbidden Files Tracked (DBs, Logs, Env, Debug Symbols)
+        shell: bash
+        run: |
+          echo "Verificando que no existan bases de datos, logs, símbolos .pdb o archivos privados versionados..."
+          FORBIDDEN=$(git ls-files | grep -E '\.(db|db-shm|db-wal|db-journal|sqlite|sqlite3|log|pdb|env)$|^(\.claude|vault-)' || true)
+          if [ -n "$FORBIDDEN" ]; then
+            echo "::error::Se detectaron archivos prohibidos en el índice de Git:"
+            echo "$FORBIDDEN"
+            exit 1
+          fi
+          echo "✅ Higiene de archivos verificada (0 archivos prohibidos)."
+
+      - name: Scan for Secret Patterns & Local Machine Paths
+        shell: bash
+        run: |
+          echo "Escaneando patrones de credenciales y rutas locales..."
+          LEAKS=$(git grep -I -E '(ghp_[a-zA-Z0-9]{20,}|github_pat_[a-zA-Z0-9_]{20,}|BEGIN [A-Z ]*PRIVATE KEY|C:\\\\Users\\\\|C:/Users/)' -- ':!.github/workflows/ci.yml' || true)
+          if [ -n "$LEAKS" ]; then
+            echo "::error::Se detectaron posibles secretos o rutas locales hardcodeadas:"
+            echo "$LEAKS"
+            exit 1
+          fi
+          echo "✅ Escaneo de secretos y rutas locales limpio."
+
   build-and-test:
-    name: Build & Verify (Node ${{ matrix.node-version }})
+    name: Build, Test & GM Parity (Node ${{ matrix.node-version }})
+    needs: security-and-hygiene
     runs-on: windows-latest
+    timeout-minutes: 15
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [20.x, 24.x]
 
@@ -27,6 +74,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -34,14 +82,19 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: Install Root Dependencies
-        run: npm install
+      - name: Install Root Dependencies (Clean Lockfile)
+        run: npm ci
 
-      - name: Build Application
+      - name: Install & Build Biometric Engine HTTP Server
+        run: |
+          npm --prefix biometric-engine/node install
+          npm --prefix biometric-engine/node run build
+
+      - name: Build Electron & Attendance System
         run: npm run build
 
-      - name: Run Tests
+      - name: Run Unit, Integration & WAF Security Tests
         run: npm test
 
-      - name: Verify Golden Master Contracts
+      - name: Verify Golden Master Contracts (GM1 - GM5)
         run: node refactor/scripts/gm-verify.mjs

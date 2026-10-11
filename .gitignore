@@ -2,10 +2,11 @@
 # ElectronJS + .NET 8 - DigitalPersona Project
 # ============================================
 
-# Claude Code session data
+# Claude Code & Vault local data (nunca versionar)
 .claude/
+vault-*/
 
-# Lab de observabilidad (lab-http-host.mjs): compila C# → DLL temporal
+# Lab de observabilidad: DLL temporal
 lab-bridge.dll
 
 # Python cache
@@ -23,7 +24,7 @@ yarn-error.log*
 
 # Electron
 dist/
-*.log
+**/*.log
 *.pid
 *.seed
 *.pid.lock
@@ -41,13 +42,13 @@ obj/
 *.exe.config
 
 # Visual Studio / VS Code
-.vscode/settings.json
+.vscode/
 .vs/
 *.sln.docstates
 *.userprefs
 
 # Native Libraries (keep in libs/ for distribution)
-# But ignore temporary copies
+# But ignore temporary copies and debug symbols
 **/*.dll.tmp
 **/*.pdb
 
@@ -67,10 +68,12 @@ nul
 _nul
 
 # Base de datos local (runtime, nunca versionar)
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+**/*.sqlite
+**/*.sqlite3
 
 # Artefactos TS compilados junto a su fuente (la fuente real JS vive solo en renderer/)
 sistema-asistencia/models/*.js
