@@ -13,20 +13,20 @@
         }
 
         :root {
-            --primary: #3B82F6;
-            --primary-dark: #2563EB;
-            --success: #10B981;
-            --warning: #F59E0B;
-            --danger: #EF4444;
-            --info: #06B6D4;
-            --dark: #1F2937;
-            --light: #F9FAFB;
-            --border: #E5E7EB;
+            --primary: #1E3A8A;
+            --primary-dark: #1E293B;
+            --success: #059669;
+            --warning: #D97706;
+            --danger: #DC2626;
+            --info: #475569;
+            --dark: #0F172A;
+            --light: #F8FAFC;
+            --border: #E2E8F0;
         }
 
         body {
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #F1F5F9;
             min-height: 100vh;
             height: 100vh;
             padding: 0;
@@ -56,8 +56,9 @@
 
         .sidebar-header {
             padding: 20px 18px;
-            background: var(--primary);
-            color: white;
+            background: #0F172A;
+            color: #F8FAFC;
+            border-bottom: 1px solid #1E293B;
             display: flex;
             flex-direction: column;
             gap: 4px;
@@ -235,7 +236,7 @@
             padding: clamp(14px, 2vw, 24px);
             overflow-y: auto;
             overflow-x: hidden;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%);
+            background: #F1F5F9;
             display: flex;
             flex-direction: column;
             min-width: 0;
@@ -301,8 +302,8 @@
             background: white;
             border-radius: 12px;
             padding: 18px 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
-            border: 1px solid rgba(229, 231, 235, 0.7);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+            border: 1px solid #E2E8F0;
             display: flex;
             align-items: center;
             gap: 16px;
@@ -312,7 +313,7 @@
 
         .stat-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
         }
 
         .stat-icon {
@@ -330,6 +331,7 @@
         .stat-icon.success { background: #ECFDF5; color: var(--success); }
         .stat-icon.warning { background: #FFFBEB; color: var(--warning); }
         .stat-icon.danger { background: #FEF2F2; color: var(--danger); }
+        .stat-icon.info { background: #F1F5F9; color: #334155; }
 
         .stat-info h3 {
             font-size: 26px;
@@ -822,7 +824,10 @@
         .banner-gradient {
             padding: 20px;
             border-radius: 12px;
-            color: white;
+            background: #F8FAFC;
+            border: 1px solid #CBD5E1;
+            border-left: 4px solid #334155;
+            color: #0F172A;
             margin-bottom: 25px;
         }
 

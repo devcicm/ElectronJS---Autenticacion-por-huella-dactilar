@@ -2,16 +2,24 @@
 
 Integración limpia de ElectronJS con el engine biométrico Edge-URU-UI para captura, enrolamiento y verificación de huellas dactilares utilizando el lector DP4500.
 
-## Características
+## Características del Sistema (MVP Producción)
 
-- Integración completa del engine biométrico Edge-URU-UI
-- Interfaz de usuario moderna con controles reutilizables
-- Inicio automático del servidor biométrico
-- Captura simple de huellas
-- Enrolamiento con 4 muestras
-- Verificación 1:1 e Identificación 1:N
-- Gestión de plantillas biométricas
-- Logs en tiempo real
+- **Captura e Identificación Continua (Touch Mode)** con FSM de hardware para DigitalPersona DP4500.
+- **Precisión en Milisegundos**: Marcas de entrada y salida registradas en formato `HH:MM:SS.mmm` con validación temporal exacta, cálculos de retraso y prevención de doble fichaje (cooldown).
+- **Seguridad Robusta de Base de Datos y Kiosco**:
+  - Exclusión estricta de archivos `.db`, `.sqlite`, `.bak`, `.dump` en Git.
+  - Copias de seguridad automáticas diarias fuera del repositorio (`app.getPath('userData')/backups`) con rotación de 7 días.
+  - Protección de operaciones sensibles (exportar respaldo, restaurar BD, reset total) mediante **PIN de Administrador** (hasheado con SHA-256 + pepper).
+  - Bloqueo en **Modo Kiosco** que restringe la navegación para terminales desatendidas.
+  - Protección de privacidad biométrica: Las plantillas FMD (`template_data`) y los hashes del PIN nunca se transmiten al proceso renderizador.
+- **Planificador de Corte Automático de Inasistencias**:
+  - Detección en segundo plano según hora configurable y días laborables (`work_days`).
+  - Ejecución idempotente con registro de corte diario.
+- **Reportería Analítica y Exportación a Excel (.csv)**:
+  - Reporte Diario, Semanal, Mensual y por Empleado con exportación directa en formato `.csv` compatible con Excel.
+  - Paleta de color neutral y accesible, evitando contrastes saturados y eliminando valores `undefined`.
+- **Enrolamiento Multi-Muestra**: Enrolamiento guiado de 4 muestras con validación de calidad.
+- **Diagnóstico y Control del Dispositivo**: Modal en vivo con telemetría de firmware, versión de controladores USB y estados de conexión Plug & Play.
 
 ## Requisitos Previos
 
@@ -102,72 +110,40 @@ npm run dev
 
 Abre la aplicación con DevTools activado.
 
-## Guía de Uso de la Interfaz
+## Guía de Operación y Uso del Sistema
 
-### 1. Inicializar el Lector
+### 1. Marcaje Continuo de Asistencia (Touch Mode)
+El sistema opera en modo continuo sin requerir interacción manual de pantalla:
+1. Navega a la vista **"Marcar Asistencia"**.
+2. Verifica que el lector figure en estado **"🟢 Activo (Escuchando)"** o **"Listo para marcar"**.
+3. El colaborador coloca su dedo sobre el lector DigitalPersona U.are.U 4500.
+4. El sistema ejecuta la identificación 1:N contra la memoria RAM en menos de 1 segundo:
+   - **Registro de Entrada / Salida**: Registra la marca temporal con precisión de milisegundos (`HH:MM:SS.mmm`).
+   - **Prevención de Doble Marcaje**: Cooldown de seguridad de 60 segundos entre marcas para evitar rebotes o toques accidentales.
+   - **Retroalimentación**: Sonido de confirmación, foto del empleado y badge de estado (*A tiempo*, *Retardo* o *Salida*).
 
-**IMPORTANTE**: Antes de cualquier operación biométrica, debes inicializar el lector:
+### 2. Gestión de Empleados y Enrolamiento Biométrico
+1. Ingresa a la sección **"Empleados"**.
+2. Para dar de alta un nuevo empleado, presiona **"Nuevo Empleado"** y completa los datos (Nombre, Apellido, Código, Departamento, Turno y Foto opcional).
+3. En la tabla de empleados, presiona el botón biométrico 🖐️ para registrar sus huellas.
+4. Selecciona el dedo a enrolar (ej. Índice Derecho) y sigue el asistente interactivo:
+   - Coloca y levanta el dedo 4 veces consecutivas para completar las 4 muestras.
+   - La plantilla se genera en formato compatible FMD, se valida su calidad y se almacena cifrada en la base de datos SQLite.
 
-1. En la sección "Control del Lector"
-2. Presiona "Encender Lector"
-3. Espera el mensaje: "✅ Lector DP4500 listo"
+### 3. Reportes de Asistencia y Exportación a Excel
+1. Accede a **"Reportes"**.
+2. Selecciona la pestaña deseada:
+   - **Reporte Diario**: Muestra las entradas, salidas y estatus de la jornada actual.
+   - **Reporte Semanal / Mensual**: Estadísticas consolidadas de puntualidad, faltas y tiempo laborado.
+   - **Por Empleado**: Historial individual detallado.
+3. Presiona **"Exportar a Excel"** para descargar de inmediato un archivo `.csv` compatible con Excel con codificación UTF-8 BOM para caracteres en español.
 
-### 2. Captura Simple
+### 4. Seguridad, Respaldos y Modo Kiosco
+1. Ingresa a **"Configuración"**.
+2. **PIN de Administrador**: Si está configurado, las operaciones críticas (Exportar copia, Restaurar BD, Restablecer Sistema) solicitarán el PIN de 4 a 8 dígitos protegido por SHA-256.
+3. **Modo Kiosco**: Al activarse, bloquea la navegación y el teclado en terminales desatendidas para que los usuarios solo puedan marcar asistencia.
+4. **Respaldos de Base de Datos**: Las copias de seguridad automáticas se guardan de forma aislada en el directorio local de la aplicación fuera del repositorio Git.
 
-Para capturar una huella sin enrolarla:
-
-1. Sección "Captura Simple"
-2. Presiona "Capturar"
-3. Coloca el dedo en el lector
-4. La imagen de la huella aparecerá en pantalla
-
-### 3. Enrolamiento
-
-Para registrar un nuevo usuario:
-
-1. Sección "Enrolamiento"
-2. Ingresa un ID de usuario (ej: "Juan_Perez")
-3. Presiona "Iniciar Enrolamiento"
-4. Coloca el mismo dedo 4 veces cuando se solicite
-5. El sistema mostrará el progreso: 1/4 → 2/4 → 3/4 → 4/4
-6. Mensaje final: "✅ Enrolamiento completado"
-
-### 4. Verificación 1:1
-
-Para verificar si una huella pertenece a un usuario específico:
-
-1. Sección "Verificación"
-2. Selecciona un usuario de la lista
-3. Presiona "Verificar Usuario Seleccionado"
-4. Coloca el dedo en el lector
-5. Resultado: ✅ VERIFICADO o ❌ NO COINCIDE
-
-### 5. Identificación 1:N
-
-Para identificar a qué usuario pertenece una huella:
-
-1. Sección "Verificación" → Tab "Identificación 1:N"
-2. Presiona "Identificar 1:N"
-3. Coloca el dedo en el lector
-4. El sistema busca en toda la galería
-5. Resultado: Usuario identificado con score de coincidencia
-
-### 6. Gestión de Plantillas
-
-Para ver todas las huellas almacenadas:
-
-1. Sección "Plantillas"
-2. Presiona "Refrescar"
-3. Se muestran todas las plantillas con:
-   - Tag (ID del usuario)
-   - Formato
-   - Tamaño
-   - Fecha de creación
-
-**Limpiar todas las plantillas**:
-- Presiona "Limpiar Todo"
-- Confirma la acción
-- Todas las huellas serán eliminadas
 
 ## Arquitectura Técnica
 

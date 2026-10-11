@@ -12,7 +12,7 @@ import {
     DailyAttendanceSummary,
     AttendanceStatus
 } from '../types/index.js';
-import { getLocalDateString, getLocalTimeString, timeToMinutes } from '../shared/date-utils.js';
+import { getLocalDateString, getLocalTimeString, getLocalTimeWithMsString, timeToMinutes, timeToMilliseconds } from '../shared/date-utils.js';
 import { safeParseInt, safeParseBoolean } from '../shared/object-utils.js';
 
 export class AttendanceModel {
@@ -155,16 +155,16 @@ export class AttendanceModel {
     }
 
     /**
-     * Marcar entrada (check-in)
+     * Marcar entrada (check-in) con precisión de milisegundos (HH:MM:SS.mmm)
      */
     checkIn(employeeId: number, fingerprintVerified: boolean = false): AttendanceRecord {
         const now = new Date();
         const date = getLocalDateString(now);
-        const time = getLocalTimeString(now);
+        const time = getLocalTimeWithMsString(now);
 
         // Verificar si ya existe registro para hoy
         const existing = this.getByEmployeeAndDate(employeeId, date);
-        if (existing) {
+        if (existing && existing.check_in_time) {
             throw new Error('Ya existe un registro de asistencia para hoy');
         }
 
@@ -190,6 +190,21 @@ export class AttendanceModel {
             status = 'late';
         }
 
+        // Si existía un registro de falta sin hora de entrada (p.ej. corte automático previo), actualizarlo
+        if (existing && !existing.check_in_time) {
+            this.db.execute(
+                `UPDATE attendance_records
+                 SET check_in_time = ?, status = ?, minutes_late = ?, fingerprint_verified = ?
+                 WHERE id = ?`,
+                [time, status, minutesLate, fingerprintVerified ? 1 : 0, existing.id]
+            );
+            const updated = this.getById(existing.id);
+            if (!updated) {
+                throw new Error('Error actualizando registro de entrada');
+            }
+            return updated;
+        }
+
         return this.create({
             employee_id: employeeId,
             date,
@@ -201,21 +216,28 @@ export class AttendanceModel {
     }
 
     /**
-     * Marcar salida (check-out)
+     * Marcar salida (check-out) con precisión de milisegundos (HH:MM:SS.mmm)
      */
     checkOut(employeeId: number): AttendanceRecord {
         const now = new Date();
         const date = getLocalDateString(now);
-        const time = getLocalTimeString(now);
+        const time = getLocalTimeWithMsString(now);
 
         // Buscar registro del día
         const record = this.getByEmployeeAndDate(employeeId, date);
-        if (!record) {
+        if (!record || !record.check_in_time) {
             throw new Error('No hay registro de entrada para hoy');
         }
 
         if (record.check_out_time) {
             throw new Error('Ya se registró la salida');
+        }
+
+        // Garantizar coherencia cronológica en milisegundos (check_out >= check_in)
+        const checkInMs = timeToMilliseconds(record.check_in_time);
+        const checkOutMs = timeToMilliseconds(time);
+        if (checkOutMs < checkInMs) {
+            throw new Error('La hora de salida no puede ser anterior a la hora de entrada registrada');
         }
 
         // Obtener hora de fin del turno

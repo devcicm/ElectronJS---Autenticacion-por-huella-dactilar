@@ -67,13 +67,26 @@ $RECYCLE.BIN/
 nul
 _nul
 
-# Base de datos local (runtime, nunca versionar)
+# Base de datos local y respaldos (runtime y datos sensibles, NUNCA versionar)
 **/*.db
 **/*.db-journal
 **/*.db-wal
 **/*.db-shm
+**/*.db-bak
 **/*.sqlite
 **/*.sqlite3
+**/*.sqlite-wal
+**/*.sqlite-shm
+**/*.bak
+**/*.dump
+**/*.sql.bak
+**/backups/
+**/db-backups/
+sistema-asistencia/database/*.db*
+sistema-asistencia/database/*.sqlite*
+sistema-asistencia/database/backups/
+electron-fingerprint-traces/
+trace-*.json
 
 # Artefactos TS compilados junto a su fuente (la fuente real JS vive solo en renderer/)
 sistema-asistencia/models/*.js

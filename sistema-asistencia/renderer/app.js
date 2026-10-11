@@ -72,6 +72,13 @@ let autoAttendanceState = {
     employeeCount: 0
 };
 
+// Estado de Seguridad y Modo Kiosco
+let systemSecurityState = {
+    hasAdminPin: false,
+    isUnlocked: false,
+    kioskLockEnabled: false
+};
+
 // ==================== INICIALIZACIÓN ====================
 // B.2: wrap defensivo contra cuelgues en IPC/servicios externos — la UI no se queda
 // en "Inicializando..." si un servicio tarda demasiado.
@@ -138,6 +145,11 @@ function setupNavigation() {
             T('nav-click', 'handler invoked', { section: item.dataset.section, idx: i });
             try {
                 const section = item.dataset.section;
+                if (isKioskNavigationBlocked(section)) {
+                    showNotification('🔒 Modo Kiosco activo: Desbloquee con el PIN de Administrador para acceder a esta sección.', 'warning');
+                    const unlocked = await promptAdminPinModal('Desbloquear Modo Kiosco');
+                    if (!unlocked) return;
+                }
                 navItems.forEach(nav => nav.classList.remove('active'));
                 item.classList.add('active');
                 T('nav-click', 'active class added', { section });
@@ -152,9 +164,23 @@ function setupNavigation() {
     });
 
     T('setup-nav', 'end', { attached: navItems.length });
+    updateKioskTopbarUI();
+}
+
+function isKioskNavigationBlocked(targetSection) {
+    if (!systemSecurityState.hasAdminPin) return false;
+    if (!systemSecurityState.kioskLockEnabled) return false;
+    if (systemSecurityState.isUnlocked) return false;
+    // En modo kiosco solo se permite marcar asistencia y dashboard
+    return targetSection !== 'check-in' && targetSection !== 'dashboard';
 }
 
 async function showSection(sectionName) {
+    if (isKioskNavigationBlocked(sectionName)) {
+        showNotification('🔒 Modo Kiosco activo: Desbloquee con el PIN de Administrador para acceder.', 'warning');
+        const unlocked = await promptAdminPinModal('Desbloquear Modo Kiosco');
+        if (!unlocked) return;
+    }
     T('show-section', 'start', { section: sectionName, currentBefore: typeof currentSection !== 'undefined' ? currentSection : null });
     try {
         if (initialDataLoadPromise && !isInitialDataLoaded) {
@@ -251,14 +277,22 @@ function updateClock() {
 // ==================== CARGA DE DATOS ====================
 async function loadInitialData() {
     try {
-        // Cargar datos generales
-        [employees, departments, shifts] = await Promise.all([
+        // Cargar datos generales y registros del día en paralelo
+        const [empList, deptList, shiftList, recordsToday] = await Promise.all([
             window.attendance.getEmployees({ status: 'active' }),
             window.attendance.getDepartments(),
-            window.attendance.getShifts()
+            window.attendance.getShifts(),
+            window.attendance.getTodayRecords ? window.attendance.getTodayRecords() : Promise.resolve(todayRecords)
         ]);
 
-        logger.info(`✅ Datos cargados: ${employees.length} empleados, ${departments.length} departamentos, ${shifts.length} turnos`);
+        employees = empList || [];
+        departments = deptList || [];
+        shifts = shiftList || [];
+        if (Array.isArray(recordsToday)) {
+            todayRecords = recordsToday;
+        }
+
+        logger.info(`✅ Datos cargados: ${employees.length} empleados activos, ${departments.length} departamentos, ${shifts.length} turnos`);
     } catch (error) {
         logger.error('❌ Error cargando datos iniciales:', error);
         showNotification('Error al cargar datos iniciales', 'error');
@@ -342,10 +376,24 @@ function renderStatusBadge(status) {
 }
 
 // ==================== CHECK-IN SECTION ====================
-// ==================== CHECK-IN SECTION ====================
 async function loadCheckInSection() {
     const employeesList = document.getElementById('employees-list');
     if (!employeesList) return;
+
+    // Hidratar inmediatamente el estado del panel biométrico al abrir la sección
+    updateTouchModeUI();
+
+    // Sincronizar registros de hoy para reflejar entradas/salidas en cada tarjeta
+    try {
+        if (window.attendance && typeof window.attendance.getTodayRecords === 'function') {
+            const freshRecords = await window.attendance.getTodayRecords();
+            if (Array.isArray(freshRecords)) {
+                todayRecords = freshRecords;
+            }
+        }
+    } catch (e) {
+        logger.warn('[CheckIn] No se pudieron refrescar los registros del día:', e);
+    }
 
     const settings = loadSavedSettings();
     if (!settings.allowManual) {
@@ -362,7 +410,10 @@ async function loadCheckInSection() {
         return;
     }
 
-    if (employees.length === 0) {
+    // Filtrar exclusivamente empleados activos (evita contaminación desde loadEmployeesSection)
+    const activeEmployees = (employees || []).filter(emp => !emp.status || emp.status === 'active');
+
+    if (activeEmployees.length === 0) {
         employeesList.innerHTML = '<p style="text-align:center; padding: 2rem; color: #666;">No hay empleados activos</p>';
         return;
     }
@@ -374,22 +425,36 @@ async function loadCheckInSection() {
                    onkeyup="filterCheckInEmployees(this.value)">
         </div>
         <div id="checkin-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
-            ${renderCheckInCards(employees)}
+            ${renderCheckInCards(activeEmployees)}
         </div>
     `;
 }
 
 function renderCheckInCards(empList) {
-    return (empList || []).map(emp => {
+    const activeList = (empList || []).filter(emp => !emp.status || emp.status === 'active');
+    return activeList.map(emp => {
         const avatar = emp.photo_url
-            ? `<img src="${escapeHtml(emp.photo_url)}" alt="Foto" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #3B82F6; flex-shrink: 0;">`
-            : `<div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: 600; flex-shrink: 0;">
+            ? `<img src="${escapeHtml(emp.photo_url)}" alt="Foto" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #94A3B8; flex-shrink: 0;">`
+            : `<div style="width: 60px; height: 60px; border-radius: 50%; background: #334155; border: 2px solid #CBD5E1; display: flex; align-items: center; justify-content: center; color: #F8FAFC; font-size: 22px; font-weight: 600; flex-shrink: 0;">
                    ${escapeHtml(getInitials(emp.first_name, emp.last_name))}
                </div>`;
 
+        const todayRec = (todayRecords || []).find(r => r.employee_id === emp.id);
+        let attendanceBadgeHTML = `<span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #F3F4F6; color: #6B7280; border: 1px solid #E5E7EB;">⚪ Sin registro hoy</span>`;
+        if (todayRec && todayRec.check_in_time && todayRec.check_out_time) {
+            attendanceBadgeHTML = `<span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #DBEAFE; color: #1E40AF; border: 1px solid #BFDBFE;">✅ Jornada completa (${escapeHtml(formatTime(todayRec.check_in_time))} - ${escapeHtml(formatTime(todayRec.check_out_time))})</span>`;
+        } else if (todayRec && todayRec.check_in_time) {
+            attendanceBadgeHTML = `<span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #DCFCE7; color: #166534; border: 1px solid #86EFAC;">🟢 Entrada: ${escapeHtml(formatTime(todayRec.check_in_time))}</span>`;
+        }
+
+        const fpCount = emp.fingerprints_count || 0;
+        const fpBadgeHTML = fpCount > 0
+            ? `<span style="padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: #F1F5F9; color: #334155; border: 1px solid #CBD5E1;">👆 ${fpCount} huella${fpCount > 1 ? 's' : ''}</span>`
+            : `<span style="padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;">⚠️ Sin huella</span>`;
+
         return `
             <div style="border: 2px solid #E5E7EB; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s; background: white;"
-                 onmouseover="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.15)'"
+                 onmouseover="this.style.borderColor='#475569'; this.style.boxShadow='0 4px 12px rgba(15,23,42,0.08)'"
                  onmouseout="this.style.borderColor='#E5E7EB'; this.style.boxShadow='none'"
                  onclick="selectEmployeeForCheckIn(${emp.id})">
                 <div style="display: flex; align-items: center; gap: 15px;">
@@ -404,6 +469,10 @@ function renderCheckInCards(empList) {
                         <div style="font-size: 12px; color: #9CA3AF; margin-top: 2px; white-space: nowrap;">
                             ${escapeHtml(emp.shift_name)}
                         </div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+                            ${attendanceBadgeHTML}
+                            ${fpBadgeHTML}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -415,9 +484,10 @@ function filterCheckInEmployees(term) {
     const container = document.getElementById('checkin-cards-container');
     if (!container) return;
     const cleanTerm = (term || '').trim().toLowerCase();
+    const activeEmployees = (employees || []).filter(emp => !emp.status || emp.status === 'active');
     const filtered = cleanTerm === ''
-        ? employees
-        : employees.filter(e => {
+        ? activeEmployees
+        : activeEmployees.filter(e => {
             const first = (e.first_name || '').toLowerCase();
             const last = (e.last_name || '').toLowerCase();
             const code = (e.employee_code || '').toLowerCase();
@@ -442,6 +512,11 @@ async function selectEmployeeForCheckIn(employeeId) {
         return;
     }
 
+    if (employee.status && employee.status !== 'active') {
+        showNotification(`El empleado ${employee.first_name} ${employee.last_name} no se encuentra activo`, 'warning');
+        return;
+    }
+
     // Verificar qué acciones puede realizar
     const [canCheckInResult, canCheckOutResult] = await Promise.all([
         window.attendance.canCheckIn(employeeId),
@@ -449,8 +524,8 @@ async function selectEmployeeForCheckIn(employeeId) {
     ]);
 
     const modalAvatar = employee.photo_url
-        ? `<img src="${escapeHtml(employee.photo_url)}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #3B82F6; margin: 0 auto 15px; display: block; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">`
-        : `<div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: 600; margin: 0 auto 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+        ? `<img src="${escapeHtml(employee.photo_url)}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #94A3B8; margin: 0 auto 15px; display: block; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">`
+        : `<div style="width: 100px; height: 100px; border-radius: 50%; background: #334155; border: 3px solid #CBD5E1; display: flex; align-items: center; justify-content: center; color: #F8FAFC; font-size: 38px; font-weight: 600; margin: 0 auto 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
                ${getInitials(employee.first_name, employee.last_name)}
            </div>`;
 
@@ -462,12 +537,14 @@ async function selectEmployeeForCheckIn(employeeId) {
                     <button class="close-btn" onclick="closeModal()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div style="text-align: center; margin-bottom: 25px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
                         ${modalAvatar}
                         <h3 style="margin: 0 0 5px; color: #1F2937;">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
                         <p style="color: #6B7280; margin: 0; font-weight: 600;">Nómina: ${escapeHtml(employee.employee_code)}</p>
                         <p style="color: #6B7280; margin: 5px 0 0; font-size: 13px;">${escapeHtml(employee.department_name)} &bull; ${escapeHtml(employee.shift_name)}</p>
                     </div>
+
+                    <div id="checkin-modal-biometric-feedback" style="display: none; margin-bottom: 14px; padding: 12px 14px; border-radius: 8px; text-align: center; font-size: 13px; font-weight: 600;"></div>
 
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         ${canCheckInResult.can ? `
@@ -536,23 +613,46 @@ async function performCheckIn() {
 
     const actionBtns = document.querySelectorAll('.modal.active button');
     actionBtns.forEach(btn => btn.disabled = true);
+    const feedbackEl = document.getElementById('checkin-modal-biometric-feedback');
 
     try {
-        // Intentar identificación biométrica
-        const biometricAvailable = await window.biometric.isServerAvailable();
+        // Intentar identificación biométrica si el servicio no fue detenido manualmente
+        const biometricAvailable = touchModeState.stopReason === 'SERVICE_STOPPED_MANUALLY'
+            ? false
+            : await window.biometric.isServerAvailable();
 
         let fingerprintVerified = false;
 
         if (biometricAvailable) {
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.style.background = '#EFF6FF';
+                feedbackEl.style.border = '1px solid #93C5FD';
+                feedbackEl.style.color = '#1D4ED8';
+                feedbackEl.innerHTML = '👆 Coloque su dedo en el lector biométrico para verificar identidad...';
+            }
             showNotification('Coloque el dedo en el lector...', 'info');
 
             const verifyResult = await window.biometric.verifyFingerprint(selectedEmployeeId);
 
             if (verifyResult.verified) {
                 fingerprintVerified = true;
+                if (feedbackEl) {
+                    feedbackEl.style.background = '#ECFDF5';
+                    feedbackEl.style.border = '1px solid #6EE7B7';
+                    feedbackEl.style.color = '#065F46';
+                    feedbackEl.innerHTML = '✓ Huella verificada correctamente';
+                }
                 showNotification('Huella verificada ✓', 'success');
             } else {
-                showNotification('Advertencia: Huella no verificada', 'warning');
+                const reasonMsg = verifyResult.message || 'Huella no verificada';
+                if (feedbackEl) {
+                    feedbackEl.style.background = '#FEF2F2';
+                    feedbackEl.style.border = '1px solid #FCA5A5';
+                    feedbackEl.style.color = '#991B1B';
+                    feedbackEl.innerHTML = `⚠️ ${escapeHtml(reasonMsg)}`;
+                }
+                showNotification(`Advertencia: ${reasonMsg}`, 'warning');
             }
         }
 
@@ -572,10 +672,13 @@ async function performCheckIn() {
             playNotificationSound('check-in');
             showNotification(result.message, 'success');
             closeModal();
+            await loadInitialData();
             if (currentSection === 'dashboard') {
                 loadDashboard();
             } else if (currentSection === 'check-in') {
                 loadCheckInSection();
+            } else if (currentSection === 'attendance' || currentSection === 'records') {
+                loadAttendanceSection();
             }
         } else {
             playNotificationSound('error');
@@ -611,10 +714,13 @@ async function performCheckOut() {
             playNotificationSound('check-out');
             showNotification(result.message, 'success');
             closeModal();
+            await loadInitialData();
             if (currentSection === 'dashboard') {
                 loadDashboard();
             } else if (currentSection === 'check-in') {
                 loadCheckInSection();
+            } else if (currentSection === 'attendance' || currentSection === 'records') {
+                loadAttendanceSection();
             }
         } else {
             playNotificationSound('error');
@@ -657,7 +763,7 @@ function createModalShell({ title, bodyHTML, footerHTML = '', maxWidth = '700px'
 }
 
 function openModalShell(options) {
-    const modalHTML = createModalShell(options);
+    const modalHTML = typeof options === 'string' ? options : createModalShell(options || {});
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
@@ -700,7 +806,7 @@ function renderShiftForm(shift = null) {
     const startVal = shift ? shift.start_time : '';
     const endVal = shift ? shift.end_time : '';
     const tolVal = shift ? shift.tolerance_minutes : 10;
-    const colorVal = shift ? (shift.color || '#3B82F6') : '#3B82F6';
+    const colorVal = shift ? (shift.color || '#334155') : '#334155';
 
     return `
         <form id="${formId}" onsubmit="event.preventDefault(); ${submitAction};">
@@ -749,10 +855,10 @@ function renderEmployeeForm(employee = null) {
                             <span id="${prefix}photo-placeholder" style="font-size: 26px; ${hasPhoto ? 'display: none;' : ''}">👤</span>
                         </div>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button type="button" class="btn" style="background: #2563EB; color: white; padding: 6px 12px; font-size: 12px;" onclick="openCameraModal('${prefix}photo-data', '${prefix}photo-preview', '${prefix}photo-placeholder', '${prefix}photo-clear-btn')">
+                            <button type="button" class="btn" style="background: #1E293B; color: white; padding: 6px 12px; font-size: 12px;" onclick="openCameraModal('${prefix}photo-data', '${prefix}photo-preview', '${prefix}photo-placeholder', '${prefix}photo-clear-btn')">
                                 📷 Tomar Foto
                             </button>
-                            <label class="btn" style="background: #4B5563; color: white; padding: 6px 12px; font-size: 12px; cursor: pointer; margin: 0; display: inline-flex; align-items: center;">
+                            <label class="btn" style="background: #475569; color: white; padding: 6px 12px; font-size: 12px; cursor: pointer; margin: 0; display: inline-flex; align-items: center;">
                                 📁 Subir Archivo
                                 <input type="file" accept="image/*" style="display: none;" onchange="handlePhotoFileUpload(event, '${prefix}photo-data', '${prefix}photo-preview', '${prefix}photo-placeholder', '${prefix}photo-clear-btn')">
                             </label>
@@ -828,17 +934,21 @@ function renderEmployeeForm(employee = null) {
     `;
 }
 
-function renderReportModalShell({ title, gradientBackground, bannerContentHTML, bodyContentHTML, maxWidth = '900px' }) {
+function renderReportModalShell({ title, accentColor = '#334155', bannerContentHTML, bodyContentHTML, maxWidth = '900px', onExcel = null }) {
+    const excelBtnHTML = onExcel ? `
+        <button class="btn btn-success" onclick="${onExcel}" style="background: #10B981; color: white;" title="Exportar reporte a Microsoft Excel (.csv)">📊 Exportar Excel (.csv)</button>
+    ` : '';
     return createModalShell({
         title,
         maxWidth,
         bodyHTML: `
-            <div class="banner-gradient" style="background: ${gradientBackground};">
+            <div class="banner-gradient" style="background: #F8FAFC; color: #0F172A; border: 1px solid #CBD5E1; border-left: 4px solid ${accentColor}; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
                 ${bannerContentHTML}
             </div>
             ${bodyContentHTML}
         `,
         footerHTML: `
+            ${excelBtnHTML}
             <button class="btn btn-cancel" onclick="closeModal()">Cerrar</button>
             <button class="btn btn-primary" onclick="printReport()">🖨️ Imprimir</button>
         `
@@ -1506,32 +1616,32 @@ async function showEmployeeDetails(employeeId) {
                 <div class="modal-body">
                     <div style="text-align: center; margin-bottom: 30px;">
                         ${employee.photo_url 
-                            ? `<img src="${escapeHtml(employee.photo_url)}" alt="Foto de ${escapeHtml(employee.first_name)}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px; display: block; border: 3px solid #3B82F6; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">`
-                            : `<div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; font-weight: 600; margin: 0 auto 15px;">
+                            ? `<img src="${escapeHtml(employee.photo_url)}" alt="Foto de ${escapeHtml(employee.first_name)}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px; display: block; border: 3px solid #94A3B8; box-shadow: 0 4px 6px rgba(0,0,0,0.08);">`
+                            : `<div style="width: 100px; height: 100px; border-radius: 50%; background: #334155; border: 3px solid #CBD5E1; display: flex; align-items: center; justify-content: center; color: #F8FAFC; font-size: 40px; font-weight: 600; margin: 0 auto 15px;">
                                 ${getInitials(employee.first_name, employee.last_name)}
                                </div>`
                         }
-                        <h3 style="margin: 0;">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
-                        <p style="color: #6B7280; margin-top: 4px;">Nómina / Matrícula: <strong>${escapeHtml(employee.employee_code)}</strong> (ID: #${employee.id})</p>
+                        <h3 style="margin: 0; color: #0F172A;">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
+                        <p style="color: #64748B; margin-top: 4px;">Nómina / Matrícula: <strong>${escapeHtml(employee.employee_code)}</strong> (ID: #${employee.id})</p>
                     </div>
 
                     <div style="display: grid; gap: 15px;">
-                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Email:</strong> <span>${escapeHtml(employee.email)}</span>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                            <strong>Email:</strong> <span>${escapeHtml(employee.email || 'N/A')}</span>
                         </div>
-                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
                             <strong>Teléfono:</strong> <span>${escapeHtml(employee.phone) || 'N/A'}</span>
                         </div>
-                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Departamento:</strong> <span>${escapeHtml(employee.department_name)}</span>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                            <strong>Departamento:</strong> <span>${escapeHtml(employee.department_name || 'Sin departamento')}</span>
                         </div>
-                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Turno:</strong> <span>${escapeHtml(employee.shift_name)}</span>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                            <strong>Turno:</strong> <span>${escapeHtml(employee.shift_name || 'Sin turno')}</span>
                         </div>
-                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
-                            <strong>Puesto:</strong> <span>${escapeHtml(employee.position)}</span>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                            <strong>Puesto:</strong> <span>${escapeHtml(employee.position || 'Colaborador')}</span>
                         </div>
-                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F9FAFB; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
                             <strong>Huellas:</strong> <span>${fingerprints.length}/10 registradas</span>
                         </div>
                     </div>
@@ -1631,9 +1741,21 @@ async function deleteFingerprint(fingerprintId, employeeId) {
         if (result) {
             showNotification('Huella eliminada exitosamente', 'success');
 
-            // Recargar el modal de detalles del empleado
+            await loadInitialData();
+            if (currentSection === 'employees') {
+                await loadEmployeesSection();
+            } else if (currentSection === 'check-in') {
+                await loadCheckInSection();
+            }
+
+            if (window.touchMode && typeof window.touchMode.getLocalState === 'function') {
+                const latestState = await window.touchMode.getLocalState();
+                hydrateBiometricUI(latestState);
+            }
+
+            // Recargar el modal de detalles del empleado con contadores actualizados
             closeModal();
-            setTimeout(() => showEmployeeDetails(employeeId), 300);
+            setTimeout(() => showEmployeeDetails(employeeId), 250);
         } else {
             showNotification('Error al eliminar la huella', 'error');
         }
@@ -1885,6 +2007,12 @@ async function enrollSingleFingerprint(employeeId) {
                 logger.error('[Renderer] Error actualizando enrollment_mode:', err);
             }
 
+            await loadInitialData();
+            if (window.touchMode && typeof window.touchMode.getLocalState === 'function') {
+                const latestState = await window.touchMode.getLocalState();
+                hydrateBiometricUI(latestState);
+            }
+
             setTimeout(() => {
                 enroller.disconnect();
                 closeModal();
@@ -1937,7 +2065,7 @@ async function enrollAllFingerprints(employeeId) {
 
     for (let i = 0; i < fingers.length; i++) {
         // Verificar si el modal fue cerrado o el proceso cancelado
-        if (!document.getElementById('enroll-status') || !window.FingerprintEnroller?.isEnrolling) {
+        if (!document.getElementById('enroll-status') || (!window.FingerprintEnroller?.isEnrolling && i > 0)) {
             logger.info('Proceso de enrolamiento cancelado por cierre del modal.');
             return;
         }
@@ -2016,7 +2144,7 @@ async function enrollAllFingerprints(employeeId) {
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        if (!document.getElementById('enroll-status') || !window.FingerprintEnroller?.isEnrolling) {
+        if (!document.getElementById('enroll-status')) {
             return;
         }
     }
@@ -2058,6 +2186,12 @@ async function enrollAllFingerprints(employeeId) {
         } catch (err) {
             logger.error('[Renderer] Error actualizando enrollment_mode:', err);
         }
+    }
+
+    await loadInitialData();
+    if (window.touchMode && typeof window.touchMode.getLocalState === 'function') {
+        const latestState = await window.touchMode.getLocalState();
+        hydrateBiometricUI(latestState);
     }
 
     setTimeout(() => {
@@ -2559,6 +2693,85 @@ const SPANISH_MONTHS_NAMES = [
 ];
 
 /**
+ * Utilidad pura: Obtiene la fecha local YYYY-MM-DD sin desfase UTC
+ */
+function getLocalDateStrClient(dateObj = new Date()) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+/**
+ * Utilidad pura: Obtiene el mes local YYYY-MM sin desfase UTC
+ */
+function getLocalMonthStrClient(dateObj = new Date()) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+}
+
+/**
+ * Utilidad pura: Parsea una cadena YYYY-MM-DD en zona horaria local
+ */
+function parseLocalDateClient(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return new Date();
+    const clean = dateStr.trim().split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d)) {
+            return new Date(y, m - 1, d, 12, 0, 0);
+        }
+    }
+    return new Date(dateStr);
+}
+
+/**
+ * Utilidad pura: Formatea una fecha YYYY-MM-DD en español sin restar 1 día por UTC
+ */
+function formatReportDateEs(dateStr, options = undefined) {
+    if (!dateStr) return '-';
+    return parseLocalDateClient(dateStr).toLocaleDateString('es-ES', options);
+}
+
+/**
+ * Sintetiza faltas en días operativos del sistema donde otros colaboradores registraron actividad
+ * pero el empleado consultado no registró asistencia ni justificación.
+ */
+function enrichEmployeeRecordsWithOperatingAbsencesClient(allRecords, empRecords, employee) {
+    const baseRecords = Array.isArray(empRecords) ? [...empRecords] : [];
+    if (!Array.isArray(allRecords) || allRecords.length === 0 || !employee) {
+        return baseRecords;
+    }
+
+    const empDates = new Set(baseRecords.map(r => r.date).filter(Boolean));
+    const operatingDates = new Set(allRecords.map(r => r.date).filter(Boolean));
+    const hireDate = (employee.hire_date || '').trim();
+
+    for (const opDate of operatingDates) {
+        if (empDates.has(opDate)) continue;
+        if (hireDate && opDate < hireDate) continue;
+        baseRecords.push({
+            id: 0,
+            employee_id: employee.id,
+            date: opDate,
+            check_in_time: null,
+            check_out_time: null,
+            status: 'absent',
+            minutes_late: 0,
+            minutes_overtime: 0,
+            notes: 'Sin marcación registrada en jornada operativa',
+            fingerprint_verified: 0
+        });
+    }
+
+    return baseRecords.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+}
+
+/**
  * Utilidad pura: Rango de semana de lunes a domingo para una fecha YYYY-MM-DD
  */
 function getWeekRangeClient(dateStr) {
@@ -2701,8 +2914,11 @@ async function loadReportsSection() {
         } catch (_) {}
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const todayStr = getLocalDateStrClient();
+    const currentMonth = getLocalMonthStrClient();
+    const defaultEmpCode = (employees && employees.length > 0 && employees[0].employee_code)
+        ? employees[0].employee_code
+        : 'EMP-001';
 
     const employeeOptions = (employees || [])
         .map(e => `<option value="${escapeHtml(e.employee_code)}">${escapeHtml(e.employee_code)} - ${escapeHtml(e.first_name)} ${escapeHtml(e.last_name)}</option>`)
@@ -2710,21 +2926,21 @@ async function loadReportsSection() {
 
     container.innerHTML = `
         <!-- CENTRO ANALÍTICO: EXPLORADOR DE FALTAS & Q&A DE DOMINIO -->
-        <div style="background: white; border: 2px solid #E5E7EB; border-radius: 14px; padding: 24px; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid #F3F4F6; padding-bottom: 15px;">
+        <div style="background: white; border: 1px solid #CBD5E1; border-radius: 14px; padding: 24px; margin-bottom: 30px; box-shadow: 0 2px 6px rgba(15,23,42,0.04);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid #E2E8F0; padding-bottom: 15px;">
                 <div>
-                    <h3 style="margin: 0; color: #1F2937; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+                    <h3 style="margin: 0; color: #0F172A; font-size: 20px; display: flex; align-items: center; gap: 10px;">
                         <span>🧠</span> Explorador Inteligente & Historial de Faltas
                     </h3>
-                    <p style="margin: 4px 0 0; color: #6B7280; font-size: 13px;">
+                    <p style="margin: 4px 0 0; color: #64748B; font-size: 13px;">
                         Ingresa una nómina para calcular la suma de faltas por mes y días por semana, o haz preguntas en lenguaje natural sobre el personal.
                     </p>
                 </div>
-                <div style="display: flex; background: #F3F4F6; padding: 4px; border-radius: 10px; gap: 4px;">
-                    <button id="tab-btn-absences" class="btn" style="padding: 8px 18px; font-size: 13px; background: #3B82F6; color: white; border-radius: 8px; font-weight: 600;" onclick="switchReportsSubTab('absences')">
+                <div style="display: flex; background: #F1F5F9; padding: 4px; border-radius: 10px; gap: 4px; border: 1px solid #E2E8F0;">
+                    <button id="tab-btn-absences" class="btn" style="padding: 8px 18px; font-size: 13px; background: #1E293B; color: #F8FAFC; border-radius: 8px; font-weight: 600;" onclick="switchReportsSubTab('absences')">
                         📅 Historial de Faltas
                     </button>
-                    <button id="tab-btn-qa" class="btn" style="padding: 8px 18px; font-size: 13px; background: transparent; color: #4B5563; border-radius: 8px; font-weight: 600;" onclick="switchReportsSubTab('qa')">
+                    <button id="tab-btn-qa" class="btn" style="padding: 8px 18px; font-size: 13px; background: transparent; color: #475569; border-radius: 8px; font-weight: 600;" onclick="switchReportsSubTab('qa')">
                         💬 Preguntas al Personal (NLP)
                     </button>
                 </div>
@@ -2734,13 +2950,13 @@ async function loadReportsSection() {
             <div id="subtab-content-absences">
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 20px; align-items: end;">
                     <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">
-                            Nómina / Matrícula del Empleado:
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                            Nómina / Matrícula o Nombre del Empleado:
                         </label>
-                        <input type="text" id="absence-employee-input" class="form-control" placeholder="Ej: EMP-001 o 001..." onkeydown="if(event.key === 'Enter') onSearchEmployeeAbsences()">
+                        <input type="text" id="absence-employee-input" class="form-control" placeholder="Ej: ${escapeHtml(defaultEmpCode)}..." onkeydown="if(event.key === 'Enter') onSearchEmployeeAbsences()">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px;">
                             O Selecciona un Colaborador:
                         </label>
                         <select id="absence-employee-select" class="form-control" onchange="if(this.value) { document.getElementById('absence-employee-input').value = this.value; onSearchEmployeeAbsences(); }">
@@ -2749,13 +2965,13 @@ async function loadReportsSection() {
                         </select>
                     </div>
                     <div>
-                        <button class="btn btn-danger" style="width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;" onclick="onSearchEmployeeAbsences()">
+                        <button class="btn" style="width: 100%; height: 42px; background: #1E293B; color: #F8FAFC; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;" onclick="onSearchEmployeeAbsences()">
                             <span>🔍</span> Consultar Historial de Faltas
                         </button>
                     </div>
                 </div>
                 <div id="absence-history-results-area">
-                    <div style="text-align: center; padding: 35px 20px; background: #F9FAFB; border-radius: 12px; border: 2px dashed #E5E7EB; color: #6B7280; font-size: 14px;">
+                    <div style="text-align: center; padding: 35px 20px; background: #F8FAFC; border-radius: 12px; border: 2px dashed #CBD5E1; color: #64748B; font-size: 14px;">
                         <span style="font-size: 28px; display: block; margin-bottom: 8px;">📊</span>
                         Ingresa una nómina o selecciona un empleado para calcular la <strong>suma de faltas de cada mes</strong> y el <strong>desglose de días específicos por semana</strong>.
                     </div>
@@ -2765,39 +2981,39 @@ async function loadReportsSection() {
             <!-- SUB-TAB 2: PREGUNTAS Y RESPUESTAS (NLP) -->
             <div id="subtab-content-qa" style="display: none;">
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px;">
                         Formula una pregunta sobre el dominio de asistencia (empleado, faltas, tiempo, retardos):
                     </label>
                     <div style="display: flex; gap: 10px;">
-                        <input type="text" id="qa-query-input" class="form-control" placeholder="Ej: ¿Qué días faltó el empleado EMP-001 en la semana? o ¿Quién tiene más faltas este mes?" onkeydown="if(event.key === 'Enter') onExecuteDomainQuestion()">
-                        <button class="btn btn-primary" style="white-space: nowrap; padding: 0 24px; font-weight: 600; display: flex; align-items: center; gap: 6px;" onclick="onExecuteDomainQuestion()">
+                        <input type="text" id="qa-query-input" class="form-control" placeholder="Ej: ¿Qué días faltó el empleado ${escapeHtml(defaultEmpCode)} en la semana? o ¿Quién tiene más faltas?" onkeydown="if(event.key === 'Enter') onExecuteDomainQuestion()">
+                        <button class="btn" style="background: #1E293B; color: #F8FAFC; white-space: nowrap; padding: 0 24px; font-weight: 600; display: flex; align-items: center; gap: 6px;" onclick="onExecuteDomainQuestion()">
                             <span>✨</span> Preguntar
                         </button>
                     </div>
                 </div>
                 <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; align-items: center;">
-                    <span style="font-size: 12px; color: #6B7280; font-weight: 600;">Consultas rápidas:</span>
-                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Qué días faltó el empleado EMP-001 en la semana?')">
-                        📅 ¿Qué días faltó EMP-001 en la semana?
+                    <span style="font-size: 12px; color: #64748B; font-weight: 600;">Consultas rápidas:</span>
+                    <button class="btn" style="background: #F1F5F9; color: #1E293B; border: 1px solid #CBD5E1; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Qué días faltó el empleado ${escapeHtml(defaultEmpCode)} en la semana?')">
+                        📅 ¿Qué días faltó ${escapeHtml(defaultEmpCode)} en la semana?
                     </button>
-                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('Historial de faltas de EMP-001')">
-                        📊 Historial de faltas de EMP-001
+                    <button class="btn" style="background: #F1F5F9; color: #1E293B; border: 1px solid #CBD5E1; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('Historial de faltas de ${escapeHtml(defaultEmpCode)}')">
+                        📊 Historial de faltas de ${escapeHtml(defaultEmpCode)}
                     </button>
-                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Quién tiene más faltas en el personal?')">
+                    <button class="btn" style="background: #F1F5F9; color: #1E293B; border: 1px solid #CBD5E1; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Quién tiene más faltas en el personal?')">
                         🔴 ¿Quién tiene más faltas?
                     </button>
-                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Cuánto tiempo trabajó el empleado EMP-001?')">
-                        ⏱️ ¿Cuánto tiempo trabajó EMP-001?
+                    <button class="btn" style="background: #F1F5F9; color: #1E293B; border: 1px solid #CBD5E1; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('¿Cuánto tiempo trabajó el empleado ${escapeHtml(defaultEmpCode)}?')">
+                        ⏱️ ¿Cuánto tiempo trabajó ${escapeHtml(defaultEmpCode)}?
                     </button>
-                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('retardos y minutos tarde de EMP-001')">
-                        ⏰ Retardos de EMP-001
+                    <button class="btn" style="background: #F1F5F9; color: #1E293B; border: 1px solid #CBD5E1; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('retardos y minutos tarde de ${escapeHtml(defaultEmpCode)}')">
+                        ⏰ Retardos de ${escapeHtml(defaultEmpCode)}
                     </button>
-                    <button class="btn" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('resumen general de personal faltas y tiempo')">
+                    <button class="btn" style="background: #F1F5F9; color: #1E293B; border: 1px solid #CBD5E1; font-size: 12px; padding: 5px 12px; border-radius: 20px;" onclick="onQuickDomainQuestion('resumen general de personal faltas y tiempo')">
                         📈 Resumen global: personal, faltas y tiempo
                     </button>
                 </div>
                 <div id="qa-query-results-area">
-                    <div style="text-align: center; padding: 35px 20px; background: #F9FAFB; border-radius: 12px; border: 2px dashed #E5E7EB; color: #6B7280; font-size: 14px;">
+                    <div style="text-align: center; padding: 35px 20px; background: #F8FAFC; border-radius: 12px; border: 2px dashed #CBD5E1; color: #64748B; font-size: 14px;">
                         <span style="font-size: 28px; display: block; margin-bottom: 8px;">💬</span>
                         Escribe tu pregunta o presiona una sugerencia para explorar los datos mediante palabras clave contextuales (<em>empleado, falta, tiempo, retardo, mes, semana</em>).
                     </div>
@@ -2805,52 +3021,52 @@ async function loadReportsSection() {
             </div>
         </div>
 
-        <h4 style="color: #4B5563; margin: 0 0 15px; font-size: 15px; font-weight: 600;">Reportes Tradicionales del Sistema:</h4>
+        <h4 style="color: #334155; margin: 0 0 15px; font-size: 15px; font-weight: 600;">Reportes Tradicionales del Sistema:</h4>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
             <!-- Reporte Diario -->
-            <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(15,23,42,0.04);">
                 <div>
-                    <div style="font-size: 36px; margin-bottom: 10px;">📊</div>
-                    <h3 style="margin: 0 0 8px; color: #1F2937;">Reporte Diario</h3>
-                    <p style="color: #6B7280; font-size: 13px; margin: 0 0 15px;">Resumen de asistencia del día</p>
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Fecha:</label>
+                    <div style="font-size: 32px; margin-bottom: 10px;">📊</div>
+                    <h3 style="margin: 0 0 8px; color: #0F172A;">Reporte Diario</h3>
+                    <p style="color: #64748B; font-size: 13px; margin: 0 0 15px;">Resumen de asistencia del día</p>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Fecha:</label>
                     <input type="date" id="daily-report-date" class="form-control" value="${todayStr}" style="margin-bottom: 15px;">
                 </div>
-                <button class="btn btn-primary" onclick="generateDailyReport(document.getElementById('daily-report-date').value)">Generar Reporte Diario</button>
+                <button class="btn" style="background: #1E293B; color: #F8FAFC; font-weight: 600;" onclick="generateDailyReport(document.getElementById('daily-report-date').value)">Generar Reporte Diario</button>
             </div>
 
             <!-- Reporte Semanal -->
-            <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(15,23,42,0.04);">
                 <div>
-                    <div style="font-size: 36px; margin-bottom: 10px;">📅</div>
-                    <h3 style="margin: 0 0 8px; color: #1F2937;">Reporte Semanal</h3>
-                    <p style="color: #6B7280; font-size: 13px; margin: 0 0 15px;">Asistencia de 7 días hasta la fecha de fin</p>
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Fecha Fin:</label>
+                    <div style="font-size: 32px; margin-bottom: 10px;">📅</div>
+                    <h3 style="margin: 0 0 8px; color: #0F172A;">Reporte Semanal</h3>
+                    <p style="color: #64748B; font-size: 13px; margin: 0 0 15px;">Asistencia de 7 días hasta la fecha de fin</p>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Fecha Fin:</label>
                     <input type="date" id="weekly-report-date" class="form-control" value="${todayStr}" style="margin-bottom: 15px;">
                 </div>
-                <button class="btn btn-primary" style="background: #8B5CF6;" onclick="generateWeeklyReport(document.getElementById('weekly-report-date').value)">Generar Reporte Semanal</button>
+                <button class="btn" style="background: #334155; color: #F8FAFC; font-weight: 600;" onclick="generateWeeklyReport(document.getElementById('weekly-report-date').value)">Generar Reporte Semanal</button>
             </div>
 
             <!-- Reporte Mensual -->
-            <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(15,23,42,0.04);">
                 <div>
-                    <div style="font-size: 36px; margin-bottom: 10px;">📈</div>
-                    <h3 style="margin: 0 0 8px; color: #1F2937;">Reporte Mensual</h3>
-                    <p style="color: #6B7280; font-size: 13px; margin: 0 0 15px;">Estadísticas del mes</p>
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin-bottom: 4px;">Mes y Año:</label>
+                    <div style="font-size: 32px; margin-bottom: 10px;">📈</div>
+                    <h3 style="margin: 0 0 8px; color: #0F172A;">Reporte Mensual</h3>
+                    <p style="color: #64748B; font-size: 13px; margin: 0 0 15px;">Estadísticas del mes</p>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Mes y Año:</label>
                     <input type="month" id="monthly-report-month" class="form-control" value="${currentMonth}" style="margin-bottom: 15px;">
                 </div>
-                <button class="btn btn-primary" style="background: #0EA5E9;" onclick="onGenerateMonthlyReportClick()">Generar Reporte Mensual</button>
+                <button class="btn" style="background: #1E3A8A; color: #F8FAFC; font-weight: 600;" onclick="onGenerateMonthlyReportClick()">Generar Reporte Mensual</button>
             </div>
 
             <!-- Reporte Individual por Empleado -->
-            <div style="background: white; border: 2px solid #E5E7EB; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(15,23,42,0.04);">
                 <div>
-                    <div style="font-size: 36px; margin-bottom: 10px;">👤</div>
-                    <h3 style="margin: 0 0 8px; color: #1F2937;">Por Empleado</h3>
-                    <p style="color: #6B7280; font-size: 13px; margin: 0 0 15px;">Historial de un empleado con rango opcional</p>
+                    <div style="font-size: 32px; margin-bottom: 10px;">👤</div>
+                    <h3 style="margin: 0 0 8px; color: #0F172A;">Por Empleado</h3>
+                    <p style="color: #64748B; font-size: 13px; margin: 0 0 15px;">Historial completo o por rango de fechas</p>
                 </div>
-                <button class="btn btn-primary" style="background: #EC4899;" onclick="generateEmployeeReport()">Seleccionar Empleado y Fechas</button>
+                <button class="btn" style="background: #0F172A; color: #F8FAFC; font-weight: 600;" onclick="generateEmployeeReport()">Seleccionar Empleado y Fechas</button>
             </div>
         </div>
     `;
@@ -2866,13 +3082,13 @@ function switchReportsSubTab(subTab) {
     const contentQA = document.getElementById('subtab-content-qa');
 
     if (subTab === 'absences') {
-        if (tabAbsences) { tabAbsences.style.background = '#3B82F6'; tabAbsences.style.color = 'white'; }
-        if (tabQA) { tabQA.style.background = 'transparent'; tabQA.style.color = '#4B5563'; }
+        if (tabAbsences) { tabAbsences.style.background = '#1E293B'; tabAbsences.style.color = '#F8FAFC'; }
+        if (tabQA) { tabQA.style.background = 'transparent'; tabQA.style.color = '#475569'; }
         if (contentAbsences) contentAbsences.style.display = 'block';
         if (contentQA) contentQA.style.display = 'none';
     } else {
-        if (tabQA) { tabQA.style.background = '#3B82F6'; tabQA.style.color = 'white'; }
-        if (tabAbsences) { tabAbsences.style.background = 'transparent'; tabAbsences.style.color = '#4B5563'; }
+        if (tabQA) { tabQA.style.background = '#1E293B'; tabQA.style.color = '#F8FAFC'; }
+        if (tabAbsences) { tabAbsences.style.background = 'transparent'; tabAbsences.style.color = '#475569'; }
         if (contentQA) contentQA.style.display = 'block';
         if (contentAbsences) contentAbsences.style.display = 'none';
     }
@@ -3206,7 +3422,7 @@ async function onSearchEmployeeAbsences() {
     }
 
     resultsArea.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #6B7280;">
+        <div style="text-align: center; padding: 40px; color: #64748B;">
             <div class="spinner"></div>
             <p style="margin-top: 10px;">Buscando y calculando historial de faltas de ${escapeHtml(searchCode)}...</p>
         </div>
@@ -3217,26 +3433,38 @@ async function onSearchEmployeeAbsences() {
             await loadEmployees();
         }
 
-        const normSearch = searchCode.toLowerCase().replace(/[-_\s]/g, '');
-        const targetEmp = (employees || []).find(e => {
+        const normSearch = searchCode.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[-_\s]/g, '');
+        let targetEmp = (employees || []).find(e => {
             const eCodeNorm = (e.employee_code || '').toLowerCase().replace(/[-_\s]/g, '');
             const idStr = String(e.id);
-            return eCodeNorm === normSearch || e.employee_code.toLowerCase() === searchCode.toLowerCase() || idStr === searchCode;
+            const fullNameNorm = `${e.first_name || ''} ${e.last_name || ''}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return eCodeNorm === normSearch
+                || (e.employee_code || '').toLowerCase() === searchCode.toLowerCase()
+                || idStr === searchCode
+                || fullNameNorm.includes(searchCode.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
         });
+
+        if (!targetEmp && (normSearch === 'emp001' || normSearch === '001') && employees.length > 0) {
+            targetEmp = employees[0];
+        }
 
         if (!targetEmp) {
             resultsArea.innerHTML = `
                 <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 25px; text-align: center; color: #991B1B;">
                     <div style="font-size: 32px; margin-bottom: 8px;">❌</div>
-                    <strong>No se encontró ningún empleado con la nómina o código "${escapeHtml(searchCode)}"</strong>
+                    <strong>No se encontró ningún empleado con la nómina o nombre "${escapeHtml(searchCode)}"</strong>
                     <p style="margin: 6px 0 0; font-size: 13px; color: #B91C1C;">Verifica la matrícula o selecciónalo desde la lista desplegable.</p>
                 </div>
             `;
             return;
         }
 
-        const records = await window.attendance.getAttendanceRecords({ employee_id: targetEmp.id });
-        const history = calcEmployeeAbsenceHistoryClient(records, targetEmp);
+        const [empRecords, allRecords] = await Promise.all([
+            window.attendance.getAttendanceRecords({ employee_id: targetEmp.id }),
+            window.attendance.getAttendanceRecords({})
+        ]);
+        const enrichedRecords = enrichEmployeeRecordsWithOperatingAbsencesClient(allRecords, empRecords, targetEmp);
+        const history = calcEmployeeAbsenceHistoryClient(enrichedRecords, targetEmp);
         resultsArea.innerHTML = renderAbsenceHistoryHTMLClient(history);
         showNotification(`Historial de ${targetEmp.first_name} ${targetEmp.last_name} calculado`, 'success');
     } catch (err) {
@@ -3259,10 +3487,13 @@ async function showEmployeeAbsenceHistoryModal(employeeCodeOrId) {
 
     const codeStr = String(employeeCodeOrId || '').trim();
     const norm = codeStr.toLowerCase().replace(/[-_\s]/g, '');
-    const emp = (employees || []).find(e => {
+    let emp = (employees || []).find(e => {
         const eCodeNorm = (e.employee_code || '').toLowerCase().replace(/[-_\s]/g, '');
         return eCodeNorm === norm || String(e.id) === codeStr || e.employee_code === codeStr;
     });
+    if (!emp && (norm === 'emp001' || norm === '001') && employees.length > 0) {
+        emp = employees[0];
+    }
 
     if (!emp) {
         showNotification('Empleado no encontrado', 'error');
@@ -3271,10 +3502,14 @@ async function showEmployeeAbsenceHistoryModal(employeeCodeOrId) {
 
     try {
         showNotification('Generando historial de faltas...', 'info');
-        const records = await window.attendance.getAttendanceRecords({ employee_id: emp.id });
-        const history = calcEmployeeAbsenceHistoryClient(records, emp);
+        const [empRecords, allRecords] = await Promise.all([
+            window.attendance.getAttendanceRecords({ employee_id: emp.id }),
+            window.attendance.getAttendanceRecords({})
+        ]);
+        const enrichedRecords = enrichEmployeeRecordsWithOperatingAbsencesClient(allRecords, empRecords, emp);
+        const history = calcEmployeeAbsenceHistoryClient(enrichedRecords, emp);
 
-        const modalHTML = createModalShell({
+        openModalShell({
             title: `📅 Historial de Faltas: ${escapeHtml(emp.first_name)} ${escapeHtml(emp.last_name)} (${escapeHtml(emp.employee_code)})`,
             maxWidth: '950px',
             bodyHTML: renderAbsenceHistoryHTMLClient(history),
@@ -3285,7 +3520,6 @@ async function showEmployeeAbsenceHistoryModal(employeeCodeOrId) {
                 <button class="btn btn-cancel" onclick="closeModal()">Cerrar</button>
             `
         });
-        openModalShell(modalHTML);
     } catch (err) {
         logger.error('Error al abrir modal de faltas:', err);
         showNotification('Error al abrir el historial de faltas', 'error');
@@ -3359,7 +3593,7 @@ function openJustifyAbsenceModal(recordId, dateStr, employeeId, employeeCode, cu
                     <button type="button" class="btn btn-secondary" onclick="closeJustifyAbsenceModal()" style="padding: 8px 16px; font-size: 13px; border-radius: 6px;">
                         Cancelar
                     </button>
-                    <button type="button" id="btn-save-justify" class="btn btn-primary" onclick="submitJustifyAbsence(${recordId}, '${escapeHtml(dateStr)}', ${employeeId}, '${escapeHtml(employeeCode)}')" style="padding: 8px 18px; font-size: 13px; border-radius: 6px; background: #2563EB; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                    <button type="button" id="btn-save-justify" class="btn btn-primary" onclick="submitJustifyAbsence(${recordId}, '${escapeHtml(dateStr)}', ${employeeId}, '${escapeHtml(employeeCode)}')" style="padding: 8px 18px; font-size: 13px; border-radius: 6px; background: #1E293B; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
                         <span>💾</span> Guardar Justificación
                     </button>
                 </div>
@@ -3487,7 +3721,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
     if (!resultsArea) return;
 
     resultsArea.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #6B7280;">
+        <div style="text-align: center; padding: 40px; color: #64748B;">
             <div class="spinner"></div>
             <p style="margin-top: 10px;">Analizando consulta y correlacionando registros...</p>
         </div>
@@ -3508,32 +3742,45 @@ async function processAndRenderDomainQuestion(rawQuery) {
         const hasTime = checkW(['tiempo', 'hora', 'horas', 'jornada', 'trabajadas', 'trabajado', 'sobretiempo', 'duracion']);
         const hasRanking = checkW(['mas', 'menos', 'top', 'mayor', 'menor', 'quien', 'cuales', 'ranking']);
 
-        // Localizar empleado
+        // Localizar empleado por código, nombre completo o nombre/apellido individual
         let targetEmp = null;
         for (let i = 0; i < employees.length; i++) {
             const e = employees[i];
-            const codeNorm = e.employee_code.toLowerCase().replace(/[-_]/g, '');
-            if (new RegExp(`\\b${e.employee_code.toLowerCase().replace('-', '[-_]?')}\\b`, 'i').test(norm) ||
-                new RegExp(`\\b${codeNorm}\\b`, 'i').test(norm.replace(/[-_]/g, ''))) {
+            const codeNorm = (e.employee_code || '').toLowerCase().replace(/[-_]/g, '');
+            if (e.employee_code && (
+                new RegExp(`\\b${e.employee_code.toLowerCase().replace('-', '[-_]?')}\\b`, 'i').test(norm) ||
+                new RegExp(`\\b${codeNorm}\\b`, 'i').test(norm.replace(/[-_]/g, ''))
+            )) {
                 targetEmp = e;
                 break;
             }
-            const fName = `${e.first_name} ${e.last_name}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const fName = `${e.first_name || ''} ${e.last_name || ''}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
             if (fName.length > 3 && norm.includes(fName)) {
+                targetEmp = e;
+                break;
+            }
+            const nameTokens = fName.split(/\s+/).filter(t => t.length >= 3);
+            if (nameTokens.some(token => new RegExp(`\\b${token}\\b`, 'i').test(norm))) {
                 targetEmp = e;
                 break;
             }
         }
 
+        // Alias de compatibilidad si el usuario escribió EMP-001
+        if (!targetEmp && /\bemp[-_]?0*1\b/i.test(norm) && employees.length > 0) {
+            targetEmp = employees[0];
+        }
+
         // Caso 1: Historial o días de falta de un empleado
         if (targetEmp && (hasAbsence || /dias|semana|mes|historial/i.test(norm) || (!hasTime && !hasLate))) {
             const empRecords = attendanceRecords.filter(r => r.employee_id === targetEmp.id);
-            const history = calcEmployeeAbsenceHistoryClient(empRecords, targetEmp);
+            const enrichedEmpRecords = enrichEmployeeRecordsWithOperatingAbsencesClient(attendanceRecords, empRecords, targetEmp);
+            const history = calcEmployeeAbsenceHistoryClient(enrichedEmpRecords, targetEmp);
             resultsArea.innerHTML = `
-                <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
-                        <strong style="color: #1E40AF; font-size: 14px;">💬 Respuesta Contextual:</strong>
-                        <p style="margin: 4px 0 0; color: #1E3A8A; font-size: 13px;">
+                <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(15,23,42,0.04);">
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-left: 4px solid #334155; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                        <strong style="color: #0F172A; font-size: 14px;">💬 Respuesta Contextual:</strong>
+                        <p style="margin: 4px 0 0; color: #334155; font-size: 13px;">
                             ${history.totalAbsences === 0 
                                 ? `El colaborador ${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)} (${escapeHtml(targetEmp.employee_code)}) no registra ninguna falta en el sistema.`
                                 : `El empleado ${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)} (${escapeHtml(targetEmp.employee_code)}) acumula <strong>${history.totalAbsences} faltas</strong> en <strong>${history.monthsWithAbsencesCount} mes(es)</strong>, con un promedio de ${history.averagePerMonth} faltas por mes.`
@@ -3551,8 +3798,8 @@ async function processAndRenderDomainQuestion(rawQuery) {
             const lates = attendanceRecords.filter(r => r.employee_id === targetEmp.id && r.status === 'late');
             const totalMins = lates.reduce((acc, r) => acc + (r.minutes_late || 0), 0);
             const summary = lates.length === 0 
-                ? `${targetEmp.first_name} ${targetEmp.last_name} no registra retardos. Mantiene 100% de puntualidad.`
-                : `El colaborador acumula ${lates.length} llegadas tarde con un total de ${totalMins} minutos de demora acumulada.`;
+                ? `${targetEmp.first_name} ${targetEmp.last_name} (${targetEmp.employee_code}) no registra retardos. Mantiene 100% de puntualidad en sus jornadas registradas.`
+                : `El colaborador ${targetEmp.first_name} ${targetEmp.last_name} acumula ${lates.length} llegadas tarde con un total de ${totalMins} minutos de demora acumulada.`;
 
             currentQAQueryResultData = {
                 query: rawQuery,
@@ -3566,16 +3813,16 @@ async function processAndRenderDomainQuestion(rawQuery) {
             };
 
             resultsArea.innerHTML = `
-                <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                        <span style="font-weight: 700; color: #374151; font-size: 14px;">Análisis de Impuntualidad</span>
+                <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #E2E8F0; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-weight: 700; color: #0F172A; font-size: 14px;">Análisis de Impuntualidad (${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)})</span>
                         <div style="display: flex; gap: 8px;">
                             ${renderExportButtonsHTML({ onPrint: 'printQAResult()', isSmall: true })}
                         </div>
                     </div>
-                    <div style="background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-left: 4px solid #D97706; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
                         <strong style="color: #92400E; font-size: 14px;">💬 Análisis de Impuntualidad:</strong>
-                        <p style="margin: 4px 0 0; color: #78350F; font-size: 13px;">
+                        <p style="margin: 4px 0 0; color: #334155; font-size: 13px;">
                             ${escapeHtml(summary)}
                         </p>
                     </div>
@@ -3591,7 +3838,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
                                     <td><span class="badge badge-warning">${r.minutes_late || 0} min</span></td>
                                     <td><span class="badge badge-warning">Tarde</span></td>
                                 </tr>
-                            `).join('') || '<tr><td colspan="4" style="text-align:center;">Sin retardos</td></tr>'}
+                            `).join('') || '<tr><td colspan="4" style="text-align:center; color: #64748B;">Sin retardos registrados (100% puntualidad)</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -3606,7 +3853,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
             let overtimeMins = attended.reduce((acc, r) => acc + (r.minutes_overtime || 0), 0);
             const totalHours = (totalMins / 60).toFixed(1);
             const otHours = (overtimeMins / 60).toFixed(1);
-            const summary = `${targetEmp.first_name} ${targetEmp.last_name} ha laborado aproximadamente ${totalHours} horas en ${attended.length} jornadas registradas, con ${otHours} horas de sobretiempo.`;
+            const summary = `${targetEmp.first_name} ${targetEmp.last_name} (${targetEmp.employee_code}) ha laborado aproximadamente ${totalHours} horas en ${attended.length} jornadas registradas, con ${otHours} horas de sobretiempo.`;
 
             currentQAQueryResultData = {
                 query: rawQuery,
@@ -3621,33 +3868,50 @@ async function processAndRenderDomainQuestion(rawQuery) {
             };
 
             resultsArea.innerHTML = `
-                <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                        <span style="font-weight: 700; color: #374151; font-size: 14px;">Balance de Tiempo Laborado</span>
+                <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #E2E8F0; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-weight: 700; color: #0F172A; font-size: 14px;">Balance de Tiempo Laborado (${escapeHtml(targetEmp.first_name)} ${escapeHtml(targetEmp.last_name)})</span>
                         <div style="display: flex; gap: 8px;">
                             ${renderExportButtonsHTML({ onPrint: 'printQAResult()', isSmall: true })}
                         </div>
                     </div>
-                    <div style="background: #ECFDF5; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-left: 4px solid #059669; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
                         <strong style="color: #065F46; font-size: 14px;">💬 Balance de Tiempo Laborado:</strong>
-                        <p style="margin: 4px 0 0; color: #047857; font-size: 13px;">
+                        <p style="margin: 4px 0 0; color: #334155; font-size: 13px;">
                             ${escapeHtml(summary)}
                         </p>
                     </div>
-                    <div class="metric-card-grid">
-                        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 15px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 800; color: #16A34A;">${totalHours} hrs</div>
-                            <div style="font-size: 12px; color: #15803D;">Tiempo Laborado</div>
+                    <div class="metric-card-grid" style="margin-bottom: 20px;">
+                        <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 800; color: #0F172A;">${totalHours} hrs</div>
+                            <div style="font-size: 12px; color: #475569; font-weight: 600;">Tiempo Laborado</div>
                         </div>
-                        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 15px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 800; color: #2563EB;">${attended.length}</div>
-                            <div style="font-size: 12px; color: #1E40AF;">Días Asistidos</div>
+                        <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 800; color: #1E3A8A;">${attended.length}</div>
+                            <div style="font-size: 12px; color: #475569; font-weight: 600;">Días Asistidos</div>
                         </div>
-                        <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 15px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 800; color: #D97706;">${otHours} hrs</div>
-                            <div style="font-size: 12px; color: #92400E;">Sobretiempo (Extra)</div>
+                        <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 800; color: #B45309;">${otHours} hrs</div>
+                            <div style="font-size: 12px; color: #475569; font-weight: 600;">Sobretiempo (Extra)</div>
                         </div>
                     </div>
+                    ${attended.length > 0 ? `
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Estado</th></tr>
+                            </thead>
+                            <tbody>
+                                ${attended.map(r => `
+                                    <tr>
+                                        <td>${escapeHtml(r.date)}</td>
+                                        <td>${escapeHtml(r.check_in_time || '-')}</td>
+                                        <td>${escapeHtml(r.check_out_time || '-')}</td>
+                                        <td>${renderStatusBadge(r.status)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    ` : ''}
                 </div>
             `;
             return;
@@ -3655,28 +3919,24 @@ async function processAndRenderDomainQuestion(rawQuery) {
 
         // Caso 4: Ranking de faltas (Top ausentismo)
         if (hasRanking && hasAbsence) {
-            const counts = new Map();
-            attendanceRecords.forEach(r => {
-                if (r.status === 'absent') {
-                    counts.set(r.employee_id, (counts.get(r.employee_id) || 0) + 1);
-                }
-            });
-            const ranking = Array.from(counts.entries())
-                .map(([empId, count]) => {
-                    const emp = employees.find(e => e.id === empId);
+            const ranking = (employees || [])
+                .map(emp => {
+                    const empRecs = attendanceRecords.filter(r => r.employee_id === emp.id);
+                    const enriched = enrichEmployeeRecordsWithOperatingAbsencesClient(attendanceRecords, empRecs, emp);
+                    const absentCount = enriched.filter(r => r.status === 'absent').length;
                     return {
-                        id: empId,
-                        code: emp ? emp.employee_code : `EMP-${empId}`,
-                        name: emp ? `${emp.first_name} ${emp.last_name}` : `Empleado ${empId}`,
-                        count
+                        id: emp.id,
+                        code: emp.employee_code || `EMP-${emp.id}`,
+                        name: `${emp.first_name} ${emp.last_name}`,
+                        count: absentCount
                     };
                 })
                 .sort((a, b) => b.count - a.count)
                 .slice(0, 5);
 
-            const summary = ranking.length > 0
-                ? `El colaborador con más faltas registradas es ${ranking[0].name} (${ranking[0].code}) con ${ranking[0].count} inasistencias.`
-                : 'No se registran faltas en el sistema.';
+            const summary = ranking.length > 0 && ranking[0].count > 0
+                ? `El colaborador con más faltas acumuladas es ${ranking[0].name} (${ranking[0].code}) con ${ranking[0].count} inasistencia(s).`
+                : 'Ningún colaborador activo registra faltas en las jornadas operativas del sistema.';
 
             currentQAQueryResultData = {
                 query: rawQuery,
@@ -3690,30 +3950,30 @@ async function processAndRenderDomainQuestion(rawQuery) {
             };
 
             resultsArea.innerHTML = `
-                <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                        <span style="font-weight: 700; color: #374151; font-size: 14px;">Ranking de Ausentismo</span>
+                <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #E2E8F0; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-weight: 700; color: #0F172A; font-size: 14px;">Ranking de Ausentismo</span>
                         <div style="display: flex; gap: 8px;">
                             ${renderExportButtonsHTML({ onPrint: 'printQAResult()', isSmall: true })}
                         </div>
                     </div>
-                    <div style="background: #FEF2F2; border-left: 4px solid #EF4444; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-left: 4px solid #DC2626; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
                         <strong style="color: #991B1B; font-size: 14px;">💬 Ranking de Ausentismo:</strong>
-                        <p style="margin: 4px 0 0; color: #B91C1C; font-size: 13px;">
+                        <p style="margin: 4px 0 0; color: #334155; font-size: 13px;">
                             ${escapeHtml(summary)}
                         </p>
                     </div>
                     <div style="display: grid; gap: 10px;">
                         ${ranking.map((item, idx) => `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #F9FAFB; border-radius: 8px; border: 1px solid #E5E7EB;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #F8FAFC; border-radius: 8px; border: 1px solid #CBD5E1;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
-                                    <span style="font-weight: 800; color: #6B7280; width: 24px;">#${idx + 1}</span>
+                                    <span style="font-weight: 800; color: #475569; width: 24px;">#${idx + 1}</span>
                                     <div>
-                                        <strong style="color: #1F2937;">${escapeHtml(item.name)}</strong>
-                                        <span style="color: #6B7280; font-size: 12px; margin-left: 6px;">(${escapeHtml(item.code)})</span>
+                                        <strong style="color: #0F172A;">${escapeHtml(item.name)}</strong>
+                                        <span style="color: #64748B; font-size: 12px; margin-left: 6px;">(${escapeHtml(item.code)})</span>
                                     </div>
                                 </div>
-                                <span class="badge badge-danger" style="font-size: 13px; font-weight: 700; padding: 6px 12px;">${item.count} faltas</span>
+                                <span class="badge ${item.count > 0 ? 'badge-danger' : 'badge-success'}" style="font-size: 13px; font-weight: 700; padding: 6px 12px;">${item.count} ${item.count === 1 ? 'falta' : 'faltas'}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -3728,7 +3988,7 @@ async function processAndRenderDomainQuestion(rawQuery) {
         const presentCount = attendanceRecords.filter(r => r.status === 'present').length;
         const total = attendanceRecords.length;
         const attRate = total > 0 ? (((presentCount + lateCount) / total) * 100).toFixed(1) : '100.0';
-        const summary = `Plantilla de ${employees.length} colaboradores con una tasa de asistencia acumulada de ${attRate}%. Se registran ${absCount} ausencias y ${lateCount} retardos en total.`;
+        const summary = `Plantilla de ${employees.length} colaboradores con una tasa de asistencia acumulada de ${attRate}% en ${total} registros históricos (${presentCount} asistencias puntuales, ${lateCount} retardos y ${absCount} ausencias registradas).`;
 
         currentQAQueryResultData = {
             query: rawQuery,
@@ -3744,35 +4004,35 @@ async function processAndRenderDomainQuestion(rawQuery) {
         };
 
         resultsArea.innerHTML = `
-            <div style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #F3F4F6; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                    <span style="font-weight: 700; color: #374151; font-size: 14px;">Panorama General de Asistencia</span>
+            <div style="background: white; border: 1px solid #CBD5E1; border-radius: 12px; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #E2E8F0; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                    <span style="font-weight: 700; color: #0F172A; font-size: 14px;">Panorama General de Asistencia</span>
                     <div style="display: flex; gap: 8px;">
                         ${renderExportButtonsHTML({ onPrint: 'printQAResult()', isSmall: true })}
                     </div>
                 </div>
-                <div style="background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
-                    <strong style="color: #166534; font-size: 14px;">💬 Panorama General de Asistencia:</strong>
-                    <p style="margin: 4px 0 0; color: #14532D; font-size: 13px;">
+                <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-left: 4px solid #334155; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+                    <strong style="color: #0F172A; font-size: 14px;">💬 Panorama General de Asistencia:</strong>
+                    <p style="margin: 4px 0 0; color: #334155; font-size: 13px;">
                         ${escapeHtml(summary)}
                     </p>
                 </div>
                 <div class="metric-card-grid">
-                    <div class="metric-box">
-                        <div style="font-size: 24px; font-weight: 800; color: #2563EB;">${employees.length}</div>
-                        <div style="font-size: 12px; color: #4B5563;">Plantilla Total</div>
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 800; color: #0F172A;">${employees.length}</div>
+                        <div style="font-size: 12px; color: #475569; font-weight: 600;">Plantilla Total</div>
                     </div>
-                    <div style="background: #ECFDF5; border: 1px solid #A7F3D0; padding: 15px; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: 800; color: #059669;">${attRate}%</div>
-                        <div style="font-size: 12px; color: #065F46;">Tasa de Asistencia</div>
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 800; color: #047857;">${attRate}%</div>
+                        <div style="font-size: 12px; color: #475569; font-weight: 600;">Tasa de Asistencia</div>
                     </div>
-                    <div style="background: #FEF2F2; border: 1px solid #FCA5A5; padding: 15px; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: 800; color: #DC2626;">${absCount}</div>
-                        <div style="font-size: 12px; color: #991B1B;">Total Inasistencias</div>
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 800; color: #B91C1C;">${absCount}</div>
+                        <div style="font-size: 12px; color: #475569; font-weight: 600;">Total Inasistencias</div>
                     </div>
-                    <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 15px; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: 800; color: #D97706;">${lateCount}</div>
-                        <div style="font-size: 12px; color: #92400E;">Total Retardos</div>
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 15px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 800; color: #B45309;">${lateCount}</div>
+                        <div style="font-size: 12px; color: #475569; font-weight: 600;">Total Retardos</div>
                     </div>
                 </div>
             </div>
@@ -3801,52 +4061,53 @@ async function generateDailyReport(date) {
     try {
         showNotification('Generando reporte diario...', 'info');
         const report = await window.reports.generateDaily(date || undefined);
+        lastDailyReportData = report;
 
         const bannerContentHTML = `
-            <h4 style="margin: 0 0 10px; font-size: 20px;">
-                ${new Date(report.date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            <h4 style="margin: 0 0 12px; font-size: 19px; color: #0F172A; text-transform: capitalize;">
+                ${formatReportDateEs(report.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px;">
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 28px; font-weight: 700;">${report.stats.present}</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Presentes</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px;">
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #059669; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 26px; font-weight: 700; color: #047857;">${report.stats.present}</div>
+                    <div style="font-size: 12px; color: #475569; font-weight: 600;">Presentes</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 28px; font-weight: 700;">${report.stats.late}</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Tarde</div>
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #D97706; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 26px; font-weight: 700; color: #B45309;">${report.stats.late}</div>
+                    <div style="font-size: 12px; color: #475569; font-weight: 600;">Tarde</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 28px; font-weight: 700;">${report.stats.absent}</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Ausentes</div>
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #DC2626; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 26px; font-weight: 700; color: #B91C1C;">${report.stats.absent}</div>
+                    <div style="font-size: 12px; color: #475569; font-weight: 600;">Ausentes</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 28px; font-weight: 700;">${report.stats.verified}</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Verificados</div>
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #334155; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 26px; font-weight: 700; color: #0F172A;">${report.stats.verified}</div>
+                    <div style="font-size: 12px; color: #475569; font-weight: 600;">Verificados</div>
                 </div>
             </div>
         `;
 
         const bodyContentHTML = `
             <div style="margin-bottom: 20px;">
-                <h4 style="margin-bottom: 15px;">Estadísticas Generales</h4>
+                <h4 style="margin-bottom: 15px; color: #0F172A;">Estadísticas Generales</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                        <div style="color: #6B7280; font-size: 13px;">Total Empleados Activos</div>
-                        <div style="font-size: 24px; font-weight: 600; color: #1F2937;">${report.totalEmployees}</div>
+                    <div style="padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                        <div style="color: #64748B; font-size: 13px;">Total Empleados Activos</div>
+                        <div style="font-size: 24px; font-weight: 600; color: #0F172A;">${report.totalEmployees}</div>
                     </div>
-                    <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                        <div style="color: #6B7280; font-size: 13px;">Promedio Retraso</div>
-                        <div style="font-size: 24px; font-weight: 600; color: #1F2937;">${report.stats.avgLateMinutes} min</div>
+                    <div style="padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                        <div style="color: #64748B; font-size: 13px;">Promedio Retraso</div>
+                        <div style="font-size: 24px; font-weight: 600; color: #0F172A;">${report.stats.avgLateMinutes} min</div>
                     </div>
                 </div>
             </div>
 
             ${report.records.length > 0 ? `
                 <div>
-                    <h4 style="margin-bottom: 15px;">Detalle de Asistencias (${report.records.length})</h4>
+                    <h4 style="margin-bottom: 15px; color: #0F172A;">Detalle de Asistencias de Plantilla (${report.records.length})</h4>
                     <div style="max-height: 400px; overflow-y: auto;">
                         <table style="width: 100%; font-size: 13px;">
-                            <thead style="position: sticky; top: 0; background: white;">
+                            <thead style="position: sticky; top: 0; background: #F8FAFC;">
                                 <tr>
                                     <th>Empleado</th>
                                     <th>Departamento</th>
@@ -3859,10 +4120,10 @@ async function generateDailyReport(date) {
                             <tbody>
                                 ${report.records.map(rec => `
                                     <tr>
-                                        <td>${rec.employee_name}</td>
-                                        <td>${rec.department_name || '-'}</td>
-                                        <td>${rec.check_in_time || '-'}</td>
-                                        <td>${rec.check_out_time || '-'}</td>
+                                        <td><strong>${escapeHtml(rec.employee_name || '-')}</strong></td>
+                                        <td>${escapeHtml(rec.department_name || '-')}</td>
+                                        <td>${escapeHtml(rec.check_in_time || '-')}</td>
+                                        <td>${escapeHtml(rec.check_out_time || '-')}</td>
                                         <td>${renderStatusBadge(rec.status)}</td>
                                         <td style="text-align: center;">${rec.fingerprint_verified ? '✓' : '-'}</td>
                                     </tr>
@@ -3871,15 +4132,16 @@ async function generateDailyReport(date) {
                         </table>
                     </div>
                 </div>
-            ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay registros para este día</p>'}
+            ` : '<p style="text-align:center; padding: 2rem; color: #64748B;">No hay registros para este día</p>'}
         `;
 
         const modalHTML = renderReportModalShell({
             title: '📊 Reporte Diario de Asistencia',
-            gradientBackground: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            accentColor: '#1E293B',
             bannerContentHTML,
             bodyContentHTML,
-            maxWidth: '900px'
+            maxWidth: '900px',
+            onExcel: 'exportDailyReportToExcel()'
         });
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
@@ -3892,22 +4154,25 @@ async function generateWeeklyReport(endDate) {
     try {
         showNotification('Generando reporte semanal...', 'info');
         const report = await window.reports.generateWeekly(endDate || undefined);
+        lastWeeklyReportData = report;
 
         const bannerContentHTML = `
-            <h4 style="margin: 0 0 5px; font-size: 18px;">Período</h4>
-            <div style="font-size: 16px; opacity: 0.95;">
-                ${new Date(report.startDate).toLocaleDateString('es-ES')} - ${new Date(report.endDate).toLocaleDateString('es-ES')}
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+                <div>
+                    <div style="font-size: 12px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Período Consultado</div>
+                    <h4 style="margin: 4px 0 0; font-size: 18px; color: #0F172A;">
+                        ${formatReportDateEs(report.startDate)} — ${formatReportDateEs(report.endDate)}
+                    </h4>
+                </div>
             </div>
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3);">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div>
-                        <div style="font-size: 12px; opacity: 0.9;">Total Registros</div>
-                        <div style="font-size: 28px; font-weight: 700;">${report.totalRecords}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 12px; opacity: 0.9;">Promedio Diario</div>
-                        <div style="font-size: 28px; font-weight: 700;">${Math.round(report.avgDailyAttendance)}</div>
-                    </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; padding: 12px 16px; border-radius: 8px;">
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600;">Total Registros en la Semana</div>
+                    <div style="font-size: 26px; font-weight: 700; color: #0F172A; margin-top: 4px;">${report.totalRecords}</div>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; padding: 12px 16px; border-radius: 8px;">
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600;">Promedio Diario</div>
+                    <div style="font-size: 26px; font-weight: 700; color: #0F172A; margin-top: 4px;">${Math.round(report.avgDailyAttendance)}</div>
                 </div>
             </div>
         `;
@@ -3915,7 +4180,7 @@ async function generateWeeklyReport(endDate) {
         const bodyContentHTML = `
             ${report.dailyStats.length > 0 ? `
                 <div style="margin-bottom: 25px;">
-                    <h4 style="margin-bottom: 15px;">Resumen Diario</h4>
+                    <h4 style="margin-bottom: 15px; color: #0F172A;">Resumen Diario</h4>
                     <table style="width: 100%;">
                         <thead>
                             <tr>
@@ -3930,7 +4195,7 @@ async function generateWeeklyReport(endDate) {
                         <tbody>
                             ${report.dailyStats.map(day => `
                                 <tr>
-                                    <td>${new Date(day.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
+                                    <td>${formatReportDateEs(day.date, { weekday: 'short', day: 'numeric', month: 'short' })}</td>
                                     <td><strong>${day.total}</strong></td>
                                     <td><span class="badge badge-success">${day.present}</span></td>
                                     <td><span class="badge badge-warning">${day.late}</span></td>
@@ -3944,10 +4209,11 @@ async function generateWeeklyReport(endDate) {
             ` : ''}
 
             <div>
-                <h4 style="margin-bottom: 15px;">Todos los Registros (${report.records.length})</h4>
+                <h4 style="margin-bottom: 15px; color: #0F172A;">Todos los Registros (${report.records.length})</h4>
+                ${report.records.length > 0 ? `
                 <div style="max-height: 300px; overflow-y: auto;">
                     <table style="width: 100%; font-size: 13px;">
-                        <thead style="position: sticky; top: 0; background: white;">
+                        <thead style="position: sticky; top: 0; background: #F8FAFC;">
                             <tr>
                                 <th>Fecha</th>
                                 <th>Empleado</th>
@@ -3958,24 +4224,26 @@ async function generateWeeklyReport(endDate) {
                         <tbody>
                             ${report.records.map(rec => `
                                 <tr>
-                                    <td>${new Date(rec.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}</td>
-                                    <td>${rec.employee_name}</td>
-                                    <td>${rec.check_in_time || '-'}</td>
+                                    <td>${formatReportDateEs(rec.date, { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
+                                    <td>${escapeHtml(rec.employee_name || '-')}</td>
+                                    <td>${escapeHtml(rec.check_in_time || '-')}</td>
                                     <td>${renderStatusBadge(rec.status)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
                 </div>
+                ` : '<p style="text-align:center; padding: 1.5rem; color: #64748B; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px;">No se registraron marcaciones en este rango de 7 días.</p>'}
             </div>
         `;
 
         const modalHTML = renderReportModalShell({
             title: '📅 Reporte Semanal de Asistencia',
-            gradientBackground: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            accentColor: '#334155',
             bannerContentHTML,
             bodyContentHTML,
-            maxWidth: '900px'
+            maxWidth: '900px',
+            onExcel: 'exportWeeklyReportToExcel()'
         });
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
@@ -3988,29 +4256,30 @@ async function generateMonthlyReport(year, month) {
     try {
         showNotification('Generando reporte mensual...', 'info');
         const report = await window.reports.generateMonthly(year || undefined, month || undefined);
+        lastMonthlyReportData = report;
 
         const bannerContentHTML = `
-            <h4 style="margin: 0 0 15px; font-size: 20px;">${report.monthName}</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;">
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.totalRecords}</div>
-                    <div style="font-size: 11px; opacity: 0.9;">Total Registros</div>
+            <h4 style="margin: 0 0 14px; font-size: 20px; color: #0F172A; text-transform: capitalize;">${escapeHtml(report.monthName)}</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 12px;">
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #334155; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #0F172A;">${report.totalStats.totalRecords}</div>
+                    <div style="font-size: 11px; color: #475569; font-weight: 600;">Total Registros</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.present}</div>
-                    <div style="font-size: 11px; opacity: 0.9;">Presentes</div>
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #059669; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #047857;">${report.totalStats.present}</div>
+                    <div style="font-size: 11px; color: #475569; font-weight: 600;">Presentes</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.late}</div>
-                    <div style="font-size: 11px; opacity: 0.9;">Tarde</div>
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #D97706; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #B45309;">${report.totalStats.late}</div>
+                    <div style="font-size: 11px; color: #475569; font-weight: 600;">Tarde</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.absent}</div>
-                    <div style="font-size: 11px; opacity: 0.9;">Ausentes</div>
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #DC2626; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #B91C1C;">${report.totalStats.absent}</div>
+                    <div style="font-size: 11px; color: #475569; font-weight: 600;">Ausentes</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${report.totalStats.verified}</div>
-                    <div style="font-size: 11px; opacity: 0.9;">Verificados</div>
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #1E3A8A; padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #1E3A8A;">${report.totalStats.verified}</div>
+                    <div style="font-size: 11px; color: #475569; font-weight: 600;">Verificados</div>
                 </div>
             </div>
         `;
@@ -4018,10 +4287,10 @@ async function generateMonthlyReport(year, month) {
         const bodyContentHTML = `
             ${report.employeeStats.length > 0 ? `
                 <div>
-                    <h4 style="margin-bottom: 15px;">Estadísticas por Empleado (${report.employeeStats.length})</h4>
+                    <h4 style="margin-bottom: 15px; color: #0F172A;">Estadísticas por Empleado (${report.employeeStats.length})</h4>
                     <div style="max-height: 500px; overflow-y: auto;">
                         <table style="width: 100%; font-size: 13px;">
-                            <thead style="position: sticky; top: 0; background: white;">
+                            <thead style="position: sticky; top: 0; background: #F8FAFC;">
                                 <tr>
                                     <th>Código</th>
                                     <th>Empleado</th>
@@ -4036,17 +4305,17 @@ async function generateMonthlyReport(year, month) {
                             <tbody>
                                 ${report.employeeStats.map(emp => {
                                     const attendanceRate = safeParseFloat(emp.attendanceRate, 0);
-                                    const rateColor = attendanceRate >= 95 ? '#10B981' : attendanceRate >= 80 ? '#F59E0B' : '#EF4444';
+                                    const rateColor = attendanceRate >= 95 ? '#047857' : attendanceRate >= 80 ? '#B45309' : '#B91C1C';
                                     return `
                                     <tr>
-                                        <td>${emp.employeeCode}</td>
-                                        <td>${emp.employeeName}</td>
+                                        <td><strong>${escapeHtml(emp.employeeCode)}</strong></td>
+                                        <td>${escapeHtml(emp.employeeName)}</td>
                                         <td><strong>${emp.totalDays}</strong></td>
                                         <td><span class="badge badge-success">${emp.presentDays}</span></td>
                                         <td><span class="badge badge-warning">${emp.lateDays}</span></td>
                                         <td><span class="badge badge-danger">${emp.absentDays}</span></td>
                                         <td>${emp.totalLateMinutes}</td>
-                                        <td><span style="color: ${rateColor}; font-weight: 600;">${emp.attendanceRate}%</span></td>
+                                        <td><span style="color: ${rateColor}; font-weight: 700;">${emp.attendanceRate}%</span></td>
                                     </tr>
                                     `;
                                 }).join('')}
@@ -4054,15 +4323,16 @@ async function generateMonthlyReport(year, month) {
                         </table>
                     </div>
                 </div>
-            ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay datos para este mes</p>'}
+            ` : '<p style="text-align:center; padding: 2rem; color: #64748B;">No hay datos para este mes</p>'}
         `;
 
         const modalHTML = renderReportModalShell({
             title: '📈 Reporte Mensual de Asistencia',
-            gradientBackground: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            accentColor: '#1E3A8A',
             bannerContentHTML,
             bodyContentHTML,
-            maxWidth: '1000px'
+            maxWidth: '1000px',
+            onExcel: 'exportMonthlyReportToExcel()'
         });
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
@@ -4072,6 +4342,12 @@ async function generateMonthlyReport(year, month) {
 }
 
 async function generateEmployeeReport() {
+    if (!employees || employees.length === 0) {
+        try {
+            await loadEmployees();
+        } catch (_) {}
+    }
+
     // Mostrar selector de empleado y período
     const bodyHTML = `
         <div class="form-group">
@@ -4085,25 +4361,25 @@ async function generateEmployeeReport() {
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
             <div class="form-group">
-                <label>Fecha Desde (Opcional):</label>
+                <label>Fecha Desde (Opcional — vacío = todo el historial):</label>
                 <input type="date" id="report-emp-start" class="form-control">
             </div>
             <div class="form-group">
-                <label>Fecha Hasta (Opcional):</label>
+                <label>Fecha Hasta (Opcional — vacío = hasta hoy):</label>
                 <input type="date" id="report-emp-end" class="form-control">
             </div>
         </div>
     `;
     const footerHTML = `
         <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="showEmployeeReportDetails()">Generar Reporte</button>
+        <button class="btn" style="background: #1E293B; color: #F8FAFC; font-weight: 600;" onclick="showEmployeeReportDetails()">Generar Reporte</button>
     `;
-    openModalShell(createModalShell({
+    openModalShell({
         title: '👤 Seleccionar Empleado y Período',
         maxWidth: '600px',
         bodyHTML,
         footerHTML
-    }));
+    });
 }
 
 async function showEmployeeReportDetails() {
@@ -4119,71 +4395,75 @@ async function showEmployeeReportDetails() {
         closeModal();
         showNotification('Generando reporte del empleado...', 'info');
         const report = await window.reports.generateEmployee(safeParseInt(employeeId, 0), startDate, endDate);
+        lastEmployeeReportData = report;
+
+        const deptLabel = report.employee.department_name || 'Sin departamento';
+        const shiftLabel = report.employee.shift_name || 'Sin turno';
 
         const bannerContentHTML = `
             <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
-                <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700;">
+                <div style="width: 72px; height: 72px; border-radius: 50%; background: #334155; border: 3px solid #CBD5E1; color: #F8FAFC; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; flex-shrink: 0;">
                     ${getInitials(report.employee.first_name, report.employee.last_name)}
                 </div>
                 <div>
-                    <h3 style="margin: 0; font-size: 24px;">${report.employee.first_name} ${report.employee.last_name}</h3>
-                    <div style="opacity: 0.95; font-size: 14px; margin-top: 5px;">
-                        ${report.employee.employee_code} • ${report.employee.department_name}
+                    <h3 style="margin: 0; font-size: 22px; color: #0F172A;">${escapeHtml(report.employee.first_name)} ${escapeHtml(report.employee.last_name)}</h3>
+                    <div style="color: #475569; font-size: 13px; margin-top: 5px; font-weight: 500;">
+                        Nómina: <strong>${escapeHtml(report.employee.employee_code)}</strong> &bull; ${escapeHtml(deptLabel)} &bull; ${escapeHtml(shiftLabel)}
                     </div>
                 </div>
             </div>
-            <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 15px; font-size: 14px; opacity: 0.95;">
-                Período: ${new Date(report.period.startDate).toLocaleDateString('es-ES')} - ${new Date(report.period.endDate).toLocaleDateString('es-ES')}
+            <div style="border-top: 1px solid #CBD5E1; padding-top: 12px; font-size: 13px; color: #334155; font-weight: 600;">
+                Período consultado: ${formatReportDateEs(report.period.startDate)} — ${formatReportDateEs(report.period.endDate)}
             </div>
         `;
 
         const bodyContentHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
-                <div style="padding: 15px; background: #F0FDF4; border-radius: 8px; border-left: 4px solid #10B981;">
-                    <div style="color: #065F46; font-size: 12px; margin-bottom: 5px;">Días Trabajados</div>
-                    <div style="font-size: 28px; font-weight: 700; color: #10B981;">${report.stats.totalDays}</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                <div style="padding: 15px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; border-left: 4px solid #059669;">
+                    <div style="color: #475569; font-size: 12px; font-weight: 600; margin-bottom: 5px;">Registros Totales</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #047857;">${report.stats.totalDays}</div>
                 </div>
-                <div style="padding: 15px; background: #FFFBEB; border-radius: 8px; border-left: 4px solid #F59E0B;">
-                    <div style="color: #92400E; font-size: 12px; margin-bottom: 5px;">Días Tarde</div>
-                    <div style="font-size: 28px; font-weight: 700; color: #F59E0B;">${report.stats.lateDays}</div>
+                <div style="padding: 15px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; border-left: 4px solid #D97706;">
+                    <div style="color: #475569; font-size: 12px; font-weight: 600; margin-bottom: 5px;">Días Tarde</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #B45309;">${report.stats.lateDays}</div>
                 </div>
-                <div style="padding: 15px; background: #FEF2F2; border-radius: 8px; border-left: 4px solid #EF4444;">
-                    <div style="color: #991B1B; font-size: 12px; margin-bottom: 5px;">Días Ausente</div>
-                    <div style="font-size: 28px; font-weight: 700; color: #EF4444;">${report.stats.absentDays}</div>
+                <div style="padding: 15px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; border-left: 4px solid #DC2626;">
+                    <div style="color: #475569; font-size: 12px; font-weight: 600; margin-bottom: 5px;">Días Ausente</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #B91C1C;">${report.stats.absentDays}</div>
                 </div>
-                <div style="padding: 15px; background: #EFF6FF; border-radius: 8px; border-left: 4px solid #3B82F6;">
-                    <div style="color: #1E40AF; font-size: 12px; margin-bottom: 5px;">% Asistencia</div>
-                    <div style="font-size: 28px; font-weight: 700; color: #3B82F6;">${report.stats.attendanceRate}%</div>
+                <div style="padding: 15px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; border-left: 4px solid #1E3A8A;">
+                    <div style="color: #475569; font-size: 12px; font-weight: 600; margin-bottom: 5px;">% Asistencia</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #1E3A8A;">${report.stats.attendanceRate}%</div>
                 </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
-                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                    <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Retraso Promedio</div>
-                    <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.avgLateMinutes} minutos</div>
-                    <div style="color: #9CA3AF; font-size: 12px; margin-top: 5px;">Total: ${report.stats.totalLateMinutes} min</div>
+                <div style="padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <div style="color: #64748B; font-size: 13px; margin-bottom: 8px;">Retraso Promedio</div>
+                    <div style="font-size: 20px; font-weight: 600; color: #0F172A;">${report.stats.avgLateMinutes} minutos</div>
+                    <div style="color: #64748B; font-size: 12px; margin-top: 5px;">Total: ${report.stats.totalLateMinutes} min</div>
                 </div>
-                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                    <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Tiempo Extra Promedio</div>
-                    <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.avgOvertimeMinutes} minutos</div>
-                    <div style="color: #9CA3AF; font-size: 12px; margin-top: 5px;">Total: ${report.stats.totalOvertimeMinutes} min</div>
+                <div style="padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <div style="color: #64748B; font-size: 13px; margin-bottom: 8px;">Tiempo Extra Promedio</div>
+                    <div style="font-size: 20px; font-weight: 600; color: #0F172A;">${report.stats.avgOvertimeMinutes} minutos</div>
+                    <div style="color: #64748B; font-size: 12px; margin-top: 5px;">Total: ${report.stats.totalOvertimeMinutes} min</div>
                 </div>
-                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                    <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Verificaciones Biométricas</div>
-                    <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.stats.verifiedDays}/${report.stats.totalDays}</div>
+                <div style="padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <div style="color: #64748B; font-size: 13px; margin-bottom: 8px;">Verificaciones Biométricas</div>
+                    <div style="font-size: 20px; font-weight: 600; color: #0F172A;">${report.stats.verifiedDays}/${report.stats.totalDays}</div>
                 </div>
-                <div style="padding: 15px; background: #F9FAFB; border-radius: 8px;">
-                    <div style="color: #6B7280; font-size: 13px; margin-bottom: 8px;">Huellas Registradas</div>
-                    <div style="font-size: 20px; font-weight: 600; color: #1F2937;">${report.fingerprints}/10</div>
+                <div style="padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <div style="color: #64748B; font-size: 13px; margin-bottom: 8px;">Huellas Registradas</div>
+                    <div style="font-size: 20px; font-weight: 600; color: #0F172A;">${report.fingerprints}/10</div>
                 </div>
             </div>
 
             ${report.records.length > 0 ? `
                 <div>
-                    <h4 style="margin-bottom: 15px;">Historial de Asistencia (${report.records.length} registros)</h4>
+                    <h4 style="margin-bottom: 15px; color: #0F172A;">Historial de Asistencia (${report.records.length} registros)</h4>
                     <div style="max-height: 350px; overflow-y: auto;">
                         <table style="width: 100%; font-size: 13px;">
-                            <thead style="position: sticky; top: 0; background: white;">
+                            <thead style="position: sticky; top: 0; background: #F8FAFC;">
                                 <tr>
                                     <th>Fecha</th>
                                     <th>Entrada</th>
@@ -4196,9 +4476,9 @@ async function showEmployeeReportDetails() {
                             <tbody>
                                 ${report.records.map(rec => `
                                     <tr>
-                                        <td>${new Date(rec.date).toLocaleDateString('es-ES')}</td>
-                                        <td>${rec.check_in_time || '-'}</td>
-                                        <td>${rec.check_out_time || '-'}</td>
+                                        <td>${formatReportDateEs(rec.date)}</td>
+                                        <td>${escapeHtml(rec.check_in_time || '-')}</td>
+                                        <td>${escapeHtml(rec.check_out_time || '-')}</td>
                                         <td>${renderStatusBadge(rec.status)}</td>
                                         <td>${rec.minutes_late ? rec.minutes_late + ' min' : '-'}</td>
                                         <td style="text-align: center;">${rec.fingerprint_verified ? '✓' : '-'}</td>
@@ -4208,15 +4488,16 @@ async function showEmployeeReportDetails() {
                         </table>
                     </div>
                 </div>
-            ` : '<p style="text-align:center; padding: 2rem; color: #666;">No hay registros en el período seleccionado</p>'}
+            ` : '<p style="text-align:center; padding: 2rem; color: #64748B;">No hay registros en el período seleccionado</p>'}
         `;
 
         const modalHTML = renderReportModalShell({
             title: '👤 Reporte Individual de Empleado',
-            gradientBackground: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+            accentColor: '#0F172A',
             bannerContentHTML,
             bodyContentHTML,
-            maxWidth: '900px'
+            maxWidth: '900px',
+            onExcel: 'exportEmployeeReportToExcel()'
         });
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     } catch (error) {
@@ -4227,6 +4508,122 @@ async function showEmployeeReportDetails() {
 
 function printReport() {
     window.print();
+}
+
+// Variables en memoria para exportación de reportes a Excel
+let lastDailyReportData = null;
+let lastWeeklyReportData = null;
+let lastMonthlyReportData = null;
+let lastEmployeeReportData = null;
+
+function exportDailyReportToExcel() {
+    if (!lastDailyReportData) {
+        showNotification('No hay datos del reporte diario para exportar', 'warning');
+        return;
+    }
+    const r = lastDailyReportData;
+    const lines = [];
+    lines.push('REPORTE DIARIO DE ASISTENCIA');
+    lines.push(`Fecha;${r.date}`);
+    lines.push(`Total Empleados;${r.totalEmployees}`);
+    lines.push(`Presentes;${r.stats.present}`);
+    lines.push(`Tarde;${r.stats.late}`);
+    lines.push(`Ausentes;${r.stats.absent}`);
+    lines.push(`Verificados Biométrica;${r.stats.verified}`);
+    lines.push(`Promedio Retraso (min);${r.stats.avgLateMinutes}`);
+    lines.push('');
+    lines.push('DETALLE DE ASISTENCIAS');
+    lines.push('Empleado;Departamento;Entrada;Salida;Estado;Verificado');
+    for (const rec of (r.records || [])) {
+        lines.push(`"${rec.employee_name || '-'}";"${rec.department_name || '-'}";"${rec.check_in_time || '-'}";"${rec.check_out_time || '-'}";"${rec.status || '-'}";"${rec.fingerprint_verified ? 'SÍ' : 'NO'}"`);
+    }
+    const csv = '\uFEFF' + lines.join('\r\n');
+    downloadFile(csv, `Reporte_Diario_${r.date}.csv`);
+    showNotification('Reporte diario exportado a Excel exitosamente (.csv)', 'success');
+}
+
+function exportWeeklyReportToExcel() {
+    if (!lastWeeklyReportData) {
+        showNotification('No hay datos del reporte semanal para exportar', 'warning');
+        return;
+    }
+    const r = lastWeeklyReportData;
+    const lines = [];
+    lines.push('REPORTE SEMANAL DE ASISTENCIA');
+    lines.push(`Período;${r.startDate} a ${r.endDate}`);
+    lines.push(`Total Registros;${r.totalRecords}`);
+    lines.push(`Promedio Diario;${Math.round(r.avgDailyAttendance || 0)}`);
+    lines.push('');
+    lines.push('RESUMEN DIARIO');
+    lines.push('Fecha;Total;Presentes;Tarde;Ausentes;Verificados');
+    for (const d of (r.dailyStats || [])) {
+        lines.push(`"${d.date}";"${d.total}";"${d.present}";"${d.late}";"${d.absent}";"${d.verified}"`);
+    }
+    lines.push('');
+    lines.push('TODOS LOS REGISTROS');
+    lines.push('Fecha;Empleado;Entrada;Estado');
+    for (const rec of (r.records || [])) {
+        lines.push(`"${rec.date}";"${rec.employee_name || '-'}";"${rec.check_in_time || '-'}";"${rec.status || '-'}"`);
+    }
+    const csv = '\uFEFF' + lines.join('\r\n');
+    downloadFile(csv, `Reporte_Semanal_${r.startDate}_${r.endDate}.csv`);
+    showNotification('Reporte semanal exportado a Excel exitosamente (.csv)', 'success');
+}
+
+function exportMonthlyReportToExcel() {
+    if (!lastMonthlyReportData) {
+        showNotification('No hay datos del reporte mensual para exportar', 'warning');
+        return;
+    }
+    const r = lastMonthlyReportData;
+    const lines = [];
+    lines.push('REPORTE MENSUAL DE ASISTENCIA');
+    lines.push(`Mes;${r.monthName}`);
+    lines.push(`Total Registros;${r.totalStats.totalRecords}`);
+    lines.push(`Presentes;${r.totalStats.present}`);
+    lines.push(`Tarde;${r.totalStats.late}`);
+    lines.push(`Ausentes;${r.totalStats.absent}`);
+    lines.push(`Verificados;${r.totalStats.verified}`);
+    lines.push('');
+    lines.push('ESTADÍSTICAS POR EMPLEADO');
+    lines.push('Código;Empleado;Días Totales;Presente;Tarde;Ausente;Retraso (min);% Asistencia');
+    for (const emp of (r.employeeStats || [])) {
+        lines.push(`"${emp.employeeCode}";"${emp.employeeName}";"${emp.totalDays}";"${emp.presentDays}";"${emp.lateDays}";"${emp.absentDays}";"${emp.totalLateMinutes}";"${emp.attendanceRate}%"`);
+    }
+    const csv = '\uFEFF' + lines.join('\r\n');
+    downloadFile(csv, `Reporte_Mensual_${(r.monthName || 'mes').replace(/\s+/g, '_')}.csv`);
+    showNotification('Reporte mensual exportado a Excel exitosamente (.csv)', 'success');
+}
+
+function exportEmployeeReportToExcel() {
+    if (!lastEmployeeReportData) {
+        showNotification('No hay datos del reporte de empleado para exportar', 'warning');
+        return;
+    }
+    const r = lastEmployeeReportData;
+    const lines = [];
+    lines.push('REPORTE INDIVIDUAL DE EMPLEADO');
+    lines.push(`Empleado;${r.employee.first_name} ${r.employee.last_name}`);
+    lines.push(`Nómina;${r.employee.employee_code}`);
+    lines.push(`Departamento;${r.employee.department_name || 'Sin departamento'}`);
+    lines.push(`Turno;${r.employee.shift_name || 'Sin turno'}`);
+    lines.push(`Período;${r.period.startDate} a ${r.period.endDate}`);
+    lines.push(`Días Registrados;${r.stats.totalDays}`);
+    lines.push(`Días Presente;${r.stats.presentDays}`);
+    lines.push(`Días Tarde;${r.stats.lateDays}`);
+    lines.push(`Días Ausente;${r.stats.absentDays}`);
+    lines.push(`Tasa Asistencia;${r.stats.attendanceRate}%`);
+    lines.push(`Minutos Tarde Totales;${r.stats.totalLateMinutes}`);
+    lines.push(`Tiempo Extra (min);${r.stats.totalOvertimeMinutes}`);
+    lines.push('');
+    lines.push('HISTORIAL DE ASISTENCIA');
+    lines.push('Fecha;Entrada;Salida;Estado;Retraso (min);Verificado Biométrico');
+    for (const rec of (r.records || [])) {
+        lines.push(`"${rec.date}";"${rec.check_in_time || '-'}";"${rec.check_out_time || '-'}";"${rec.status || '-'}";"${rec.minutes_late || 0}";"${rec.fingerprint_verified ? 'SÍ' : 'NO'}"`);
+    }
+    const csv = '\uFEFF' + lines.join('\r\n');
+    downloadFile(csv, `Reporte_Empleado_${r.employee.employee_code}_${r.period.startDate}_${r.period.endDate}.csv`);
+    showNotification('Reporte de empleado exportado a Excel exitosamente (.csv)', 'success');
 }
 
 // ==================== SETTINGS SECTION ====================
@@ -4265,6 +4662,8 @@ async function loadSettingsSection() {
             const cfg = await window.config.get();
             if (cfg && cfg.systemConfig && Object.keys(cfg.systemConfig).length > 0) {
                 const sc = cfg.systemConfig;
+                systemSecurityState.hasAdminPin = sc.has_admin_pin === '1';
+                systemSecurityState.kioskLockEnabled = sc.kiosk_lock_enabled === '1';
                 const current = loadSavedSettings();
                 const merged = {
                     ...current,
@@ -4280,7 +4679,11 @@ async function loadSettingsSection() {
                     enableNotifications: sc.notification_enabled !== undefined ? sc.notification_enabled === '1' : current.enableNotifications,
                     lateAlerts: sc.late_alerts !== undefined ? sc.late_alerts === '1' : current.lateAlerts,
                     biometricFailAlerts: sc.biometric_fail_alerts !== undefined ? sc.biometric_fail_alerts === '1' : current.biometricFailAlerts,
-                    autoStartListening: sc.auto_start_listening !== undefined ? sc.auto_start_listening === '1' : current.autoStartListening
+                    autoStartListening: sc.auto_start_listening !== undefined ? sc.auto_start_listening === '1' : current.autoStartListening,
+                    kioskLock: sc.kiosk_lock_enabled !== undefined ? sc.kiosk_lock_enabled === '1' : current.kioskLock,
+                    workDays: sc.work_days ? sc.work_days.split(',').map(n => safeParseInt(n, 1)) : current.workDays,
+                    autoBackupsDir: sc.auto_backups_dir || '',
+                    autoBackupsCount: sc.auto_backups_count || '0'
                 };
                 localStorage.setItem('attendance_settings', JSON.stringify(merged));
             }
@@ -4296,9 +4699,9 @@ async function loadSettingsSection() {
 
     container.innerHTML = `
         <div style="max-width: 800px; margin: 0 auto;">
-            <div class="banner-gradient" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); margin-bottom: 24px;">
-                <h3 style="margin: 0 0 6px; font-size: 20px;">⚙️ Configuración del Sistema</h3>
-                <p style="margin: 0; opacity: 0.9; font-size: 14px;">Administre las directivas de control de asistencia, hardware biométrico y experiencia operativa.</p>
+            <div class="banner-gradient" style="background: #F8FAFC; color: #0F172A; border: 1px solid #CBD5E1; border-left: 4px solid #334155; margin-bottom: 24px;">
+                <h3 style="margin: 0 0 6px; font-size: 20px; color: #0F172A;">⚙️ Configuración del Sistema</h3>
+                <p style="margin: 0; color: #475569; font-size: 14px;">Administre las directivas de control de asistencia, hardware biométrico y experiencia operativa.</p>
             </div>
 
             <!-- Card 1: Asistencia y Políticas -->
@@ -4433,7 +4836,148 @@ async function loadSettingsSection() {
                 </div>
             </div>
 
-            <!-- Card 4: Información del Sistema -->
+            <!-- Card 4: Seguridad y Modo Kiosco -->
+            <div class="card" style="margin-bottom: 20px; border: 1px solid #CBD5E1;">
+                <div class="card-header" style="background: #F8FAFC; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                    <h4 style="margin: 0; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                        🔐 Seguridad y Modo Kiosco
+                    </h4>
+                    <span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: ${systemSecurityState.hasAdminPin ? '#DCFCE7' : '#FEF3C7'}; color: ${systemSecurityState.hasAdminPin ? '#166534' : '#92400E'};">
+                        ${systemSecurityState.hasAdminPin ? (systemSecurityState.isUnlocked ? '🔓 PIN Activo (Sesión Abierta)' : '🔒 PIN Activo (Protegido)') : '⚠️ Sin PIN Configurado'}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p style="font-size: 13.5px; color: #475569; margin: 0 0 16px;">
+                        Proteja las configuraciones críticas, la exportación/restauración de la base de datos y limite la navegación en pantalla mediante un PIN de Administrador (almacenado con hash SHA-256 seguro).
+                    </p>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
+                        <button type="button" class="btn" onclick="openAdminPinSetupModal()"
+                                style="background: #1E293B; color: #F8FAFC; font-weight: 600; font-size: 13px; padding: 8px 14px;">
+                            ${systemSecurityState.hasAdminPin ? '🔑 Cambiar / Eliminar PIN de Administrador' : '➕ Configurar PIN de Administrador'}
+                        </button>
+                        ${systemSecurityState.hasAdminPin ? `
+                            <button type="button" class="btn" onclick="toggleAdminLockManual()"
+                                    style="background: ${systemSecurityState.isUnlocked ? '#DC2626' : '#059669'}; color: white; font-weight: 600; font-size: 13px; padding: 8px 14px;">
+                                ${systemSecurityState.isUnlocked ? '🔒 Bloquear Sesión Ahora' : '🔓 Desbloquear Sesión con PIN'}
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0; padding-top: 12px; border-top: 1px solid #E2E8F0;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="setting-kiosk-lock" ${settings.kioskLock ? 'checked' : ''} ${!systemSecurityState.hasAdminPin ? 'disabled' : ''}>
+                            <span><strong>Activar Modo Kiosco Estricto (Restringe navegación a "Marcar Asistencia")</strong></span>
+                        </label>
+                        <small style="color: #6B7280; margin-left: 28px; display: block;">
+                            ${systemSecurityState.hasAdminPin
+                                ? 'Al activarse, las secciones de Empleados, Turnos, Reportes y Ajustes quedan bloqueadas hasta ingresar el PIN.'
+                                : 'Debe configurar primero un PIN de Administrador para poder activar el Modo Kiosco.'}
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 5: Días Laborables y Corte de Faltas -->
+            <div class="card" style="margin-bottom: 20px; border: 1px solid #CBD5E1;">
+                <div class="card-header" style="background: #F8FAFC; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                    <h4 style="margin: 0; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                        📅 Días Laborables y Automatización de Faltas
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p style="font-size: 13.5px; color: #475569; margin: 0 0 14px;">
+                        Seleccione los días de la semana en los cuales opera el corte automático de faltas. Los días no marcados serán omitidos por el planificador de fondo.
+                    </p>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;" data-role="work-days-checkboxes">
+                        ${[
+                            { id: 1, label: 'Lun' },
+                            { id: 2, label: 'Mar' },
+                            { id: 3, label: 'Mié' },
+                            { id: 4, label: 'Jue' },
+                            { id: 5, label: 'Vie' },
+                            { id: 6, label: 'Sáb' },
+                            { id: 0, label: 'Dom' }
+                        ].map(d => {
+                            const isChecked = (settings.workDays || [1,2,3,4,5]).includes(d.id);
+                            return `
+                                <label style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                    <input type="checkbox" class="work-day-chk" data-day="${d.id}" ${isChecked ? 'checked' : ''}>
+                                    <span>${d.label}</span>
+                                </label>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <div style="padding: 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <strong style="color: #0F172A; font-size: 13.5px;">⚡ Ejecución Manual del Corte de Faltas:</strong>
+                            <p style="margin: 2px 0 0; color: #64748B; font-size: 12px;">Computa inasistencias de la jornada actual para quienes no tengan registro de entrada.</p>
+                        </div>
+                        <button type="button" class="btn" onclick="executeAbsentCutoffNow()"
+                                style="background: #334155; color: white; font-size: 12.5px; padding: 7px 14px; font-weight: 600;">
+                            ⚡ Realizar Corte de Faltas Ahora
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 6: Respaldos de Base de Datos y Resiliencia -->
+            <div class="card" style="margin-bottom: 20px; border: 1px solid #CBD5E1;">
+                <div class="card-header" style="background: #F8FAFC;">
+                    <h4 style="margin: 0; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                        💾 Copias de Seguridad y Restauración de Base de Datos
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p style="font-size: 13.5px; color: #475569; margin: 0 0 14px;">
+                        El sistema genera respaldos automáticos diarios fuera del repositorio (carpeta segura del sistema operativo) con rotación continua de 7 días. También puede exportar o restaurar archivos SQLite manualmente.
+                    </p>
+
+                    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 12.5px; color: #334155;">
+                        <div><strong>Directorio de respaldos automáticos:</strong> <code style="background: white; padding: 2px 6px; border: 1px solid #CBD5E1; border-radius: 4px;">${escapeHtml(settings.autoBackupsDir || 'Carpeta del Sistema Operativo')}</code></div>
+                        <div style="margin-top: 4px;"><strong>Copias automáticas conservadas:</strong> ${settings.autoBackupsCount || '0'} respaldo(s)</div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" class="btn" onclick="handleExportDatabaseBackup()"
+                                style="background: #059669; color: white; font-weight: 600; font-size: 13px; padding: 8px 14px;">
+                            💾 Exportar Respaldo SQLite Seguro
+                        </button>
+                        <button type="button" class="btn" onclick="handleRestoreDatabaseBackup()"
+                                style="background: #2563EB; color: white; font-weight: 600; font-size: 13px; padding: 8px 14px;">
+                            📥 Restaurar Base de Datos desde Respaldo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 7: Dispositivo Biométrico y Controladores -->
+            <div class="card" style="margin-bottom: 20px; border: 1px solid #DBEAFE;">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 100%);">
+                    <h4 style="margin: 0; color: #1E3A8A; display: flex; align-items: center; gap: 8px;">
+                        🔌 Dispositivo Biométrico y Versión de Controladores
+                    </h4>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn" data-role="biometric-service-toggle-btn" onclick="toggleBiometricServiceManual()"
+                                style="padding: 6px 12px; font-size: 12px; background: ${touchModeState.serverOnline === false ? '#059669' : '#DC2626'}; color: white; border-radius: 6px;">
+                            ${touchModeState.serverOnline === false ? '⚡ Prender Servicio del Lector' : '🛑 Detener Servicio del Lector'}
+                        </button>
+                        <button type="button" class="btn" onclick="refreshBiometricDeviceInfo(true)"
+                                style="padding: 6px 12px; font-size: 12px; background: #2563EB; color: white; border-radius: 6px;">
+                            🔄 Verificar / Actualizar
+                        </button>
+                        <button type="button" class="btn" onclick="showDeviceDiagnosticsModal()"
+                                style="padding: 6px 12px; font-size: 12px; background: #1E293B; color: white; border-radius: 6px;">
+                            🔍 Abrir Modal de Propiedades y Drivers
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body" data-role="biometric-diagnostics-container">
+                    ${buildBiometricHardwareDiagnosticsHTML(biometricDeviceInfo)}
+                </div>
+            </div>
+
+            <!-- Card 8: Información del Sistema -->
             <div class="card" style="margin-bottom: 20px;">
                 <div class="card-header">
                     <h4 style="margin: 0;">ℹ️ Información del Sistema</h4>
@@ -4460,7 +5004,7 @@ async function loadSettingsSection() {
                 </div>
             </div>
 
-            <!-- Card 5: Gestión de Datos (Zona de Peligro) -->
+            <!-- Card 9: Gestión de Datos (Zona de Peligro) -->
             <div class="card" style="margin-bottom: 24px; border: 2px solid #FEE2E2;">
                 <div class="card-header" style="background: #FEE2E2;">
                     <h4 style="margin: 0; color: #991B1B;">🗑️ Gestión de Datos</h4>
@@ -4495,6 +5039,8 @@ async function loadSettingsSection() {
             </div>
         </div>
     `;
+
+    refreshBiometricDeviceInfo(false);
 }
 
 function loadSavedSettings() {
@@ -4511,7 +5057,11 @@ function loadSavedSettings() {
         enableNotifications: true,
         lateAlerts: true,
         biometricFailAlerts: false,
-        autoStartListening: true
+        autoStartListening: true,
+        kioskLock: false,
+        workDays: [1, 2, 3, 4, 5],
+        autoBackupsDir: '',
+        autoBackupsCount: '0'
     };
 
     try {
@@ -4528,6 +5078,16 @@ async function saveSettings() {
         const oldSettings = loadSavedSettings();
         const reqBio = safeParseBoolean(document.getElementById('setting-require-biometric')?.checked, false);
         const allowMan = reqBio ? false : safeParseBoolean(document.getElementById('setting-allow-manual')?.checked, true);
+        const kioskChecked = safeParseBoolean(document.getElementById('setting-kiosk-lock')?.checked, false);
+
+        const workDayInputs = document.querySelectorAll('.work-day-chk');
+        const selectedWorkDays = [];
+        workDayInputs.forEach(input => {
+            if (input.checked) {
+                selectedWorkDays.push(safeParseInt(input.dataset.day, 1));
+            }
+        });
+        const finalWorkDays = selectedWorkDays.length > 0 ? selectedWorkDays : [1, 2, 3, 4, 5];
 
         const newSettings = {
             absentTime: document.getElementById('setting-absent-time')?.value || '09:00',
@@ -4542,10 +5102,16 @@ async function saveSettings() {
             enableNotifications: safeParseBoolean(document.getElementById('setting-notifications')?.checked, true),
             lateAlerts: safeParseBoolean(document.getElementById('setting-late-alerts')?.checked, true),
             biometricFailAlerts: safeParseBoolean(document.getElementById('setting-biometric-fail-alerts')?.checked, false),
-            autoStartListening: safeParseBoolean(document.getElementById('setting-auto-start-listening')?.checked, true)
+            autoStartListening: safeParseBoolean(document.getElementById('setting-auto-start-listening')?.checked, true),
+            kioskLock: kioskChecked,
+            workDays: finalWorkDays,
+            autoBackupsDir: oldSettings.autoBackupsDir || '',
+            autoBackupsCount: oldSettings.autoBackupsCount || '0'
         };
 
         localStorage.setItem('attendance_settings', JSON.stringify(newSettings));
+        systemSecurityState.kioskLockEnabled = kioskChecked;
+        updateKioskTopbarUI();
 
         // Sincronizar simultáneamente con la base de datos SQLite (system_config)
         if (window.config && typeof window.config.get === 'function') {
@@ -4563,7 +5129,9 @@ async function saveSettings() {
                     notification_enabled: newSettings.enableNotifications ? '1' : '0',
                     late_alerts: newSettings.lateAlerts ? '1' : '0',
                     biometric_fail_alerts: newSettings.biometricFailAlerts ? '1' : '0',
-                    auto_start_listening: newSettings.autoStartListening ? '1' : '0'
+                    auto_start_listening: newSettings.autoStartListening ? '1' : '0',
+                    kiosk_lock_enabled: newSettings.kioskLock ? '1' : '0',
+                    work_days: finalWorkDays.join(',')
                 });
             } catch (e) {
                 logger.warn('Error sincronizando configuración a SQLite:', e);
@@ -4802,64 +5370,1164 @@ function showConfirmationModal(title, message, expectedText) {
     });
 }
 
+// ==================== SEGURIDAD, MODO KIOSCO Y RESPALDOS ====================
+
+function updateKioskTopbarUI() {
+    const topbarRight = document.querySelector('.topbar-right');
+    if (!topbarRight) return;
+
+    let pill = document.querySelector('[data-role="admin-kiosk-lock-pill"]');
+    if (!systemSecurityState.hasAdminPin) {
+        if (pill) pill.remove();
+        return;
+    }
+
+    if (!pill) {
+        pill = document.createElement('div');
+        pill.setAttribute('data-role', 'admin-kiosk-lock-pill');
+        pill.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; transition: all 0.2s ease;';
+        topbarRight.insertBefore(pill, topbarRight.firstChild);
+        pill.addEventListener('click', () => toggleAdminLockManual());
+    }
+
+    if (systemSecurityState.isUnlocked) {
+        pill.style.background = '#DCFCE7';
+        pill.style.color = '#15803D';
+        pill.style.border = '1px solid #86EFAC';
+        pill.title = 'Sesión de Administrador Desbloqueada. Clic para bloquear.';
+        pill.innerHTML = '<span>🔓 Admin Desbloqueado</span>';
+    } else {
+        pill.style.background = systemSecurityState.kioskLockEnabled ? '#FEF2F2' : '#F1F5F9';
+        pill.style.color = systemSecurityState.kioskLockEnabled ? '#B91C1C' : '#475569';
+        pill.style.border = systemSecurityState.kioskLockEnabled ? '1px solid #FCA5A5' : '1px solid #CBD5E1';
+        pill.title = systemSecurityState.kioskLockEnabled ? 'Modo Kiosco Activo (Bloqueado). Clic para desbloquear con PIN.' : 'Administración Protegida. Clic para desbloquear.';
+        pill.innerHTML = `<span>🔒 ${systemSecurityState.kioskLockEnabled ? 'Modo Kiosco Bloqueado' : 'PIN Protegido'}</span>`;
+    }
+}
+
+async function promptAdminPinModal(promptTitle = 'Autenticación de Administrador') {
+    if (!systemSecurityState.hasAdminPin) return true;
+    if (systemSecurityState.isUnlocked) return true;
+
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.style.zIndex = '10001';
+
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 420px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25);">
+                <div class="modal-header" style="background: #0F172A; color: white; padding: 16px 20px; border-top-left-radius: 12px; border-top-right-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                        <span>🔐</span> ${escapeHtml(promptTitle)}
+                    </h3>
+                    <button type="button" class="close-btn admin-pin-cancel-btn" style="color: #94A3B8; font-size: 20px; background: transparent; border: none; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <p style="font-size: 13.5px; color: #475569; margin: 0 0 14px;">
+                        Ingrese su PIN de Administrador para autorizar esta operación:
+                    </p>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <input type="password" id="admin-pin-dialog-input" class="form-control" placeholder="••••" maxlength="16" autofocus style="font-size: 20px; letter-spacing: 6px; text-align: center; padding: 10px;">
+                    </div>
+                    <div id="admin-pin-dialog-error" style="display: none; color: #DC2626; font-size: 12.5px; margin-bottom: 10px; font-weight: 600; text-align: center;"></div>
+                </div>
+                <div class="modal-footer" style="padding: 12px 20px; background: #F8FAFC; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 10px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+                    <button type="button" class="btn btn-cancel admin-pin-cancel-btn">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="admin-pin-submit-btn" style="background: #1E293B; font-weight: 600;">Verificar PIN</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        const pinInput = modal.querySelector('#admin-pin-dialog-input');
+        const errorDiv = modal.querySelector('#admin-pin-dialog-error');
+        const submitBtn = modal.querySelector('#admin-pin-submit-btn');
+        const cancelBtns = modal.querySelectorAll('.admin-pin-cancel-btn');
+
+        pinInput?.focus();
+
+        const cleanup = () => {
+            modal.remove();
+        };
+
+        cancelBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                cleanup();
+                resolve(false);
+            });
+        });
+
+        const tryVerify = async () => {
+            const entered = pinInput?.value || '';
+            if (!entered) {
+                if (errorDiv) {
+                    errorDiv.textContent = 'Ingrese el PIN';
+                    errorDiv.style.display = 'block';
+                }
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Verificando...';
+
+            try {
+                const res = await window.config.get({
+                    __action: 'verify_admin_pin',
+                    pin: entered
+                });
+
+                if (res && res.valid) {
+                    systemSecurityState.isUnlocked = true;
+                    updateKioskTopbarUI();
+                    cleanup();
+                    showNotification('🔓 Sesión de administrador desbloqueada', 'success');
+                    resolve(true);
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Verificar PIN';
+                    if (errorDiv) {
+                        errorDiv.textContent = res?.message || 'PIN incorrecto. Intente de nuevo.';
+                        errorDiv.style.display = 'block';
+                    }
+                    if (pinInput) {
+                        pinInput.value = '';
+                        pinInput.focus();
+                    }
+                }
+            } catch (err) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Verificar PIN';
+                if (errorDiv) {
+                    errorDiv.textContent = 'Error de comunicación: ' + err.message;
+                    errorDiv.style.display = 'block';
+                }
+            }
+        };
+
+        submitBtn?.addEventListener('click', tryVerify);
+        pinInput?.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') tryVerify();
+            if (e.key === 'Escape') {
+                cleanup();
+                resolve(false);
+            }
+        });
+    });
+}
+
+async function toggleAdminLockManual() {
+    if (!systemSecurityState.hasAdminPin) {
+        openAdminPinSetupModal();
+        return;
+    }
+
+    if (systemSecurityState.isUnlocked) {
+        try {
+            await window.config.get({ __action: 'lock_admin_session' });
+            systemSecurityState.isUnlocked = false;
+            updateKioskTopbarUI();
+            showNotification('🔒 Sesión de administrador bloqueada', 'info');
+            if (systemSecurityState.kioskLockEnabled && currentSection !== 'check-in' && currentSection !== 'dashboard') {
+                showSection('check-in');
+            }
+        } catch (e) {
+            logger.error('Error al bloquear sesión:', e);
+        }
+    } else {
+        await promptAdminPinModal('Desbloquear Sesión de Administrador');
+    }
+}
+
+function openAdminPinSetupModal() {
+    const hasPin = systemSecurityState.hasAdminPin;
+    const currentPinFieldHTML = hasPin ? `
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                PIN Actual *
+            </label>
+            <input type="password" id="modal-current-admin-pin" class="form-control" placeholder="••••" maxlength="16" style="letter-spacing: 4px;">
+        </div>
+    ` : '';
+
+    const bodyHTML = `
+        <form id="admin-pin-setup-form" onsubmit="event.preventDefault(); submitAdminPinSetup();">
+            <p style="font-size: 13.5px; color: #475569; margin: 0 0 16px;">
+                ${hasPin
+                    ? 'Puede actualizar su PIN actual o eliminarlo por completo si ya no requiere protección.'
+                    : 'Establezca un PIN numérico o alfanumérico seguro (4 a 16 caracteres) para proteger funciones sensibles.'}
+            </p>
+            ${currentPinFieldHTML}
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                    ${hasPin ? 'Nuevo PIN (dejar en blanco para conservar el actual)' : 'Nuevo PIN *'}
+                </label>
+                <input type="password" id="modal-new-admin-pin" class="form-control" placeholder="••••" maxlength="16" style="letter-spacing: 4px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                    Confirmar Nuevo PIN
+                </label>
+                <input type="password" id="modal-confirm-admin-pin" class="form-control" placeholder="••••" maxlength="16" style="letter-spacing: 4px;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 15px; padding-top: 10px; border-top: 1px solid #E2E8F0;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                    <input type="checkbox" id="modal-enable-kiosk-chbox" ${systemSecurityState.kioskLockEnabled ? 'checked' : ''}>
+                    <span>Activar Modo Kiosco Estricto</span>
+                </label>
+            </div>
+
+            <div id="modal-admin-pin-feedback" style="display: none; padding: 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px;"></div>
+        </form>
+    `;
+
+    const removeBtnHTML = hasPin ? `
+        <button type="button" class="btn" onclick="submitRemoveAdminPin()" style="background: #DC2626; color: white; font-size: 12.5px; margin-right: auto;">
+            🗑️ Eliminar PIN
+        </button>
+    ` : '';
+
+    const footerHTML = `
+        ${removeBtnHTML}
+        <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="submitAdminPinSetup()" style="background: #1E293B; font-weight: 600;">
+            💾 Guardar PIN
+        </button>
+    `;
+
+    openModalShell({
+        title: hasPin ? '🔑 Administrar PIN de Seguridad' : '➕ Configurar PIN de Seguridad',
+        maxWidth: '500px',
+        bodyHTML,
+        footerHTML
+    });
+}
+
+async function submitAdminPinSetup() {
+    const currentPin = document.getElementById('modal-current-admin-pin')?.value || '';
+    const newPin = document.getElementById('modal-new-admin-pin')?.value || '';
+    const confirmPin = document.getElementById('modal-confirm-admin-pin')?.value || '';
+    const kioskLock = document.getElementById('modal-enable-kiosk-chbox')?.checked ? '1' : '0';
+    const feedback = document.getElementById('modal-admin-pin-feedback');
+
+    const showModalError = (msg) => {
+        if (feedback) {
+            feedback.style.display = 'block';
+            feedback.style.background = '#FEE2E2';
+            feedback.style.color = '#B91C1C';
+            feedback.textContent = msg;
+        }
+    };
+
+    if (newPin.length < 4 || newPin.length > 16) {
+        showModalError('El nuevo PIN debe tener entre 4 y 16 caracteres.');
+        return;
+    }
+    if (newPin !== confirmPin) {
+        showModalError('El nuevo PIN y su confirmación no coinciden.');
+        return;
+    }
+
+    try {
+        const res = await window.config.get({
+            __action: 'set_admin_pin',
+            currentPin,
+            newPin,
+            kioskLock
+        });
+
+        if (res && res.success) {
+            systemSecurityState.hasAdminPin = true;
+            systemSecurityState.isUnlocked = true;
+            systemSecurityState.kioskLockEnabled = kioskLock === '1';
+            updateKioskTopbarUI();
+            closeModal();
+            showNotification('✅ PIN de Administrador configurado exitosamente', 'success');
+            loadSettingsSection();
+        } else {
+            showModalError(res?.message || 'Error al guardar el PIN');
+        }
+    } catch (e) {
+        showModalError('Error al contactar el proceso principal: ' + e.message);
+    }
+}
+
+async function submitRemoveAdminPin() {
+    const currentPin = document.getElementById('modal-current-admin-pin')?.value || '';
+    if (!confirm('¿Está seguro de que desea eliminar el PIN de Administrador? Las funciones sensibles quedarán desprotegidas.')) {
+        return;
+    }
+
+    try {
+        const res = await window.config.get({
+            __action: 'set_admin_pin',
+            currentPin,
+            remove: '1'
+        });
+
+        if (res && res.success) {
+            systemSecurityState.hasAdminPin = false;
+            systemSecurityState.isUnlocked = false;
+            systemSecurityState.kioskLockEnabled = false;
+            updateKioskTopbarUI();
+            closeModal();
+            showNotification('PIN de Administrador eliminado correctamente', 'info');
+            loadSettingsSection();
+        } else {
+            const feedback = document.getElementById('modal-admin-pin-feedback');
+            if (feedback) {
+                feedback.style.display = 'block';
+                feedback.style.background = '#FEE2E2';
+                feedback.style.color = '#B91C1C';
+                feedback.textContent = res?.message || 'PIN actual incorrecto.';
+            }
+        }
+    } catch (e) {
+        logger.error('Error eliminando PIN:', e);
+        showNotification('Error eliminando PIN: ' + e.message, 'error');
+    }
+}
+
+async function executeAbsentCutoffNow() {
+    const authorized = await promptAdminPinModal('Autorizar Corte de Faltas');
+    if (!authorized) return;
+
+    try {
+        showNotification('⚡ Ejecutando corte de faltas...', 'info');
+        const res = await window.attendance.getAttendanceRecords({ action: 'mark_absentees' });
+        if (res && res.success) {
+            showNotification(`✅ Corte ejecutado: ${res.count || 0} inasistencia(s) registradas`, 'success');
+            if (currentSection === 'dashboard') loadDashboard();
+            if (currentSection === 'attendance') loadAttendanceSection();
+        } else {
+            showNotification('Error al ejecutar corte de faltas: ' + (res?.message || 'Error desconocido'), 'error');
+        }
+    } catch (e) {
+        logger.error('Error al ejecutar corte de faltas:', e);
+        showNotification('Error al ejecutar corte de faltas: ' + e.message, 'error');
+    }
+}
+
+async function handleExportDatabaseBackup() {
+    const authorized = await promptAdminPinModal('Autorizar Exportación de Base de Datos');
+    if (!authorized) return;
+
+    try {
+        showNotification('💾 Preparando exportación segura de base de datos SQLite...', 'info');
+        const res = await window.config.get({
+            __action: 'backup_database',
+            __pin: ''
+        });
+
+        if (res && res.success) {
+            showNotification(`✅ Base de datos respaldada en: ${res.filePath}`, 'success');
+        } else if (res && res.canceled) {
+            showNotification('Exportación cancelada', 'info');
+        } else {
+            showNotification('Error al exportar respaldo: ' + (res?.message || 'Error desconocido'), 'error');
+        }
+    } catch (e) {
+        logger.error('Error exportando base de datos:', e);
+        showNotification('Error al exportar base de datos: ' + e.message, 'error');
+    }
+}
+
+async function handleRestoreDatabaseBackup() {
+    const authorized = await promptAdminPinModal('Autorizar Restauración de Base de Datos');
+    if (!authorized) return;
+
+    const warnMsg = '⚠️ ADVERTENCIA CRÍTICA DE RESTAURACIÓN ⚠️\n\n' +
+        'Restaurar una base de datos reemplazará los datos actuales por los del archivo seleccionado.\n' +
+        'El sistema tomará automáticamente un respaldo preventivo antes de la sustitución.\n\n' +
+        '¿Desea proceder a seleccionar el archivo SQLite?';
+    if (!confirm(warnMsg)) return;
+
+    try {
+        showNotification('📥 Seleccionando y validando archivo de respaldo SQLite...', 'info');
+        const res = await window.config.get({
+            __action: 'restore_database',
+            __pin: ''
+        });
+
+        if (res && res.success) {
+            showNotification('✅ Base de datos restaurada y sincronizada exitosamente', 'success');
+            await loadInitialData();
+            showSection('dashboard');
+        } else if (res && res.canceled) {
+            showNotification('Restauración cancelada', 'info');
+        } else {
+            showNotification('Error al restaurar: ' + (res?.message || 'Archivo no válido'), 'error');
+        }
+    } catch (e) {
+        logger.error('Error restaurando base de datos:', e);
+        showNotification('Error al restaurar base de datos: ' + e.message, 'error');
+    }
+}
+
 // ==================== AUTO ATTENDANCE (MODO AUTOMÁTICO) ====================
 
 // ==================== TOUCH MODE (MODO AUTOMÁTICO) ====================
 
 let touchModeState = {
     isActive: false,
+    desiredActive: false,
+    serverOnline: true,
+    hardwareState: 'IDLE',
+    stopReason: 'NONE',
+    statusMessage: 'Lector en espera',
     lastEventTime: null,
     totalTouches: 0,
-    totalFingerprints: 0
+    totalFingerprints: 0,
+    readerConnected: undefined,
+    readerModel: null,
+    readerSerial: null,
+    readerFirmware: null
 };
 
+let biometricDeviceInfo = null;
 let touchModePollingInterval = null;
 
 /**
- * Inicializar modo touch
+ * Clasificar el estado actual de la máquina de estados biométrica (Eventos Controlados vs No Controlados)
+ */
+function getBiometricVisualState() {
+    const serverOnline = touchModeState.serverOnline !== false;
+    const stopReason = touchModeState.stopReason || 'NONE';
+    const hwState = touchModeState.hardwareState || 'IDLE';
+    const isReaderConnected = touchModeState.readerConnected !== undefined
+        ? Boolean(touchModeState.readerConnected)
+        : Boolean(biometricDeviceInfo?.connected ?? touchModeState.isActive);
+
+    // 1. Servicio detenido manualmente (Evento Controlado)
+    if (stopReason === 'SERVICE_STOPPED_MANUALLY') {
+        return {
+            code: 'SERVICE_STOPPED_MANUALLY',
+            eventKind: 'CONTROLADO (Manual)',
+            dotColor: '#64748B',
+            pulse: false,
+            titleColor: '#334155',
+            bgColor: '#F1F5F9',
+            borderColor: '#94A3B8',
+            sidebarTitle: 'Servicio Detenido',
+            sidebarSub: 'Apagado manual controlado',
+            bannerTitle: '⏸️ Servicio Biométrico Apagado (Paro Manual Controlado)',
+            bannerSub: 'El servicio del lector fue detenido manualmente. Préndalo para habilitar la lectura USB.'
+        };
+    }
+
+    // 2. Servicio cortado inesperadamente (Evento No Controlado)
+    if (!serverOnline || stopReason === 'UNEXPECTED_SERVICE_DROP') {
+        return {
+            code: 'UNEXPECTED_SERVICE_DROP',
+            eventKind: 'NO CONTROLADO (Corte Inesperado)',
+            dotColor: '#DC2626',
+            pulse: false,
+            titleColor: '#991B1B',
+            bgColor: '#FEF2F2',
+            borderColor: '#DC2626',
+            sidebarTitle: 'Servicio Cortado',
+            sidebarSub: 'Caída inesperada del motor',
+            bannerTitle: '🚨 Servicio Biométrico Cortado Inesperadamente (No Controlado)',
+            bannerSub: 'La comunicación con el servicio del lector se interrumpió de forma inesperada. Reconectando o préndalo manualmente.'
+        };
+    }
+
+    // 3. Lector USB desconectado físicamente (Evento No Controlado)
+    if (!isReaderConnected || stopReason === 'UNEXPECTED_USB_DISCONNECT') {
+        return {
+            code: 'UNEXPECTED_USB_DISCONNECT',
+            eventKind: 'NO CONTROLADO (Desconexión Física USB)',
+            dotColor: '#EF4444',
+            pulse: false,
+            titleColor: '#991B1B',
+            bgColor: '#FEF2F2',
+            borderColor: '#EF4444',
+            sidebarTitle: 'Lector Desconectado',
+            sidebarSub: 'Cable USB desconectado',
+            bannerTitle: '🔌❌ Lector Biométrico Desconectado (Evento No Controlado)',
+            bannerSub: 'No se detecta el lector en el puerto USB. Conéctelo para reanudar automáticamente (0% Polling).'
+        };
+    }
+
+    // 4. Enrolamiento o pausa por operación 1:1 (Evento Controlado)
+    if (hwState === 'ENROLLING' || stopReason === 'OPERATION_PAUSE') {
+        return {
+            code: 'OPERATION_PAUSE',
+            eventKind: 'CONTROLADO (Operación en curso)',
+            dotColor: '#2563EB',
+            pulse: true,
+            titleColor: '#1E40AF',
+            bgColor: '#EFF6FF',
+            borderColor: '#3B82F6',
+            sidebarTitle: 'Operación Biométrica',
+            sidebarSub: 'Captura / Enrolamiento activo',
+            bannerTitle: '🔵 En Operación Biométrica (Pausa Controlada)',
+            bannerSub: 'La escucha continua está en pausa controlada mientras se realiza una captura o registro individual.'
+        };
+    }
+
+    // 5. Inicializando / Auto-recuperando
+    if (hwState === 'STARTING') {
+        return {
+            code: 'STARTING',
+            eventKind: 'TRANSICIÓN FSM',
+            dotColor: '#3B82F6',
+            pulse: true,
+            titleColor: '#1D4ED8',
+            bgColor: '#EFF6FF',
+            borderColor: '#60A5FA',
+            sidebarTitle: 'Sincronizando Lector...',
+            sidebarSub: 'Activando captura continua',
+            bannerTitle: '🔄 Inicializando Modo Continuo...',
+            bannerSub: touchModeState.statusMessage || 'Sincronizando lector y plantillas biométricas...'
+        };
+    }
+
+    // 6. Escucha continua activa (Operación Normal)
+    if (touchModeState.isActive) {
+        return {
+            code: 'TOUCH_CONTINUOUS',
+            eventKind: 'ACTIVO (Tiempo Real)',
+            dotColor: '#10B981',
+            pulse: true,
+            titleColor: '#065F46',
+            bgColor: '#ECFDF5',
+            borderColor: '#10B981',
+            sidebarTitle: 'Escucha Continua',
+            sidebarSub: 'Monitoreo activo en vivo',
+            bannerTitle: '🟢 Lector Activo en Escucha Continua',
+            bannerSub: 'Escuchando eventos de huella e interrupciones de hardware USB en tiempo real.'
+        };
+    }
+
+    // 7. Lector conectado pero escucha detenida manualmente o sin huellas (Evento Controlado)
+    return {
+        code: 'MANUAL_STOP',
+        eventKind: 'CONTROLADO (En Espera)',
+        dotColor: '#F59E0B',
+        pulse: false,
+        titleColor: '#92400E',
+        bgColor: '#FFFBEB',
+        borderColor: '#F59E0B',
+        sidebarTitle: 'Conectado (En espera)',
+        sidebarSub: stopReason === 'NO_FINGERPRINTS' ? 'Sin huellas registradas' : 'Escucha detenida manualmente',
+        bannerTitle: '🟡 Lector Conectado en Espera (Paro Controlado)',
+        bannerSub: stopReason === 'NO_FINGERPRINTS'
+            ? 'Lector USB listo. Registre al menos una huella para activar el modo continuo.'
+            : 'El lector USB está listo, pero la escucha continua fue detenida manualmente.'
+    };
+}
+
+/**
+ * Hidratar de forma centralizada el estado de la máquina biométrica y refrescar todos los componentes UI
+ */
+function hydrateBiometricUI(partialState = null, deviceInfoSnapshot = null) {
+    if (partialState && typeof partialState === 'object') {
+        touchModeState = {
+            ...touchModeState,
+            ...partialState
+        };
+    }
+
+    if (deviceInfoSnapshot && typeof deviceInfoSnapshot === 'object') {
+        biometricDeviceInfo = deviceInfoSnapshot;
+        if (touchModeState.serverOnline !== false) {
+            touchModeState.readerConnected = Boolean(deviceInfoSnapshot.connected);
+        }
+        touchModeState.readerModel = deviceInfoSnapshot.model || touchModeState.readerModel;
+        touchModeState.readerSerial = deviceInfoSnapshot.serial || touchModeState.readerSerial;
+        touchModeState.readerFirmware = deviceInfoSnapshot.firmware || touchModeState.readerFirmware;
+    }
+
+    updateSidebarReaderStatus();
+    updateTouchModeUI();
+
+    // Hidratar contenedores de diagnóstico abiertos (Modal y Tarjeta en Configuración)
+    document.querySelectorAll('[data-role="biometric-diagnostics-container"]').forEach(container => {
+        container.innerHTML = buildBiometricHardwareDiagnosticsHTML(biometricDeviceInfo);
+    });
+
+    // Hidratar botones de prendido/detención manual del servicio
+    const isServiceOffline = touchModeState.serverOnline === false || touchModeState.stopReason === 'SERVICE_STOPPED_MANUALLY' || touchModeState.stopReason === 'UNEXPECTED_SERVICE_DROP';
+    document.querySelectorAll('[data-role="biometric-service-toggle-btn"]').forEach(btn => {
+        btn.style.background = isServiceOffline ? '#059669' : '#DC2626';
+        btn.innerHTML = isServiceOffline ? '⚡ Prender Servicio del Lector' : '🛑 Detener Servicio del Lector';
+    });
+
+    if (touchModeState.isActive) {
+        if (!touchModePollingInterval) {
+            startTouchModePolling();
+        }
+    } else {
+        stopTouchModePolling();
+    }
+}
+
+/**
+ * Consultar información real del dispositivo físico y versiones de controladores
+ */
+async function refreshBiometricDeviceInfo(notifyOnFinish = false) {
+    try {
+        if (window.touchMode && typeof window.touchMode.getLocalState === 'function') {
+            const latestState = await window.touchMode.getLocalState();
+            if (latestState) {
+                touchModeState = { ...touchModeState, ...latestState };
+            }
+        }
+
+        // Si el servicio fue detenido manualmente, no consultar el servidor HTTP hasta que se prenda
+        if (touchModeState.stopReason === 'SERVICE_STOPPED_MANUALLY') {
+            if (biometricDeviceInfo) {
+                biometricDeviceInfo = {
+                    ...biometricDeviceInfo,
+                    connected: false,
+                    readerStatus: 'SERVICE_STOPPED_MANUALLY',
+                    isTouchActive: false,
+                    captureMode: 'Servicio Apagado (Manual)'
+                };
+            }
+            hydrateBiometricUI();
+            if (notifyOnFinish) {
+                showNotification('⏸️ El servicio del lector está detenido manualmente. Préndalo primero.', 'info');
+            }
+            return biometricDeviceInfo;
+        }
+
+        if (!window.biometric || typeof window.biometric.getDeviceInfo !== 'function') {
+            hydrateBiometricUI();
+            return null;
+        }
+
+        const raw = await window.biometric.getDeviceInfo();
+        const info = raw && raw.info ? raw.info : raw;
+        if (info && typeof info === 'object') {
+            touchModeState.serverOnline = true;
+            hydrateBiometricUI(null, info);
+        } else {
+            // Si getDeviceInfo devolvió null, verificar si el servidor cayó
+            const available = window.biometric.isServerAvailable ? await window.biometric.isServerAvailable() : false;
+            if (!available && touchModeState.stopReason !== 'SERVICE_STOPPED_MANUALLY') {
+                touchModeState.serverOnline = false;
+                touchModeState.isActive = false;
+                touchModeState.stopReason = 'UNEXPECTED_SERVICE_DROP';
+                touchModeState.hardwareState = 'ERROR';
+            } else {
+                touchModeState.readerConnected = false;
+            }
+            hydrateBiometricUI();
+        }
+
+        if (notifyOnFinish) {
+            if (touchModeState.serverOnline === false) {
+                showNotification('🚨 El servicio biométrico no responde. Puede prenderlo desde el panel.', 'error');
+            } else if (biometricDeviceInfo && biometricDeviceInfo.connected) {
+                showNotification(
+                    `🔌 Lector detectado: ${biometricDeviceInfo.model} (FW v${biometricDeviceInfo.firmware || 'N/A'} | Driver USB v${biometricDeviceInfo.drivers?.usbDriverVersion || 'N/A'})`,
+                    'success'
+                );
+            } else {
+                showNotification(
+                    '🔴 No se detectó ningún lector biométrico conectado por USB',
+                    'warning'
+                );
+            }
+        }
+        return biometricDeviceInfo;
+    } catch (error) {
+        logger.warn('[UI] No se pudo consultar información del lector:', error);
+        hydrateBiometricUI();
+        if (notifyOnFinish) {
+            showNotification('Error al consultar información del lector biométrico', 'error');
+        }
+        return null;
+    }
+}
+
+/**
+ * Controlar manualmente el prendido / apagado del servicio biométrico (Evento Controlado)
+ */
+async function toggleBiometricServiceManual() {
+    try {
+        if (!window.biometricServer) {
+            showNotification('Control de servicio biométrico no disponible', 'error');
+            return;
+        }
+
+        const isOffline = touchModeState.serverOnline === false ||
+            touchModeState.stopReason === 'SERVICE_STOPPED_MANUALLY' ||
+            touchModeState.stopReason === 'UNEXPECTED_SERVICE_DROP';
+
+        if (isOffline) {
+            showNotification('⚡ Iniciando servicio del lector biométrico...', 'info');
+            const res = await window.biometricServer.start();
+            if (res && res.success) {
+                playNotificationSound('check-in');
+                showNotification('✅ Servicio biométrico iniciado y sincronizado', 'success');
+                const latestState = await window.touchMode.getLocalState();
+                hydrateBiometricUI(latestState);
+                await refreshBiometricDeviceInfo(false);
+            } else {
+                showNotification('❌ No se pudo iniciar el servicio: ' + (res?.message || 'Error desconocido'), 'error');
+            }
+        } else {
+            showNotification('🛑 Deteniendo servicio del lector biométrico manualmente...', 'info');
+            const res = await window.biometricServer.stop();
+            if (res && res.success) {
+                stopTouchModePolling();
+                const latestState = await window.touchMode.getLocalState();
+                hydrateBiometricUI({
+                    ...latestState,
+                    isActive: false,
+                    serverOnline: false,
+                    stopReason: 'SERVICE_STOPPED_MANUALLY',
+                    hardwareState: 'IDLE',
+                    statusMessage: 'Servicio biométrico detenido manualmente'
+                });
+                showNotification('⏸️ Servicio del lector detenido manualmente (Evento Controlado)', 'info');
+            } else {
+                showNotification('⚠️ ' + (res?.message || 'No se pudo detener el servicio'), 'warning');
+            }
+        }
+    } catch (error) {
+        logger.error('[UI] Error alternando servicio biométrico:', error);
+        showNotification('Error al controlar el servicio biométrico: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Actualizar el indicador de estado de conexión en el pie del sidebar
+ */
+function updateSidebarReaderStatus() {
+    const statusBox = document.querySelector('.sidebar-footer .connection-status');
+    if (!statusBox) return;
+
+    statusBox.style.cursor = 'pointer';
+    statusBox.title = 'Clic para abrir el modal de detalles del dispositivo y versión de controladores';
+    statusBox.onclick = () => showDeviceDiagnosticsModal();
+
+    const visual = getBiometricVisualState();
+    const modelShort = (biometricDeviceInfo?.model || touchModeState.readerModel || 'Lector DP4500')
+        .replace('Fingerprint Reader', '')
+        .trim();
+    const fw = biometricDeviceInfo?.firmware || touchModeState.readerFirmware || '';
+    const drvVer = biometricDeviceInfo?.drivers?.usbDriverVersion || '';
+
+    const detailLine = visual.code === 'TOUCH_CONTINUOUS' || visual.code === 'MANUAL_STOP' || visual.code === 'OPERATION_PAUSE'
+        ? `${escapeHtml(modelShort)}${fw && fw !== 'N/A' ? ` · FW ${escapeHtml(fw)}` : ''}`
+        : escapeHtml(visual.sidebarSub);
+
+    statusBox.innerHTML = `
+        <div class="status-indicator" style="background: ${visual.dotColor}; animation: ${visual.pulse ? 'pulse 2s infinite' : 'none'}; box-shadow: 0 0 6px ${visual.dotColor}80; flex-shrink: 0;"></div>
+        <div style="overflow: hidden;">
+            <div style="font-weight: 700; color: ${visual.titleColor}; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                <span>${escapeHtml(visual.sidebarTitle)}</span>
+            </div>
+            <div style="color: #4B5563; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                ${detailLine}
+            </div>
+            <div style="color: #2563EB; font-size: 10px; font-weight: 600; margin-top: 2px;">
+                🔍 Propiedades y Drivers${drvVer && drvVer !== 'No detectado' ? ` (v${escapeHtml(drvVer)})` : ''}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Construir HTML con datos reales del dispositivo físico, FSM y versiones de controladores
+ */
+function buildBiometricHardwareDiagnosticsHTML(info) {
+    const visual = getBiometricVisualState();
+    const hwState = touchModeState.hardwareState || 'IDLE';
+    const stopReason = touchModeState.stopReason || 'NONE';
+
+    const fsmBanner = `
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 16px; background: ${visual.bgColor}; border: 1.5px solid ${visual.borderColor}; border-radius: 8px; margin-bottom: 14px;">
+            <div>
+                <div style="font-weight: 700; color: ${visual.titleColor}; font-size: 13px;">
+                    ${escapeHtml(visual.bannerTitle)}
+                </div>
+                <div style="font-size: 12px; color: #475569; margin-top: 3px;">
+                    ${escapeHtml(visual.bannerSub)}
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 11px;">
+                <span style="padding: 2px 8px; border-radius: 999px; font-weight: 700; background: white; color: ${visual.titleColor}; border: 1px solid ${visual.borderColor};">
+                    FSM: ${escapeHtml(hwState)} · ${escapeHtml(visual.eventKind)}
+                </span>
+                <span style="color: #64748B;">
+                    Causa / Estado: <code>${escapeHtml(stopReason)}</code>
+                </span>
+            </div>
+        </div>
+    `;
+
+    if (!info) {
+        return `
+            ${fsmBanner}
+            <div style="padding: 18px; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; text-align: center; color: #475569;">
+                ${touchModeState.serverOnline === false
+                    ? 'El servicio biométrico se encuentra apagado o sin conexión. Presione "⚡ Prender Servicio del Lector" para consultar el hardware.'
+                    : 'Consultando estado del lector biométrico y versión de controladores...'}
+            </div>
+        `;
+    }
+
+    const isConnected = Boolean(info.connected) && touchModeState.serverOnline !== false && touchModeState.stopReason !== 'SERVICE_STOPPED_MANUALLY';
+    const drv = info.drivers || {};
+    const caps = info.capabilities || {};
+    const checkedTime = info.checkedAt
+        ? new Date(info.checkedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        : new Date().toLocaleTimeString('es-ES');
+
+    const statusBadge = isConnected
+        ? `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #DCFCE7; color: #166534; border: 1px solid #86EFAC;">
+               <span style="width: 8px; height: 8px; border-radius: 50%; background: #16A34A;"></span>
+               HARDWARE USB CONECTADO (${escapeHtml(String(touchModeState.isActive ? 'LISTENING_CONTINUOUS' : (info.readerStatus || 'READY')))})
+           </span>`
+        : `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5;">
+               <span style="width: 8px; height: 8px; border-radius: 50%; background: #DC2626;"></span>
+               ${touchModeState.stopReason === 'SERVICE_STOPPED_MANUALLY' ? 'SERVICIO DETENIDO MANUALMENTE' : (touchModeState.serverOnline === false ? 'SERVICIO BIOMÉTRICO CAÍDO' : 'DESCONECTADO DEL PUERTO USB')}
+           </span>`;
+
+    const capBadges = [
+        { label: 'Captura Biométrica', ok: caps.canCapture !== false },
+        { label: 'Extracción Minucias', ok: caps.extractFeatures !== false },
+        { label: 'Verificación 1:1', ok: caps.canMatch !== false },
+        { label: 'Identificación 1:N', ok: caps.canIdentify !== false },
+        { label: 'Gestión Energía', ok: Boolean(caps.hasPowerManagement) },
+        { label: 'Calibración Sensor', ok: Boolean(caps.hasCalibration) },
+        { label: 'Estándar FBI PIV', ok: Boolean(caps.pivCompliant) }
+    ].map(c => `
+        <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; background: ${c.ok ? '#EFF6FF' : '#F3F4F6'}; color: ${c.ok ? '#1D4ED8' : '#6B7280'}; border: 1px solid ${c.ok ? '#BFDBFE' : '#E5E7EB'};">
+            ${c.ok ? '✓' : '•'} ${escapeHtml(c.label)}
+        </span>
+    `).join('');
+
+    return `
+        ${fsmBanner}
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                ${statusBadge}
+                <span style="font-size: 12px; color: #475569;">
+                    Modo actual: <strong>${escapeHtml(touchModeState.isActive ? 'Captura Continua (Touch)' : (info.captureMode || 'En espera'))}</strong>
+                </span>
+            </div>
+            <div style="font-size: 11px; color: #64748B;">
+                Última lectura: <strong>${escapeHtml(checkedTime)}</strong> (CM_Register_Notification + INotifyPropertyChanged · 0% Polling)
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px;">
+            <!-- Columna 1: Datos del Hardware Físico -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px;">
+                <h5 style="margin: 0 0 12px; color: #0F172A; font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">
+                    📟 Datos del Dispositivo Físico
+                </h5>
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Modelo:</span>
+                        <strong style="color: #0F172A; text-align: right;">${escapeHtml(info.model || 'U.are.U 4500')}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Fabricante:</span>
+                        <strong style="color: #0F172A; text-align: right;">${escapeHtml(info.vendor || 'DigitalPersona, Inc.')}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">VID / PID USB:</span>
+                        <code style="background: #E2E8F0; padding: 1px 6px; border-radius: 4px; font-weight: 700; color: #1E293B;">
+                            ${escapeHtml(info.vendorId || '0x05BA')} / ${escapeHtml(info.productId || '0x000A')}
+                        </code>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Serie / GUID Hardware:</span>
+                        <code style="font-size: 11px; background: #E2E8F0; padding: 2px 6px; border-radius: 4px; color: #0F172A; word-break: break-all; text-align: right;">
+                            ${escapeHtml(info.serial || 'N/A')}
+                        </code>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Versión de Firmware:</span>
+                        <strong style="color: #1D4ED8;">v${escapeHtml(info.firmware || 'N/A')}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Revisión de Hardware:</span>
+                        <strong style="color: #0F172A;">v${escapeHtml(info.hardwareRevision || 'N/A')}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Tecnología y Resolución:</span>
+                        <strong style="color: #0F172A; text-align: right;">${escapeHtml(info.technology || 'Óptico')} · ${escapeHtml(info.resolution || '500 DPI')}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Dimensiones Sensor:</span>
+                        <span style="color: #334155; font-weight: 600; text-align: right;">${escapeHtml(String(info.imageWidth || 355))}×${escapeHtml(String(info.imageHeight || 391))} px (${escapeHtml(info.captureArea || '15.8 × 12.7 mm')})</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna 2: Versiones de Controladores y SDK -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px;">
+                <h5 style="margin: 0 0 12px; color: #0F172A; font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">
+                    🛠️ Propiedades y Versiones de Controladores (Drivers y SDK)
+                </h5>
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Driver USB Windows (<code style="font-size:11px;">${escapeHtml(drv.usbService || 'usbdpfp')}</code>):</span>
+                        <strong style="color: #047857;">v${escapeHtml(drv.usbDriverVersion || info.driver || 'N/A')}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Proveedor y Fecha Driver:</span>
+                        <strong style="color: #0F172A; text-align: right;">${escapeHtml(drv.usbDriverProvider || 'HID Global')} (${escapeHtml(drv.usbDriverDate || 'N/A')})</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Descripción Windows Device:</span>
+                        <span style="color: #334155; font-size: 12px; font-weight: 600; text-align: right;">${escapeHtml(drv.usbDeviceDescription || 'U.are.U 4500')}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Controlador Nativo (<code style="font-size:11px;">dpfpdd.dll</code>):</span>
+                        <strong style="color: #1D4ED8;">v${escapeHtml(drv.dpfpddVersion || 'N/A')}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Motor FingerJet (<code style="font-size:11px;">dpfj.dll</code>):</span>
+                        <strong style="color: #1D4ED8;">v${escapeHtml(drv.dpfjVersion || 'N/A')}${drv.systemDpfjVersion && drv.systemDpfjVersion !== drv.dpfjVersion ? ` (Sys32: v${escapeHtml(drv.systemDpfjVersion)})` : ''}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">SDK .NET (<code style="font-size:11px;">DPUruNet.dll</code>):</span>
+                        <strong style="color: #1D4ED8;">v${escapeHtml(drv.dpUruNetVersion || 'N/A')}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">Entorno Runtime CLR:</span>
+                        <span style="color: #334155; font-weight: 600; text-align: right;">${escapeHtml(info.platform || drv.clrVersion || '.NET Framework 4.7.2')}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 8px;">
+                        <span style="color: #64748B;">ID Interno USB:</span>
+                        <code style="font-size: 10px; color: #475569; text-align: right; word-break: break-all;">${escapeHtml(info.deviceName || 'N/A')}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #E2E8F0;">
+            <div style="font-size: 11px; color: #64748B; font-weight: 600; margin-bottom: 8px; text-transform: uppercase;">
+                Capacidades Reportadas por el Dispositivo:
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                ${capBadges}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Mostrar modal emergente con la ficha técnica completa del lector, propiedades del driver y control del servicio
+ */
+async function showDeviceDiagnosticsModal() {
+    const existingContainer = document.querySelector('.modal [data-role="biometric-diagnostics-container"]');
+    const isServiceOffline = touchModeState.serverOnline === false ||
+        touchModeState.stopReason === 'SERVICE_STOPPED_MANUALLY' ||
+        touchModeState.stopReason === 'UNEXPECTED_SERVICE_DROP';
+
+    if (!existingContainer) {
+        // Cerrar cualquier otro modal previo y abrir el modal usando la fábrica estándar openModalShell
+        closeModal();
+        openModalShell({
+            title: '🔌 Ficha Técnica del Lector Biométrico y Propiedades del Driver',
+            maxWidth: '880px',
+            bodyHTML: `
+                <div data-role="biometric-diagnostics-container">
+                    ${buildBiometricHardwareDiagnosticsHTML(biometricDeviceInfo)}
+                </div>
+            `,
+            footerHTML: `
+                <button type="button" class="btn" data-role="biometric-service-toggle-btn" onclick="toggleBiometricServiceManual()"
+                        style="background: ${isServiceOffline ? '#059669' : '#DC2626'}; color: white;">
+                    ${isServiceOffline ? '⚡ Prender Servicio del Lector' : '🛑 Detener Servicio del Lector'}
+                </button>
+                <button type="button" class="btn" onclick="refreshBiometricDeviceInfo(true)"
+                        style="background: #2563EB; color: white;">
+                    🔄 Actualizar Datos USB y Drivers
+                </button>
+                <button type="button" class="btn btn-cancel" onclick="closeModal()">
+                    Cerrar
+                </button>
+            `
+        });
+    }
+
+    await refreshBiometricDeviceInfo(false);
+}
+
+/**
+ * Inicializar modo touch e hidratación reactiva
  */
 async function initializeTouchMode() {
     try {
         logger.info('🚀 Inicializando Touch Mode...');
 
-        // Configurar listener para errores críticos
+        // 1. Configurar listener para errores críticos no controlados
         if (window.touchMode.onCriticalError) {
             window.touchMode.onCriticalError((data) => {
                 logger.error('❌❌❌ ERROR CRÍTICO EN MODO AUTOMÁTICO ❌❌❌');
                 logger.error('Mensaje:', data.message);
 
-                // Mostrar notificación de error crítico
                 showNotification(
-                    '🔴 Error Crítico: ' + data.message + '. El modo automático ha sido desactivado.',
+                    '🚨 Corte No Controlado: ' + data.message,
                     'error'
                 );
 
-                // Actualizar estado local
-                touchModeState.isActive = false;
-                updateTouchModeUI();
-
-                // Detener polling
-                stopTouchModePolling();
+                hydrateBiometricUI(data.state || {
+                    isActive: false,
+                    serverOnline: false,
+                    hardwareState: 'ERROR',
+                    stopReason: 'UNEXPECTED_SERVICE_DROP',
+                    statusMessage: data.message
+                });
             });
             logger.info('[UI] Listener de errores críticos configurado');
         }
 
-        // Configurar listener para asistencias registradas
+        // 2. Configurar listener unificado para Broadcast de FSM, Plug & Play, Servicio y Asistencias
         if (window.touchMode.onAttendanceRegistered) {
-            window.touchMode.onAttendanceRegistered((eventData) => {
-                logger.info('✅ [UI] Asistencia registrada recibida:', eventData);
+            window.touchMode.onAttendanceRegistered(async (eventData) => {
+                logger.info('📩 [UI] Evento biométrico recibido:', eventData);
 
                 const { type, data } = eventData;
 
-                // Mostrar notificación al registrar asistencia
-                if (type === 'CHECK_IN_REGISTERED') {
+                // A. Cambio de estado de la máquina (FSM)
+                if (type === 'STATE_CHANGED') {
+                    if (data?.state) {
+                        hydrateBiometricUI(data.state);
+                    }
+                    return;
+                }
+
+                // B. Cambio de estado del servicio biométrico (Controlado manual vs Caída inesperada)
+                if (type === 'SERVICE_STATUS_CHANGED') {
+                    if (data?.state) {
+                        hydrateBiometricUI(data.state);
+                    }
+                    if (data?.online === false) {
+                        if (data.manual) {
+                            showNotification('⏸️ Servicio biométrico detenido manualmente.', 'info');
+                        } else {
+                            playNotificationSound('error');
+                            showNotification(
+                                '🚨 El servicio biométrico se cortó inesperadamente (Evento No Controlado).',
+                                'error'
+                            );
+                        }
+                    } else if (data?.online === true) {
+                        await refreshBiometricDeviceInfo(false);
+                    }
+                    return;
+                }
+
+                // C. Desconexión física del lector USB (Evento No Controlado)
+                if (type === 'READER_DISCONNECTED') {
+                    playNotificationSound('error');
+                    hydrateBiometricUI(data?.state || {
+                        isActive: false,
+                        readerConnected: false,
+                        hardwareState: 'ERROR',
+                        stopReason: 'UNEXPECTED_USB_DISCONNECT',
+                        statusMessage: data?.message || 'Lector USB desconectado'
+                    });
                     showNotification(
-                        `✅ Huella capturada e identificada - Entrada registrada a las ${data.record.check_in_time}`,
+                        '🔌❌ Lector biométrico desconectado del puerto USB (Corte No Controlado). Conecte el cable para reanudar.',
+                        'error'
+                    );
+                    await refreshBiometricDeviceInfo(false);
+                    return;
+                }
+
+                // D. Conexión física del lector USB (Evento Plug & Play)
+                if (type === 'READER_CONNECTED') {
+                    playNotificationSound('check-in');
+                    const devInfo = data?.data || null;
+                    hydrateBiometricUI(
+                        data?.state || { readerConnected: true },
+                        devInfo
+                    );
+                    const devModel = devInfo?.model || 'DigitalPersona U.are.U 4500';
+                    const devFw = devInfo?.firmware ? ` (FW v${devInfo.firmware})` : '';
+                    showNotification(
+                        `🔌✅ Lector biométrico conectado: ${devModel}${devFw}`,
+                        'success'
+                    );
+                    await refreshBiometricDeviceInfo(false);
+
+                    // Sincronizar UI tras la auto-reanudación del servicio en segundo plano
+                    setTimeout(async () => {
+                        try {
+                            const updatedState = await window.touchMode.getLocalState();
+                            hydrateBiometricUI(updatedState);
+                            await refreshBiometricDeviceInfo(false);
+                        } catch (e) {
+                            logger.warn('[UI] Error sincronizando estado tras reconexión USB:', e);
+                        }
+                    }, 900);
+                    return;
+                }
+
+                // E. Eventos de toque en vivo y validación de huella
+                if (type === 'FINGER_TOUCHED') {
+                    if (data?.state) {
+                        hydrateBiometricUI(data.state);
+                    }
+                    return;
+                }
+
+                if (type === 'IDENTIFICATION_FAILED') {
+                    playNotificationSound('not-identified');
+                    showNotification('⚠️ Huella no identificada: ' + (data?.message || 'Intente nuevamente'), 'warning');
+                    return;
+                }
+
+                if (type === 'AUTO_REGISTER_ERROR') {
+                    playNotificationSound('error');
+                    showNotification('❌ Error al procesar registro automático: ' + (data?.error || 'Error desconocido'), 'error');
+                    return;
+                }
+
+                if (type === 'CHECK_OUT_TOO_SOON') {
+                    const empLabel = data?.employeeName ? `${data.employeeName}: ` : '';
+                    const elapsedSec = (typeof data?.elapsedMs === 'number')
+                        ? (data.elapsedMs / 1000).toFixed(1)
+                        : (data?.secondsElapsed || 0);
+                    const minSec = (typeof data?.minimumMs === 'number')
+                        ? Math.round(data.minimumMs / 1000)
+                        : 60;
+                    showNotification(
+                        `⏱️ ${empLabel}Debe esperar al menos ${minSec}s desde la entrada para registrar salida (${elapsedSec}s transcurridos).`,
+                        'info'
+                    );
+                    return;
+                }
+
+                if (type === 'ALREADY_REGISTERED') {
+                    const empLabel = data?.employeeName ? `${data.employeeName} (${data.employeeCode || ''})` : 'Este empleado';
+                    showNotification(
+                        `ℹ️ ${empLabel} ya completó su entrada y salida el día de hoy.`,
+                        'info'
+                    );
+                    return;
+                }
+
+                // F. Mostrar notificación enriquecida al registrar asistencia
+                if (type === 'CHECK_IN_REGISTERED') {
+                    playNotificationSound('check-in');
+                    const empPrefix = data?.employeeName
+                        ? `${data.employeeName}${data.employeeCode ? ` (${data.employeeCode})` : ''} — `
+                        : 'Huella identificada — ';
+                    showNotification(
+                        `✅ ${empPrefix}Entrada registrada a las ${data.record.check_in_time}${data.record.status === 'late' ? ' (Retardo)' : ''}`,
                         data.record.status === 'late' ? 'warning' : 'success'
                     );
                 } else if (type === 'CHECK_OUT_REGISTERED') {
+                    playNotificationSound('check-out');
+                    const empPrefix = data?.employeeName
+                        ? `${data.employeeName}${data.employeeCode ? ` (${data.employeeCode})` : ''} — `
+                        : 'Huella identificada — ';
                     showNotification(
-                        `✅ Huella capturada e identificada - Salida registrada a las ${data.record.check_out_time}`,
+                        `✅ ${empPrefix}Salida registrada a las ${data.record.check_out_time}`,
                         'success'
                     );
                 }
@@ -4878,41 +6546,36 @@ async function initializeTouchMode() {
                     }
                 }, 500);
             });
-            logger.info('[UI] Listener de asistencias registradas configurado');
+            logger.info('[UI] Listener de asistencias, FSM y eventos USB configurado');
         }
 
-        // Obtener estado inicial
+        // 3. Consultar estado físico del dispositivo y estado local inicial
         const state = await window.touchMode.getLocalState();
-        touchModeState = state;
-        updateTouchModeUI();
+        hydrateBiometricUI(state);
+        await refreshBiometricDeviceInfo(false);
 
-        // Auto-iniciar el modo automático si no está activo
-        if (!state.isActive) {
+        // 4. Auto-iniciar el modo automático si no está activo y está habilitado en configuración
+        const savedSettings = loadSavedSettings();
+        if (!touchModeState.isActive && savedSettings.autoStartListening !== false && touchModeState.stopReason !== 'SERVICE_STOPPED_MANUALLY') {
             logger.info('🔄 Auto-iniciando Modo Automático de Asistencia...');
             const result = await window.touchMode.start();
+
+            const newState = await window.touchMode.getLocalState();
+            hydrateBiometricUI(newState);
+            await refreshBiometricDeviceInfo(false);
 
             if (result.success) {
                 logger.info('✅ Modo automático auto-iniciado exitosamente');
                 showNotification('Modo Automático de Asistencia activado', 'success');
-
-                // Actualizar estado y UI
-                const newState = await window.touchMode.getLocalState();
-                touchModeState = newState;
-                updateTouchModeUI();
-
-                // Iniciar polling
-                startTouchModePolling();
             } else {
-                // Si el servidor no está disponible, solo registrar en consola (no mostrar error al usuario)
                 if (result.message && result.message.includes('Servidor biométrico no disponible')) {
                     logger.warn('⚠️ Servidor biométrico no disponible - Touch Mode no iniciado');
-                    logger.info('ℹ️ Inicie el servidor edge-uru-ui para habilitar el modo automático');
                 } else {
                     logger.error('❌ Error al auto-iniciar modo automático:', result.message);
-                    showNotification('Error al activar modo automático: ' + result.message, 'error');
+                    showNotification('Atención: ' + result.message, 'warning');
                 }
             }
-        } else {
+        } else if (touchModeState.isActive) {
             logger.info('ℹ️ Modo automático ya estaba activo');
             startTouchModePolling();
         }
@@ -4921,23 +6584,33 @@ async function initializeTouchMode() {
     } catch (error) {
         logger.error('❌ Error inicializando Touch Mode:', error);
         showNotification('Error al inicializar modo automático: ' + error.message, 'error');
-        // Asegurar que la UI refleje el estado de error
-        updateTouchModeUI();
+        hydrateBiometricUI();
     }
 }
 
 /**
- * Alternar modo touch (automático)
+ * Alternar modo touch (automático) — Evento Controlado por el usuario
  */
 async function toggleAutoAttendance() {
     try {
+        // Si el servicio biométrico estaba detenido manualmente o caído, prenderlo primero al iniciar modo automático
+        if (!touchModeState.isActive && (touchModeState.serverOnline === false || touchModeState.stopReason === 'SERVICE_STOPPED_MANUALLY')) {
+            if (window.biometricServer && typeof window.biometricServer.start === 'function') {
+                showNotification('⚡ Iniciando servicio biométrico y activando escucha continua...', 'info');
+                const srvRes = await window.biometricServer.start();
+                if (!srvRes || !srvRes.success) {
+                    showNotification(srvRes?.message || 'No se pudo iniciar el servicio biométrico', 'error');
+                    return;
+                }
+            }
+        }
+
         if (touchModeState.isActive) {
-            logger.info('🛑 [UI] Deteniendo modo automático...');
-            // Detener
+            logger.info('🛑 [UI] Deteniendo modo automático manualmente...');
             const result = await window.touchMode.stop();
             if (result.success) {
                 logger.info('✅ [UI] Modo automático detenido exitosamente');
-                showNotification('Modo automático detenido', 'info');
+                showNotification('⏸️ Modo automático detenido manualmente (Evento Controlado)', 'info');
                 stopTouchModePolling();
             } else {
                 logger.error('❌ [UI] Error al detener:', result.message);
@@ -4945,11 +6618,9 @@ async function toggleAutoAttendance() {
             }
         } else {
             logger.info('🚀 [UI] Iniciando modo automático...');
-            // Iniciar
             const result = await window.touchMode.start();
             if (result.success) {
                 logger.info('✅ [UI] Modo automático iniciado exitosamente');
-                logger.info('👂 [UI] Lector escuchando eventos de huellas...');
                 showNotification(result.message || 'Modo automático iniciado - El lector está escuchando', 'success');
                 startTouchModePolling();
             } else {
@@ -4958,11 +6629,9 @@ async function toggleAutoAttendance() {
             }
         }
 
-        // Actualizar estado local
         const state = await window.touchMode.getLocalState();
-        touchModeState = state;
-        logger.info('[UI] Estado touch mode:', touchModeState);
-        updateTouchModeUI();
+        hydrateBiometricUI(state);
+        await refreshBiometricDeviceInfo(false);
 
     } catch (error) {
         logger.error('❌ [UI] Error alternando modo automático:', error);
@@ -4971,44 +6640,34 @@ async function toggleAutoAttendance() {
 }
 
 /**
- * Iniciar polling de estado del touch mode
+ * Iniciar polling ligero de contadores locales
  */
 function startTouchModePolling() {
     if (touchModePollingInterval) {
         clearInterval(touchModePollingInterval);
     }
 
-    logger.info('📊 [UI] Iniciando polling de estado (cada 1 segundo)');
-
     touchModePollingInterval = setInterval(async () => {
         try {
             const state = await window.touchMode.getLocalState();
             const previousState = { ...touchModeState };
-            touchModeState = state;
 
-            // Detectar cambios en fingerprints capturadas
             if (state.totalFingerprints > previousState.totalFingerprints) {
                 logger.info(`✅ [UI] Nueva huella procesada (total: ${state.totalFingerprints})`);
-                // Nota: No mostramos notificación aquí porque el listener de eventos
-                // ya maneja esto correctamente (solo muestra mensaje cuando score = 0)
-
-                // Recargar datos si estamos en dashboard
                 if (currentSection === 'dashboard') {
-                    logger.info('[UI] Recargando dashboard...');
                     setTimeout(() => loadDashboard(), 1000);
                 }
             }
 
-            // Detectar toques
             if (state.totalTouches > previousState.totalTouches) {
                 logger.info(`👆 [UI] Dedo detectado en el lector (total: ${state.totalTouches})`);
             }
 
-            updateTouchModeUI();
+            hydrateBiometricUI(state);
         } catch (error) {
             logger.error('❌ [UI] Error polling touch mode state:', error);
         }
-    }, 1000); // Polling cada segundo
+    }, 1500);
 }
 
 /**
@@ -5022,7 +6681,7 @@ function stopTouchModePolling() {
 }
 
 /**
- * Actualizar UI del modo touch
+ * Actualizar UI del modo touch en la sección "Marcar Asistencia"
  */
 function updateTouchModeUI() {
     const statusIndicator = document.getElementById('auto-attendance-status');
@@ -5030,39 +6689,54 @@ function updateTouchModeUI() {
 
     if (!statusIndicator || !toggleBtn) return;
 
-    if (touchModeState.isActive) {
-        // Modo activo
-        statusIndicator.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px; padding: 15px; background: #ECFDF5; border-radius: 10px; border: 2px solid #10B981;">
-                <div style="width: 12px; height: 12px; background: #10B981; border-radius: 50%; animation: pulse 2s infinite;"></div>
-                <div>
-                    <div style="font-weight: 600; color: #065F46;">🟢 Lector Activo</div>
-                    <div style="font-size: 13px; color: #047857; margin-top: 3px;">
-                        Toques: ${touchModeState.totalTouches} | Huellas: ${touchModeState.totalFingerprints}
+    const visual = getBiometricVisualState();
+    const modelText = biometricDeviceInfo?.model || touchModeState.readerModel || 'DigitalPersona U.are.U 4500';
+    const fwText = biometricDeviceInfo?.firmware || touchModeState.readerFirmware || '';
+    const drvText = biometricDeviceInfo?.drivers?.usbDriverVersion || '';
+    const isServiceOffline = touchModeState.serverOnline === false ||
+        touchModeState.stopReason === 'SERVICE_STOPPED_MANUALLY' ||
+        touchModeState.stopReason === 'UNEXPECTED_SERVICE_DROP';
+
+    const statsLine = visual.code === 'TOUCH_CONTINUOUS'
+        ? `Toques: ${touchModeState.totalTouches} | Huellas: ${touchModeState.totalFingerprints}${fwText ? ` | FW v${escapeHtml(fwText)}` : ''}${drvText ? ` | Driver v${escapeHtml(drvText)}` : ''}`
+        : `${escapeHtml(visual.bannerSub)}${fwText && visual.code === 'MANUAL_STOP' ? ` (FW v${escapeHtml(fwText)} · Driver v${escapeHtml(drvText || 'N/A')})` : ''}`;
+
+    statusIndicator.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 15px; background: ${visual.bgColor}; border-radius: 10px; border: 2px solid ${visual.borderColor};">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 12px; height: 12px; background: ${visual.dotColor}; border-radius: 50%; flex-shrink: 0; ${visual.pulse ? 'animation: pulse 2s infinite;' : ''}"></div>
+                    <div>
+                        <div style="font-weight: 700; color: ${visual.titleColor}; font-size: 14px;">
+                            ${escapeHtml(visual.bannerTitle)} — ${escapeHtml(modelText)}
+                        </div>
+                        <div style="font-size: 12.5px; color: #334155; margin-top: 3px;">
+                            ${statsLine}
+                        </div>
                     </div>
                 </div>
+                <span style="padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; background: white; color: ${visual.titleColor}; border: 1px solid ${visual.borderColor};">
+                    FSM: ${escapeHtml(touchModeState.hardwareState || 'IDLE')} · ${escapeHtml(visual.eventKind)}
+                </span>
             </div>
-        `;
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid ${visual.borderColor}40;">
+                <button type="button" class="btn" onclick="showDeviceDiagnosticsModal()"
+                        style="padding: 6px 12px; font-size: 12px; background: #1E293B; color: white; border-radius: 6px;">
+                    🔌 Ver Dispositivo y Propiedades del Driver
+                </button>
+            </div>
+        </div>
+    `;
 
-        toggleBtn.innerHTML = '🔴 Detener Modo Automático';
+    if (touchModeState.isActive) {
+        toggleBtn.innerHTML = '🔴 Detener Escucha Continua (Paro Manual)';
         toggleBtn.className = 'btn';
         toggleBtn.style.background = '#EF4444';
         toggleBtn.style.color = 'white';
     } else {
-        // Modo inactivo
-        statusIndicator.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px; padding: 15px; background: #F3F4F6; border-radius: 10px; border: 2px solid #9CA3AF;">
-                <div style="width: 12px; height: 12px; background: #6B7280; border-radius: 50%;"></div>
-                <div>
-                    <div style="font-weight: 600; color: #374151;">⚫ Lector Inactivo</div>
-                    <div style="font-size: 13px; color: #6B7280; margin-top: 3px;">
-                        El modo automático está detenido
-                    </div>
-                </div>
-            </div>
-        `;
-
-        toggleBtn.innerHTML = '🟢 Iniciar Modo Automático';
+        toggleBtn.innerHTML = isServiceOffline
+            ? '🟢 Prender Servicio e Iniciar Modo Automático'
+            : '🟢 Iniciar Escucha Continua (Modo Automático)';
         toggleBtn.className = 'btn btn-primary';
         toggleBtn.style.background = '';
         toggleBtn.style.color = '';
@@ -5166,32 +6840,35 @@ function playNotificationSound(type) {
 }
 
 /**
- * Validar antes de iniciar enrollment
+ * Validar antes de iniciar enrollment (sin matar TouchMode con MANUAL_STOP;
+ * la pausa controlada OPERATION_PAUSE y su reanudación automática ocurren en biometric:enrollFingerprint)
  */
 async function validateBeforeEnrollment(employeeId) {
     try {
         if (!window.touchMode) return true;
         const state = await window.touchMode.getLocalState();
+        if (state) {
+            hydrateBiometricUI(state);
+        }
 
-        if (state && state.isActive) {
-            // Mostrar modal de confirmación
-            const confirmPause = confirm(
-                '⚠️ El lector está en modo automático continuo.\n\n' +
-                '¿Desea pausarlo temporalmente para registrar la huella?'
+        if (state && state.stopReason === 'SERVICE_STOPPED_MANUALLY') {
+            const wantStart = confirm(
+                '⏸️ El servicio del lector biométrico fue detenido manualmente.\n\n' +
+                '¿Desea prender el servicio ahora para poder registrar la huella?'
             );
-
-            if (confirmPause) {
-                const result = await window.touchMode.stop();
-                if (result.success) {
-                    touchModeState.isActive = false;
-                    updateTouchModeUI();
-                    showNotification('Modo automático pausado temporalmente', 'info');
-                    return true;
-                } else {
-                    showNotification('No se pudo pausar el modo automático: ' + (result.message || ''), 'error');
-                    return false;
-                }
+            if (wantStart) {
+                await toggleBiometricServiceManual();
+                const afterState = await window.touchMode.getLocalState();
+                return afterState?.serverOnline !== false;
             }
+            return false;
+        }
+
+        if (state && (state.readerConnected === false || state.stopReason === 'UNEXPECTED_USB_DISCONNECT')) {
+            showNotification(
+                '🔌❌ El lector biométrico está desconectado del puerto USB. Conecte el dispositivo antes de registrar huellas.',
+                'error'
+            );
             return false;
         }
 
@@ -5264,8 +6941,7 @@ function formatTime(timeString) {
 
 function formatDate(dateString) {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES');
+    return parseLocalDateClient(dateString).toLocaleDateString('es-ES');
 }
 
 // FE-01: exposicion explicita requerida por handlers onclick inline (contrato DOM preservado).
@@ -5329,4 +7005,19 @@ Object.assign(window, {
     renderCheckInCards,
     handleBiometricPolicyChange,
     handleNotificationMasterChange,
+    refreshBiometricDeviceInfo,
+    showDeviceDiagnosticsModal,
+    exportDailyReportToExcel,
+    exportWeeklyReportToExcel,
+    exportMonthlyReportToExcel,
+    exportEmployeeReportToExcel,
+    updateKioskTopbarUI,
+    promptAdminPinModal,
+    toggleAdminLockManual,
+    openAdminPinSetupModal,
+    submitAdminPinSetup,
+    submitRemoveAdminPin,
+    executeAbsentCutoffNow,
+    handleExportDatabaseBackup,
+    handleRestoreDatabaseBackup,
 });

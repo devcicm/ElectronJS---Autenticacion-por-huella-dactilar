@@ -587,10 +587,45 @@ TIPOS DE ERRORES:
 5. Error de Base de Datos
    → Log error, continuar (no crítico)
 
-6. 5+ Errores Consecutivos
-   → ERROR CRÍTICO → Auto-desactivar
+7. Desconexión Plug & Play de Hardware USB
+   → Evento `READER_DISCONNECTED`: Transiciona FSM a `ERROR`, pausa servicio y alerta en UI.
+   → Evento `READER_CONNECTED`: Reconecta automáticamente, recarga templates y restaura estado.
 ```
 
 ---
 
-**Última actualización**: 17 de noviembre de 2025
+## 8. Máquina de Estados Finita (FSM) del Hardware y Modo Touch
+
+La sincronización entre Main y Renderer se rige por la siguiente FSM estricta:
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE: Inicialización
+    IDLE --> STARTING: Iniciar servicio / TouchMode:start
+    STARTING --> TOUCH_CONTINUOUS: Servicio iniciado + Lector listo
+    STARTING --> ERROR: Fallo de conexión o lector ausente
+
+    TOUCH_CONTINUOUS --> IDENTIFYING: FINGER_TOUCHED detectado
+    IDENTIFYING --> TOUCH_CONTINUOUS: Match OK / No match (Rearme)
+    
+    TOUCH_CONTINUOUS --> ENROLLING: Modo enrolamiento (4 muestras)
+    ENROLLING --> TOUCH_CONTINUOUS: Enrolamiento finalizado
+
+    TOUCH_CONTINUOUS --> IDLE: Paro manual (Evento controlado)
+    TOUCH_CONTINUOUS --> ERROR: Desconexión USB / Caída de servicio (No controlado)
+    
+    ERROR --> IDLE: Reconexión USB exitosa / Stop manual
+    ERROR --> STARTING: Reintento de inicio
+```
+
+### Características de la FSM:
+1. **Diferenciación de Eventos**:
+   - **Controlados**: El operador presiona "Detener servicio" -> La FSM transiciona limpiamente a `IDLE`.
+   - **No Controlados**: Se corta el cable USB o cae el proceso Node -> La FSM transiciona a `ERROR`, emite snapshot de hardware a la UI y activa la alarma visual.
+2. **Registro de Asistencia con Precisión Temporal**:
+   - Marcas grabadas en `HH:MM:SS.mmm` (milisegundos) para garantizar exactitud de auditoría y cálculo estricto de retardo y tolerancia.
+
+---
+
+**Última actualización**: 11 de octubre de 2026
+

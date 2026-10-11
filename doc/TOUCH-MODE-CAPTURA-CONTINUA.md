@@ -23,13 +23,16 @@ El **Sistema de Captura Continua** (Touch Mode) es una funcionalidad que permite
 5. Notifica al usuario en tiempo real
 
 ### Características Principales
+ 
+ - ✅ **Captura automática**: No requiere interacción manual
+ - ✅ **Identificación 1:N**: Compara contra todas las huellas registradas en RAM
+ - ✅ **Precisión en Milisegundos**: Marcas de tiempo registradas en `HH:MM:SS.mmm` para trazabilidad exacta
+ - ✅ **FSM Reactiva**: Máquina de estados finita con detección Plug & Play USB (`READER_CONNECTED`/`READER_DISCONNECTED`)
+ - ✅ **Comunicación en tiempo real**: Usa Server-Sent Events (SSE) en `GET /events`
+ - ✅ **Multi-hilo**: Backend con hilos independientes para cada funcionalidad
+ - ✅ **Auto-recuperación y Diferenciación de Eventos**: Controla paros manuales del usuario y alerta ante caídas no controladas del hardware
+ - ✅ **Validaciones inteligentes**: Previene registros duplicados (cooldown anti-rebote) y valida ventana de tiempo mínima entre entrada/salida
 
-- ✅ **Captura automática**: No requiere interacción manual
-- ✅ **Identificación 1:N**: Compara contra todas las huellas registradas
-- ✅ **Comunicación en tiempo real**: Usa Server-Sent Events (SSE)
-- ✅ **Multi-hilo**: Backend con hilos independientes para cada funcionalidad
-- ✅ **Auto-recuperación**: Manejo robusto de errores con desactivación automática
-- ✅ **Validaciones inteligentes**: Previene registros duplicados y tiempo mínimo entre entrada/salida
 
 ---
 

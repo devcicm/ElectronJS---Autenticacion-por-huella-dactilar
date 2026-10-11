@@ -247,9 +247,48 @@ Scripts cargados desde `http://localhost:8080` - JavaScript estándar del navega
 #### window.config
 
 ```javascript
-// Obtener configuración
+// Obtener configuración del sistema y estado de seguridad
 const config = await window.config.get();
 console.log(config.biometricPort); // 8080
+console.log(config.systemConfig.has_admin_pin); // "1" | "0"
+console.log(config.systemConfig.kiosk_lock_enabled); // "1" | "0"
+console.log(config.systemConfig.work_days); // "1,2,3,4,5"
+console.log(config.systemConfig.auto_backups_dir); // Directorio seguro OS
+
+// Acciones polimórficas seguras (Contrato Golden Master GM2):
+// 1. Verificar PIN de Administrador
+const pinCheck = await window.config.get({ __action: 'verify_admin_pin', pin: '1234' });
+
+// 2. Bloquear sesión de Administrador
+await window.config.get({ __action: 'lock_admin_session' });
+
+// 3. Configurar o cambiar PIN de Administrador (hash SHA-256 + pepper)
+await window.config.get({ __action: 'set_admin_pin', currentPin: '1234', newPin: '5678', kioskLock: '1' });
+
+// 4. Eliminar PIN de Administrador
+await window.config.get({ __action: 'set_admin_pin', currentPin: '1234', remove: '1' });
+
+// 5. Exportar copia de seguridad SQLite (con diálogo nativo y checkpoint WAL)
+const backupRes = await window.config.get({ __action: 'backup_database', __pin: '' });
+
+// 6. Restaurar copia de seguridad SQLite (validación binaria SQLite format 3, integridad y respaldo preventivo)
+const restoreRes = await window.config.get({ __action: 'restore_database', __pin: '' });
+```
+
+#### window.attendance (Marcaciones y Milisegundos)
+
+```javascript
+// Check-in con huella y marca exacta en milisegundos (HH:MM:SS.mmm)
+const inResult = await window.attendance.checkIn(employeeId, true);
+
+// Check-out con validación de cooldown y tiempo transcurrido en milisegundos
+const outResult = await window.attendance.checkOut(employeeId);
+
+// Ejecutar corte de inasistencias bajo demanda
+const absentResult = await window.attendance.getAttendanceRecords({ action: 'mark_absentees' });
+
+// Resetear base de datos (protegido con PIN de Administrador y respaldo preventivo)
+const resetResult = await window.attendance.resetDatabase();
 ```
 
 #### window.biometricServer
@@ -1047,14 +1086,18 @@ Eliminar usuario del almacenamiento.
 ---
 
 ## 📝 Notas Finales
+ 
+ - **Puerto fijo:** Sistema usa puerto 8080 (configurable en main.ts)
+ - **Almacenamiento Híbrido:** Persistencia transaccional en **SQLite** (`attendance.db`) con cifrado/protección en reposo y carga a memoria RAM en arranque para comparación 1:N de alta velocidad.
+ - **Precisión Temporal:** Registros de asistencia con marcas de tiempo en formato `HH:MM:SS.mmm` (milisegundos) para exactitud forense y auditoría.
+ - **Hardware requerido:** Lector DP4500 DigitalPersona
+ - **Plataforma:** Windows (por C# Bridge .NET Framework 4.7.2)
+ - **Seguridad y Resguardo:** Backups automáticos rotativos, protección mediante PIN SHA-256 y modo kiosco desatendido.
+ 
+ ---
+ 
+ **Documentación generada:** 2025-11-08  
+ **Última actualización:** 2026-10-11  
+ **Versión:** 1.0.0 (MVP Producción)  
+ **Estado:** Producción Validado ✅
 
-- **Puerto fijo:** Sistema usa puerto 8080 (configurable en main.ts)
-- **Almacenamiento RAM:** Plantillas se pierden al cerrar (volátil)
-- **Hardware requerido:** Lector DP4500 DigitalPersona
-- **Plataforma:** Windows (por C# Bridge .NET Framework 4.7.2)
-
----
-
-**Documentación generada:** 2025-11-08
-**Versión:** 1.0.0
-**Estado:** Producción

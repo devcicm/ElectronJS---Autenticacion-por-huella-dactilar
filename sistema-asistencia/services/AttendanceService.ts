@@ -240,6 +240,28 @@ export class AttendanceService {
                 }
             );
         }
+        if (filters && typeof filters === 'object' && filters.action === 'mark_absentees') {
+            try {
+                const targetDate = filters.date && typeof filters.date === 'string' && filters.date.trim()
+                    ? filters.date.trim()
+                    : getLocalDateString();
+                const markedCount = this.attendanceModel.markAbsentees(targetDate);
+                return Promise.resolve({
+                    success: true,
+                    date: targetDate,
+                    markedCount,
+                    message: markedCount > 0
+                        ? `Corte de faltas completado (${targetDate}): ${markedCount} empleado(s) marcado(s) como ausente(s).`
+                        : `Corte de faltas verificado (${targetDate}): Todos los empleados activos ya cuentan con registro.`
+                });
+            } catch (error: any) {
+                return Promise.resolve({
+                    success: false,
+                    markedCount: 0,
+                    message: error.message || 'Error al ejecutar el corte de faltas'
+                });
+            }
+        }
         return this.attendanceModel.getAllWithDetails(filters);
     }
 
@@ -311,7 +333,7 @@ export class AttendanceService {
         }
 
         const existing = this.getTodayAttendance(employee.id);
-        if (existing) {
+        if (existing && existing.check_in_time) {
             return { can: false, reason: 'Ya tiene registro de entrada hoy' };
         }
 
@@ -336,7 +358,7 @@ export class AttendanceService {
         }
 
         const existing = this.getTodayAttendance(empId);
-        if (!existing) {
+        if (!existing || !existing.check_in_time) {
             return { can: false, reason: 'No hay registro de entrada hoy' };
         }
 
@@ -370,7 +392,7 @@ export class AttendanceService {
      * Generar reporte diario
      */
     generateDailyReport(date?: string) {
-        const targetDate = date || getLocalDateString();
+        const targetDate = (date && date.trim()) ? getLocalDateString(parseLocalDate(date)) : getLocalDateString();
         const records = this.attendanceModel.getAllWithDetails({
             start_date: targetDate,
             end_date: targetDate
@@ -379,19 +401,46 @@ export class AttendanceService {
         const summary = this.attendanceModel.getDailySummary(targetDate);
         const employees = this.employeeModel.getAllWithDetails({ status: 'active' });
 
+        // Incluir empleados activos sin marcación registrada en la fecha consultada como ausentes del día
+        const recordedEmpIds = new Set(records.map(r => r.employee_id));
+        const missingActiveRecords: AttendanceWithDetails[] = employees
+            .filter(emp => !recordedEmpIds.has(emp.id))
+            .map(emp => ({
+                id: 0,
+                employee_id: emp.id,
+                date: targetDate,
+                check_in_time: null,
+                check_out_time: null,
+                status: 'absent' as AttendanceStatus,
+                minutes_late: 0,
+                minutes_overtime: 0,
+                fingerprint_verified: false,
+                notes: 'Sin marcación registrada',
+                created_at: targetDate,
+                updated_at: targetDate,
+                employee_code: emp.employee_code,
+                employee_name: `${emp.first_name} ${emp.last_name}`,
+                department_name: emp.department_name || 'Sin departamento',
+                shift_name: emp.shift_name || 'Sin turno',
+                shift_start_time: emp.shift_start_time || '08:00',
+                shift_end_time: emp.shift_end_time || '16:00'
+            }));
+
+        const allDailyRecords = [...records, ...missingActiveRecords];
+
         // Reducción funcional O(N) en una sola pasada pura
-        const summaryMetrics = summarizeAttendance(records);
+        const summaryMetrics = summarizeAttendance(allDailyRecords);
 
         return {
             date: targetDate,
-            records,
+            records: allDailyRecords,
             summary,
             totalEmployees: employees.length,
             stats: {
-                total: records.length,
+                total: allDailyRecords.length,
                 present: summaryMetrics.present,
                 late: summaryMetrics.late,
-                absent: employees.length - records.length,
+                absent: summaryMetrics.absent,
                 verified: summaryMetrics.verified,
                 avgLateMinutes: summaryMetrics.avgLateMinutes
             }
@@ -402,7 +451,7 @@ export class AttendanceService {
      * Generar reporte semanal
      */
     generateWeeklyReport(endDate?: string) {
-        const end = endDate ? parseLocalDate(endDate) : new Date();
+        const end = (endDate && endDate.trim()) ? parseLocalDate(endDate) : new Date();
         const start = new Date(end);
         start.setDate(start.getDate() - 6); // 7 días atrás
 
@@ -414,18 +463,21 @@ export class AttendanceService {
             end_date: endStr
         });
 
+        const activeEmployeesCount = this.employeeModel.countActive();
+
         // Agrupación pura O(N) por día
         const byDay = groupToMap(records, r => r.date);
 
         // Fold funcional O(N) por día en lugar de múltiples pasadas con filter
         const dailyStats = Array.from(byDay.entries()).map(([date, dayRecords]) => {
             const m = summarizeAttendance(dayRecords);
+            const effectiveAbsent = Math.max(m.absent, Math.max(0, activeEmployeesCount - (m.present + m.late)));
             return {
                 date,
-                total: m.total,
+                total: Math.max(m.total, activeEmployeesCount),
                 present: m.present,
                 late: m.late,
-                absent: m.absent,
+                absent: effectiveAbsent,
                 verified: m.verified
             };
         });
@@ -470,8 +522,15 @@ export class AttendanceService {
         // Agrupación funcional O(N) por empleado
         const byEmployee = groupToMap(records, r => r.employee_id);
 
-        const employeeStats = Array.from(byEmployee.entries()).map(([empId, empRecords]) => {
-            const emp = employeeMap.get(empId);
+        // Unión de empleados con registros en el mes y plantilla activa
+        const allEmpIds = new Set<number>([
+            ...Array.from(byEmployee.keys()),
+            ...employees.map(e => e.id)
+        ]);
+
+        const employeeStats = Array.from(allEmpIds).map(empId => {
+            const emp = employeeMap.get(empId) || this.employeeModel.getByIdWithDetails(empId);
+            const empRecords = byEmployee.get(empId) || [];
             const m = summarizeAttendance(empRecords);
 
             return {
@@ -518,23 +577,42 @@ export class AttendanceService {
             throw new Error('ID de empleado inválido');
         }
 
-        const employee = this.employeeModel.getByIdWithDetails(empId);
-        if (!employee) {
+        const rawEmployee = this.employeeModel.getByIdWithDetails(empId);
+        if (!rawEmployee) {
             throw new Error('Empleado no encontrado');
         }
 
-        // Por defecto: último mes
-        const end = endDate ? parseLocalDate(endDate) : new Date();
-        const start = startDate ? parseLocalDate(startDate) : new Date(end.getFullYear(), end.getMonth(), 1);
+        const employee: EmployeeWithDetails = {
+            ...rawEmployee,
+            department_name: rawEmployee.department_name || 'Sin departamento',
+            shift_name: rawEmployee.shift_name || 'Sin turno'
+        };
 
-        const startStr = getLocalDateString(start);
-        const endStr = getLocalDateString(end);
+        const hasStart = Boolean(startDate && String(startDate).trim());
+        const hasEnd = Boolean(endDate && String(endDate).trim());
 
-        const records = this.attendanceModel.getAllWithDetails({
-            employee_id: empId,
-            start_date: startStr,
-            end_date: endStr
-        });
+        const filters: AttendanceFilters = {
+            employee_id: empId
+        };
+        if (hasStart) {
+            filters.start_date = getLocalDateString(parseLocalDate(String(startDate)));
+        }
+        if (hasEnd) {
+            filters.end_date = getLocalDateString(parseLocalDate(String(endDate)));
+        }
+
+        const records = this.attendanceModel.getAllWithDetails(filters);
+
+        const now = new Date();
+        const todayStr = getLocalDateString(now);
+        const startStr = hasStart
+            ? filters.start_date!
+            : (records.length > 0
+                ? records[records.length - 1].date
+                : (employee.hire_date || getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1))));
+        const endStr = hasEnd
+            ? filters.end_date!
+            : (records.length > 0 && records[0].date > todayStr ? records[0].date : todayStr);
 
         const fingerprints = this.fingerprintModel.getByEmployee(empId);
 

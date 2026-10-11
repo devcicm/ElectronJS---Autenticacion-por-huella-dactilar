@@ -716,30 +716,26 @@ Frontend: Muestra usuario identificado
 
 ---
 
-## 11. POSIBLES MEJORAS FUTURAS
+## 11. ESTADO ACTUAL Y MEJORAS IMPLEMENTADAS (MVP PRODUCCIÓN)
 
-1. **Agregar base de datos persistente:**
-   - SQLite para templates
-   - SQL Server para empresas
+1. **Base de Datos Persistente Implementada:**
+   - **SQLite** integrado con tablas `employees`, `fingerprints`, `attendance_records`, `departments`, `shifts` y `system_config`.
+   - Modos de protección: `is_default` para migraciones seguras y backups automáticos rotativos de 7 días.
 
-2. **Sistema de caché:**
-   - Redis para templates más usados
-   - Mejora velocidad de identificación
+2. **Precisión Temporal en Milisegundos:**
+   - Registros de asistencia con timestamps `HH:MM:SS.mmm`.
 
-3. **API REST pública:**
-   - Autenticación con JWT
-   - Integración con otros sistemas
+3. **Arquitectura FSM de Hardware Reactiva:**
+   - Detección de desconexión Plug & Play de USB y transiciones limpias entre estados `IDLE`, `TOUCH_CONTINUOUS`, `IDENTIFYING`, `ENROLLING` y `ERROR`.
 
-4. **Soporte multi-lector:**
-   - Varios DP4500 simultáneos
-   - Load balancing
-
-5. **Machine Learning:**
-   - Mejora en matching
-   - Detección de intentos fraudulentos
+4. **Reportería Analítica y Resguardo:**
+   - Exportación nativa a CSV compatible con Microsoft Excel.
+   - Seguridad con PIN SHA-256 + pepper y modo kiosco desatendido.
 
 ---
 
-**Fecha de creación:** 2025-11-07
-**Versión del sistema:** 1.0
+**Fecha de creación:** 2025-11-07  
+**Última actualización:** 2026-10-11  
+**Versión del sistema:** 1.0.0 (MVP Producción)  
 **Autor:** Sistema Biométrico ElectronJS + Edge-URU-UI
+

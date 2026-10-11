@@ -169,6 +169,8 @@ Envelope común (C# → SSE): `{ evt, eventType, message, severity, origin:"dp45
 | `READER_READY` | SUCCESS | `{model,status}` | lector inicializado (`:205`) |
 | `READER_DISPOSED` | INFO | — | lector liberado (`:991`) |
 | `READER_INFO_RETRIEVED` | INFO | — | info obtenida (`:1050`) |
+| `READER_CONNECTED` | SUCCESS/INFO | `{model,status}` | Plug & Play: Lector USB conectado o servicio iniciado |
+| `READER_DISCONNECTED` | WARNING/ERROR | `{reason}` | Plug & Play: Lector USB desconectado físicamente |
 | `STORE_CLEARED` | INFO | — | almacén RAM limpiado (`:908`) |
 | `STORE_STATS_RETRIEVED` | INFO | — | stats del almacén (`:1065`) |
 | `TEMPLATE_LOADED` | SUCCESS | `{userId,hand,finger,tag}` | plantilla cargada (`:964`) |
@@ -275,6 +277,7 @@ data: {"eventType":"READER_READY","evt":"READER_READY","message":"...","severity
 - **`addEventListener('NOMBRE', …)` no funciona**: el servidor **no** emite líneas `event:`, solo `data: <json>`. Los ejemplos de docs previos que usan `eventSource.addEventListener('FINGER_TOUCHED', …)` nunca disparan; el patrón correcto es `eventSource.onmessage = (e) => { const ev = JSON.parse(e.data); switch (ev.eventType) {…} }` (como hace `FingerprintEnroller.js`).
 - **Seguridad del stream**: `GET /events` no envía header `X-Api-Token` desde `EventSource`; si `BIOMETRIC_HOST` no es loopback, el guard de token **no cubre** SSE. Mantener `127.0.0.1` por defecto.
 - **Nombres**: `SendEvent` usa nombres en MAYÚSCULAS con guion bajo; los procesadores en `server.ts` deben usar `eventType` (o `evt`) tal cual.
+- **FSM y Eventos Controlados vs No Controlados**: La máquina de estados (`TouchModeService.ts` / `app.js`) distingue eventos controlados (como `STOP` manual por el usuario que retorna a `IDLE`) de cortes no controlados (como desconexión súbita del cable USB `READER_DISCONNECTED` o caída del servicio `500/ECONNREFUSED` que transicionan a `ERROR` y notifican visualmente en la UI).
 
 ---
 

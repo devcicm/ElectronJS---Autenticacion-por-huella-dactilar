@@ -42,19 +42,72 @@ class FingerprintEnroller {
 
         this.eventSource.onerror = () => {
             logger.error('[FingerprintEnroller] Error en conexión SSE');
+            if (this.isEnrolling) {
+                this.updateStatusMessage(
+                    '⚠️ Conexión interrumpida con el servicio biométrico...',
+                    'error'
+                );
+            }
         };
     }
 
     /**
-     * Manejar eventos del backend
+     * Manejar eventos del backend (incluyendo desconexión USB y errores de calidad)
      */
     handleEvent(data) {
+        const eventType = data.eventType || data.evt || '';
+
+        if (eventType === 'READER_DISCONNECTED' && this.isEnrolling) {
+            logger.warn('[FingerprintEnroller] 🔌❌ Lector desconectado durante enrolamiento');
+            this.finishEnrollment(
+                false,
+                '🔌❌ Lector biométrico desconectado del puerto USB durante la captura. Conecte el cable y presione Reintentar.'
+            );
+            const startBtn = document.getElementById('start-enroll-btn');
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.textContent = 'Reintentar';
+            }
+            return;
+        }
+
+        if (eventType === 'READER_CONNECTED' && this.statusDiv && document.body.contains(this.statusDiv)) {
+            logger.info('[FingerprintEnroller] 🔌✅ Lector reconectado con modal abierto');
+            if (!this.isEnrolling) {
+                this.statusDiv.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <div style="font-size: 44px; margin-bottom: 10px;">🔌✅</div>
+                        <p style="color: #059669; font-weight: 700; margin: 0 0 6px;">Lector USB reconectado y listo</p>
+                        <p style="color: #4B5563; font-size: 13px; margin: 0;">Presione <strong>Reintentar</strong> para iniciar la captura nuevamente.</p>
+                    </div>
+                `;
+            }
+            return;
+        }
+
         if (!this.isEnrolling) return;
 
-        const eventType = data.eventType || data.evt || '';
         logger.info(`[FingerprintEnroller] 📨 Evento: ${eventType}`, data);
 
-        // Eventos que queremos mostrar
+        // Eventos de advertencia / reintento por calidad de muestra
+        if (eventType === 'SAMPLE_REJECTED' || eventType === 'CAPTURE_RETRY') {
+            this.updateStatusMessage(
+                data.message || 'Muestra de baja calidad — levante el dedo y colóquelo nuevamente en el centro del sensor',
+                'warning'
+            );
+            return;
+        }
+
+        // Eventos de fallo en captura / enrolamiento
+        if (eventType === 'CAPTURE_ERROR' || eventType === 'ENROLLMENT_FAILED') {
+            this.updateStatusMessage(
+                data.message || 'Error al capturar muestra en el lector',
+                'error'
+            );
+            return;
+        }
+
+        // Eventos de progreso normal
         const realtimeEvents = [
             'CAPTURE_STARTED',
             'IMAGE_CAPTURED',
@@ -66,7 +119,7 @@ class FingerprintEnroller {
             const message = data.message || eventType;
 
             // Actualizar mensaje de estado
-            this.updateStatusMessage(message);
+            this.updateStatusMessage(message, 'info');
 
             // Actualizar progreso
             if (eventType === 'SAMPLE_COLLECTED' && data.data) {
@@ -302,14 +355,15 @@ class FingerprintEnroller {
     }
 
     /**
-     * Actualizar mensaje de estado
+     * Actualizar mensaje de estado con soporte de color según tipo de evento
      */
-    updateStatusMessage(message) {
+    updateStatusMessage(message, level = 'info') {
         const statusMsg = document.getElementById('status-message');
         if (statusMsg) {
+            const color = level === 'error' ? '#DC2626' : level === 'warning' ? '#D97706' : '#3B82F6';
             statusMsg.innerHTML = `
-                <p style="color: #3B82F6; font-weight: 600;">${message}</p>
-                <p style="color: #6B7280; font-size: 13px;">Muestra ${this.currentSample + 1} de ${this.totalSamples}</p>
+                <p style="color: ${color}; font-weight: 600;">${message}</p>
+                <p style="color: #6B7280; font-size: 13px;">Muestra ${Math.min(this.currentSample + 1, this.totalSamples)} de ${this.totalSamples}</p>
             `;
         }
     }
@@ -329,6 +383,7 @@ class FingerprintEnroller {
      */
     finishEnrollment(success, message) {
         this.isEnrolling = false;
+        if (!this.statusDiv) return;
 
         if (success) {
             this.statusDiv.innerHTML = `
@@ -348,9 +403,10 @@ class FingerprintEnroller {
     }
 
     /**
-     * Desconectar SSE
+     * Desconectar SSE y cancelar estado de enrolamiento activo
      */
     disconnect() {
+        this.isEnrolling = false;
         if (this.eventSource) {
             this.eventSource.close();
             this.eventSource = null;

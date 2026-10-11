@@ -32,27 +32,37 @@ export class BiometricService {
     }
 
     /**
-     * Inicializar el lector de huellas
+     * Reiniciar estado de inicialización del lector tras desconexión USB o reinicio del servidor
+     */
+    resetReaderState(): void {
+        this.readerInitialized = false;
+    }
+
+    /**
+     * Inicializar el lector de huellas (idempotente contra el motor C#)
      */
     private async initializeReader(): Promise<{ ok: boolean; error?: string }> {
-        if (this.readerInitialized) {
-            return { ok: true };
-        }
-
         try {
-            // Inicializar el lector
             const data = await fetchJson(`${BIOMETRIC_SERVER}/api/init`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
-            }) as { ok: boolean; error?: string };
+            }) as { ok: boolean; message?: string; error?: string };
 
             if (data.ok) {
+                if (!this.readerInitialized) {
+                    logger.info('✅ Lector de huellas inicializado');
+                }
                 this.readerInitialized = true;
-                logger.info('✅ Lector de huellas inicializado');
+                return { ok: true };
             }
 
-            return data;
+            this.readerInitialized = false;
+            return {
+                ok: false,
+                error: data.error || data.message || 'Lector biométrico no detectado o desconectado'
+            };
         } catch (error: any) {
+            this.readerInitialized = false;
             return { ok: false, error: error.message || 'Error al inicializar el lector' };
         }
     }
@@ -224,6 +234,15 @@ export class BiometricService {
                 };
             }
 
+            const init = await this.initializeReader();
+            if (!init.ok) {
+                return {
+                    success: false,
+                    verified: false,
+                    message: init.error || 'No se pudo inicializar el lector de huellas'
+                };
+            }
+
             // Preparar array de fingerprints para el backend
             const fingerprintArray = fingerprints.map(fp => ({
                 userId: employeeId.toString(),
@@ -248,10 +267,19 @@ export class BiometricService {
                 matched: boolean;
                 userId?: string;
                 score?: number;
+                message?: string;
                 error?: string;
             };
 
-            if (data.ok && data.matched) {
+            if (!data.ok) {
+                return {
+                    success: false,
+                    verified: false,
+                    message: data.error || data.message || 'Error al capturar huella en el lector'
+                };
+            }
+
+            if (data.matched) {
                 return {
                     success: true,
                     verified: true,
@@ -298,6 +326,14 @@ export class BiometricService {
                 };
             }
 
+            const init = await this.initializeReader();
+            if (!init.ok) {
+                return {
+                    success: false,
+                    message: init.error || 'No se pudo inicializar el lector de huellas'
+                };
+            }
+
             // Preparar array de fingerprints para el backend mediante transformación funcional pura
             const fingerprintArray = employeeIds.flatMap(empId =>
                 this.fingerprintModel.getByEmployee(empId).map(fp => ({
@@ -324,10 +360,18 @@ export class BiometricService {
                 matched: boolean;
                 userId?: string;
                 score?: number;
+                message?: string;
                 error?: string;
             };
 
-            if (data.ok && data.matched && data.userId) {
+            if (!data.ok) {
+                return {
+                    success: false,
+                    message: data.error || data.message || 'Error al capturar huella en el lector'
+                };
+            }
+
+            if (data.matched && data.userId) {
                 const match = String(data.userId).match(/(\d+)/);
                 const empId = match ? parseInt(match[1], 10) : 0;
                 return {
@@ -365,11 +409,11 @@ export class BiometricService {
     }
 
     /**
-     * Obtener información del dispositivo
+     * Obtener información del dispositivo físico y versiones de controladores
      */
     async getDeviceInfo() {
         try {
-            return await fetchJson(`${BIOMETRIC_SERVER}/api/device-info`);
+            return await fetchJson(`${BIOMETRIC_SERVER}/api/reader-info`);
         } catch {
             return null;
         }

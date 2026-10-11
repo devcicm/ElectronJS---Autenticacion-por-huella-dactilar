@@ -94,10 +94,25 @@ ElectronJS - Autenticacion por huella dactilar/
 
 El **Touch Mode** es el sistema que permite el registro automático de asistencia:
 
-1. **Detección Automática**: El lector detecta cuando alguien coloca el dedo
-2. **Identificación 1:N**: Compara contra todas las huellas registradas
-3. **Registro Inteligente**: Determina automáticamente si es entrada o salida
-4. **Notificación en Tiempo Real**: Informa al usuario inmediatamente
+1. **Detección Automática**: El lector detecta cuando alguien coloca el dedo (FSM reactiva).
+2. **Identificación 1:N**: Compara contra las plantillas biométricas en memoria caché.
+3. **Registro Inteligente con Precisión en Milisegundos**: Determina entrada/salida registrando marcas en `HH:MM:SS.mmm`, calculando tiempos transcurridos exactos y evitando falsos dobles toques con cooldown de seguridad.
+4. **Notificación en Tiempo Real**: Informa al usuario inmediatamente con retroalimentación acústica y visual.
+
+### Seguridad y Blindaje de Datos (Producción)
+
+1. **Aislamiento de Archivos de Base de Datos**: Bloqueo estricto en `.gitignore` para evitar filtraciones de SQLite (`*.db`, `*.sqlite`, `*.bak`, `*.dump`).
+2. **Respaldos Automáticos**: Almacenados en el directorio del sistema operativo (`userData/backups`) con rotación continua de los últimos 7 días.
+3. **Protección con PIN de Administrador**: Operaciones críticas (exportar copia, restaurar base de datos y reset) requieren autenticación mediante PIN protegido con hash SHA-256 con salt/pepper.
+4. **Modo Kiosco**: Bloqueo de navegación para terminales fijas de fichaje.
+5. **Confidencialidad Biométrica**: Las plantillas biométricas FMD (`template_data`) se resguardan en SQLite y nunca se transmiten sobre el bus IPC hacia el renderizador.
+
+### Planificador Automático de Faltas
+
+- Proceso en segundo plano en Electron main ejecutado cada 60 segundos.
+- Respeta los días laborables configurados (`work_days`, p.ej. Lunes a Viernes) y la hora límite (`auto_mark_absent_time`).
+- Idempotente: almacena `last_auto_absent_date` en `system_config` para evitar reprocesamiento.
+- Notifica al proceso renderizador para refrescar la interfaz en vivo.
 
 ### Arquitectura Multi-Capa
 
@@ -550,5 +565,6 @@ Para más detalles técnicos, consultar:
 
 ---
 
-**Última actualización**: 17 de noviembre de 2025
-**Versión del Sistema**: 1.0.0
+**Última actualización**: 11 de octubre de 2026
+**Versión del Sistema**: 1.0.0 (MVP Producción Validado ✅)
+
